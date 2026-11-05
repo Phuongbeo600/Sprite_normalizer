@@ -26,3 +26,9 @@ temp/
 .idea/
 .DS_Store
 Thumbs.db
+
+# AI Assistant Rules & Local Instructions
+GEMINI.md
+AGENTS.md
+.agents/
+

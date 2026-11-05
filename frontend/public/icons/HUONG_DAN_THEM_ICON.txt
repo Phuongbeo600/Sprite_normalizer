@@ -1,0 +1,17 @@
+=======================================================
+THƯ MỤC CHỨA ICON RIÊNG CỦA BẠN (CUSTOM ICONS)
+=======================================================
+
+Bạn có thể thả bất kỳ file ảnh nào vào thư mục này:
+- Định dạng hỗ trợ: .png, .svg, .jpg, .webp, .gif (pixel art animated)
+- Kích thước khuyến nghị: 24x24, 32x32, 48x48 hoặc 64x64 pixel.
+
+CÁCH DÙNG:
+1. Thả file ảnh vào đây, ví dụ: my_sword.png
+2. Mở file: frontend/src/constants/initialProjects.js
+3. Gán đường dẫn vào dự án bạn muốn:
+   icon: '/icons/my_sword.png'
+
+Nếu để trống (icon: null hoặc không điền), hệ thống sẽ tự động 
+hiển thị icon Thư Mục (Folder) mặc định.
+

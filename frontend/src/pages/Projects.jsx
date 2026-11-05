@@ -1,77 +1,57 @@
-import React, { useState, useEffect } from 'react';
-import ProjectCard from '../components/ProjectCard';
-import { Plus, Search } from 'lucide-react';
+import React, { useState } from 'react';
+import ActionBar from '../components/projects/ActionBar';
+import ProjectRow from '../components/projects/ProjectRow';
+import { INITIAL_PROJECTS } from '../constants/initialProjects';
 
+/**
+ * PROJECTS PAGE (Bản Tinh Giản)
+ */
 export default function Projects({ onOpenProject }) {
-  const [projects, setProjects] = useState([
-    {
-      id: 'proj_1',
-      name: 'Knight Animation Pack',
-      sprite_count: 24,
-      resolution: '64x64',
-      last_updated: '2026-11-04',
-      status: 'ready'
-    },
-    {
-      id: 'proj_2',
-      name: 'Monster Slime Walk & Attack',
-      sprite_count: 16,
-      resolution: '32x32',
-      last_updated: '2026-11-03',
-      status: 'in_progress'
-    },
-    {
-      id: 'proj_3',
-      name: 'Pixel Hero Character Set',
-      sprite_count: 48,
-      resolution: '48x48',
-      last_updated: '2026-11-01',
-      status: 'ready'
-    }
-  ]);
-  const [search, setSearch] = useState('');
+  const [projects, setProjects] = useState(INITIAL_PROJECTS);
 
-  // Tải dữ liệu từ backend FastAPI nếu backend đang chạy
-  useEffect(() => {
-    fetch('/api/projects')
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (data && data.data) {
-          setProjects(data.data);
-        }
-      })
-      .catch(() => {
-        // Fallback dùng mock data nếu backend chưa bật
-      });
-  }, []);
+  const handleCreateProject = () => {
+    const name = prompt('Nhập tên dự án mới:', 'Dự án Sprite mới');
+    if (!name) return;
 
-  const filtered = projects.filter((p) =>
-    p.name.toLowerCase().includes(search.toLowerCase())
-  );
+    const newProj = {
+      id: `proj_${Date.now()}`,
+      name: name,
+      statusText: 'Vừa tạo',
+    };
+    setProjects([newProj, ...projects]);
+  };
+
+  const handleImportProject = () => {
+    alert('Tính năng: Chọn thư mục sprite để nhập dự án.');
+  };
 
   return (
-    <div className="page-container">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <div style={{ position: 'relative', width: '300px' }}>
-          <Search size={16} style={{ position: 'absolute', left: '10px', top: '12px', color: 'var(--text-secondary)' }} />
-          <input
-            type="text"
-            className="input-field"
-            placeholder="Tìm kiếm dự án..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            style={{ paddingLeft: '34px', width: '100%' }}
+    <div className="minimal-projects-page">
+      {/* 1. Tiêu Đề Chính */}
+      <h1 className="minimal-main-title">
+        Dự án của tôi <span className="title-sparkle" aria-hidden="true">✨</span>
+      </h1>
+
+      {/* 2. Thanh Nút Thao Tác (Tạo dự án / Nhập dự án) */}
+      <ActionBar
+        onCreateProject={handleCreateProject}
+        onImportProject={handleImportProject}
+      />
+
+      {/* 3. Danh Sách Dự Án */}
+      <div className="minimal-projects-list">
+        {projects.map((project) => (
+          <ProjectRow
+            key={project.id}
+            project={project}
+            onOpen={onOpenProject}
           />
-        </div>
-        <div style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-          Tổng cộng: <strong>{filtered.length}</strong> dự án
-        </div>
+        ))}
       </div>
 
-      <div className="cards-grid">
-        {filtered.map((proj) => (
-          <ProjectCard key={proj.id} project={proj} onOpen={onOpenProject} />
-        ))}
+      {/* 4. Dòng ghi chú động lực ở đáy trang */}
+      <div className="minimal-page-footer-note">
+        “Không biết có làm được không, nhưng vẫn muốn cố gắng.”
       </div>
     </div>
   );

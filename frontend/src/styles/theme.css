@@ -1,0 +1,50 @@
+/**
+ * THEME & DESIGN TOKENS
+ * Bảng màu Dark Navy / Indigo dịu mắt, giảm độ gắt của tím, chuyên nghiệp và có chiều sâu.
+ */
+
+:root {
+  /* 1. Nền chính Dark Navy / Deep Indigo */
+  --bg-app: #090d18;
+  --bg-radial-glow: radial-gradient(circle at 80% 15%, #141d36 0%, #0a0f1e 60%, #060914 100%);
+  --bg-sidebar: #0e1526;
+  --bg-card: rgba(18, 26, 47, 0.85);
+  --bg-card-hover: rgba(26, 37, 65, 0.95);
+  --bg-input: #10182b;
+
+  /* 2. Màu nhấn Tím / Indigo sang trọng (Accent) */
+  --accent-purple: #6366f1;           /* Indigo-Violet sáng vừa phải, dịu mắt */
+  --accent-purple-hover: #4f46e5;
+  --accent-purple-glow: rgba(99, 102, 241, 0.28);
+  --accent-active-tab: #4338ca;       /* Màu nền tab active */
+  --accent-secondary-btn: #162038;
+  --accent-secondary-btn-hover: #1e2c4d;
+
+  /* 3. Đường viền tinh tế (Borders) */
+  --border-subtle: rgba(255, 255, 255, 0.07);
+  --border-card: rgba(99, 102, 241, 0.14);
+  --border-card-hover: rgba(129, 140, 248, 0.32);
+
+  /* 4. Màu chữ công thái học (Dễ đọc, độ tương phản cao) */
+  --text-white: #ffffff;
+  --text-primary: #f8fafc;
+  --text-muted: #94a3b8;
+  --text-dim: #64748b;
+  --text-highlight: #a5b4fc;
+
+  /* 5. Icon & Avatar */
+  --icon-folder-bg: #192342;
+  --icon-folder-color: #818cf8;
+  --avatar-user-bg: #0f766e;
+  --avatar-user-text: #5eead4;
+
+  /* 6. Bo góc */
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-pill: 9999px;
+
+  /* 7. Font */
+  --font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}

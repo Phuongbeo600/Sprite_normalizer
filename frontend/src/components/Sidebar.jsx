@@ -1,41 +1,75 @@
+//1.Thư viện nền tảng react
 import React from 'react';
-import { Layers, Image as ImageIcon, Sliders, Settings as SettingsIcon } from 'lucide-react';
+//2.Thư viện bên thứ ba
+import { Folder, Settings, Bot } from 'lucide-react';
+import { CURRENT_USER, APP_CONFIG } from '../constants/initialProjects';
 
 export default function Sidebar({ activeTab, onSelectTab }) {
-  const menuItems = [
-    { id: 'projects', label: 'Dự án (Projects)', icon: Layers },
-    { id: 'workspace', label: 'Không gian làm việc (Workspace)', icon: ImageIcon },
-    { id: 'settings', label: 'Cấu hình (Settings)', icon: SettingsIcon },
-  ];
-
   return (
-    <aside className="app-sidebar">
+    <aside className="minimal-sidebar">
       <div>
-        <div className="sidebar-logo">
-          <Sliders size={22} color="#6366f1" />
-          <span>Sprite Normalizer</span>
+        {/* 1. Logo Tinh Giản: Icon riêng hoặc Bot mặc định */}
+        <div className="minimal-logo">
+          {APP_CONFIG?.customLogoUrl ? (
+            <img
+              src={APP_CONFIG.customLogoUrl}
+              alt="Logo"
+              className="custom-logo-img"
+              onError={(e) => { e.currentTarget.style.display = 'none'; }}
+            />
+          ) : (
+            <Bot size={22} className="logo-icon" />
+          )}
+          <span className="logo-text">Sprite AI</span>
         </div>
-        <nav className="sidebar-nav">
-          {menuItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = activeTab === item.id;
-            return (
-              <button
-                key={item.id}
-                className={`nav-item ${isActive ? 'active' : ''}`}
-                onClick={() => onSelectTab(item.id)}
-              >
-                <Icon size={18} />
-                <span>{item.label}</span>
-              </button>
-            );
-          })}
+
+        {/* 2. Menu Điều Hướng */}
+        <nav className="minimal-nav">
+          <button
+            className={`minimal-nav-item ${activeTab === 'projects' ? 'active' : ''}`}
+            onClick={() => onSelectTab('projects')}
+          >
+            <Folder size={18} />
+            <span>Dự án</span>
+          </button>
+
+          <button
+            className={`minimal-nav-item ${activeTab === 'settings' ? 'active' : ''}`}
+            onClick={() => onSelectTab('settings')}
+          >
+            <Settings size={18} />
+            <span>Cài đặt</span>
+          </button>
         </nav>
-      </div>
-      <div className="sidebar-footer">
-        <div>BTL Trí tuệ nhân tạo - UET</div>
-        <div style={{ fontSize: '0.75rem', marginTop: '4px', opacity: 0.7 }}>v1.0.0 (FastAPI + React)</div>
-      </div>
-    </aside>
+      </div >
+
+      {/* 3. Phần Đáy: Divider & Card Tài Khoản */}
+      < div className="minimal-sidebar-bottom" >
+        <div className="sidebar-divider" />
+        <div
+          className="minimal-user-card"
+          title="Quản lý tài khoản"
+          role="button"
+          tabIndex={0}
+        >
+          <div className="minimal-user-avatar">
+            {CURRENT_USER.avatarUrl ? (
+              <img
+                src={CURRENT_USER.avatarUrl}
+                alt="Avatar"
+                className="custom-user-avatar-img"
+                onError={(e) => { e.currentTarget.style.display = 'none'; }}
+              />
+            ) : (
+              CURRENT_USER.initials
+            )}
+          </div>
+          <div className="minimal-user-info">
+            <span className="user-title">{CURRENT_USER.name}</span>
+            <span className="user-subtitle">{CURRENT_USER.subtitle}</span>
+          </div>
+        </div>
+      </div >
+    </aside >
   );
 }
