@@ -290,16 +290,20 @@ class CharacterAnalyzer:
         cls,
         image_or_path: Any,
         api_key: Optional[str] = None,
+        provider: str = "gemini",
+        base_url: Optional[str] = None,
         auto_remove_solid_bg: bool = True
     ) -> Tuple[Optional[CharacterMetrics], str]:
         """
-        Phân tích giải phẫu học kết hợp AI Vision (Google Gemini) và thuật toán Snap Pixel:
+        Phân tích giải phẫu học kết hợp AI Vision (Google Gemini hoặc OpenAI ChatGPT) và thuật toán Snap Pixel:
         - Nhận diện đúng hộp sọ (loại bỏ kiếm giơ cao, sừng, tai thỏ), cổ, háng và chân tiếp đất.
         - Tự động hút (snap) tọa độ vào ma trận Alpha Mask để đạt độ chính xác đến từng pixel.
         - Tự động fallback sang thuật toán Heuristic nếu không có API key hoặc gặp lỗi mạng.
 
         @param {Any} image_or_path Đường dẫn ảnh hoặc đối tượng PIL Image.
-        @param {Optional[str]} api_key Khóa API Google Gemini.
+        @param {Optional[str]} api_key Khóa API (Gemini hoặc OpenAI).
+        @param {str} provider Nhà cung cấp AI ("gemini" hoặc "openai").
+        @param {Optional[str]} base_url Địa chỉ máy chủ (dành cho OpenAI / Proxy).
         @param {bool} auto_remove_solid_bg Tự động xóa nền đặc.
         @returns {Tuple[Optional[CharacterMetrics], str]} Bộ thông số và thông điệp trạng thái.
         """
@@ -314,11 +318,17 @@ class CharacterAnalyzer:
         if not np.any(mask):
             return None, "Không tìm thấy pixel nhân vật (ảnh trống hoặc trong suốt hoàn toàn)."
 
-        # Nếu có API Key thì ưu tiên dùng AI Gemini Vision
+        # Nếu có API Key thì ưu tiên dùng AI Vision
         if api_key and api_key.strip():
             try:
                 from .ai_vision_analyzer import AiVisionAnalyzer
-                ai_data = AiVisionAnalyzer.call_gemini_vision(clean_img, api_key.strip())
+                if provider.lower() == "openai":
+                    ai_data = AiVisionAnalyzer.call_openai_vision(
+                        clean_img, api_key.strip(), base_url=base_url or "https://api.openai.com/v1"
+                    )
+                else:
+                    ai_data = AiVisionAnalyzer.call_gemini_vision(clean_img, api_key.strip())
+
                 snapped = AiVisionAnalyzer.snap_and_denormalize(ai_data, clean_img.size, mask)
 
                 canvas_w, canvas_h = clean_img.size

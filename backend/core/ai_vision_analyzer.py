@@ -143,6 +143,107 @@ Return ONLY a valid JSON object matching this schema without any markdown surrou
         raise RuntimeError(f"Tất cả các Model Gemini Vision đều không phản hồi: {last_error}")
 
     @classmethod
+    def call_openai_vision(
+        cls,
+        image: Image.Image,
+        api_key: str,
+        base_url: str = "https://api.openai.com/v1"
+    ) -> Dict[str, Any]:
+        """
+        Gửi ảnh Sprite lên OpenAI ChatGPT (GPT-4o / GPT-4o-mini Vision) để phân tích giải phẫu học.
+
+        @param {Image.Image} image Ảnh sprite cần phân tích.
+        @param {str} api_key Khóa OpenAI API (ChatGPT).
+        @param {str} base_url Địa chỉ máy chủ API (mặc định https://api.openai.com/v1 hoặc URL Proxy).
+        @returns {Dict[str, Any]} Dữ liệu JSON chứa tọa độ chuẩn hóa (0-1000) của hộp sọ, cổ, hông, đất.
+        """
+        if not api_key or not api_key.strip():
+            raise ValueError("Chưa cấu hình OpenAI API Key (ChatGPT).")
+
+        buffered = io.BytesIO()
+        image_to_send = image.convert("RGBA")
+        max_dim = max(image_to_send.size)
+        if max_dim > 512:
+            scale_send = 512.0 / max_dim
+            sw = max(1, int(round(image_to_send.width * scale_send)))
+            sh = max(1, int(round(image_to_send.height * scale_send)))
+            image_to_send = image_to_send.resize((sw, sh), Image.Resampling.BILINEAR)
+
+        image_to_send.save(buffered, format="PNG")
+        img_b64 = base64.b64encode(buffered.getvalue()).decode("utf-8")
+
+        prompt = """
+You are an expert in 2D video game pixel art character anatomy, sprite sheets, and character design.
+Analyze the 2D character sprite in this image.
+
+Your task is to detect the EXACT anatomical landmarks of the core body, STRICTLY IGNORING any tall held weapons (swords, axes, staves, spears), floating wings, capes blowing in the wind, or empty background space:
+
+1. "head_box": [ymin, xmin, ymax, xmax] coordinates normalized from 0 to 1000 enclosing ONLY the actual head, face, and hair/helmet. (DO NOT expand this box to weapons held next to or above the head).
+2. "neck_y": integer normalized from 0 to 1000 representing the vertical Y line of the neck (the junction between chin/jawline and collarbones/shoulders). If covered by armor or beard, estimate the true biological neck position.
+3. "crotch_y": integer normalized from 0 to 1000 representing the vertical Y line of the hips/crotch where legs split from the torso (even if covered by a skirt, robe, or armor).
+4. "ground_y": integer normalized from 0 to 1000 representing the vertical Y line of the lowest foot contacting the ground surface.
+5. "character_archetype": short string describing the character (e.g. "Warrior with sword", "Mage", "Monster", "Chibi rogue").
+6. "anatomy_notes": short 1-2 sentence assessment in Vietnamese of proportions and clothing/weapons.
+
+Return ONLY a valid JSON object matching this schema:
+{
+  "head_box": [ymin, xmin, ymax, xmax],
+  "neck_y": int,
+  "crotch_y": int,
+  "ground_y": int,
+  "character_archetype": str,
+  "anatomy_notes": str
+}
+"""
+        clean_base = base_url.rstrip("/")
+        url = f"{clean_base}/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {api_key.strip()}",
+            "Content-Type": "application/json"
+        }
+
+        # Danh sách model OpenAI ưu tiên
+        candidate_models = ["gpt-4o-mini", "gpt-4o", "chatgpt-4o-latest"]
+        last_error = ""
+
+        for model in candidate_models:
+            payload = {
+                "model": model,
+                "response_format": {"type": "json_object"},
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": prompt.strip()},
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": f"data:image/png;base64,{img_b64}"
+                                }
+                            }
+                        ]
+                    }
+                ],
+                "temperature": 0.1
+            }
+
+            try:
+                resp = requests.post(url, json=payload, headers=headers, timeout=25)
+                if resp.status_code == 200:
+                    res_json = resp.json()
+                    raw_text = res_json["choices"][0]["message"]["content"].strip()
+                    data = json.loads(raw_text)
+                    data["model_used"] = f"OpenAI {model}"
+                    return data
+                else:
+                    last_error = f"{model} status {resp.status_code}: {resp.text[:100]}"
+            except Exception as e:
+                last_error = f"{model} error: {str(e)}"
+                continue
+
+        raise RuntimeError(f"OpenAI ChatGPT Vision không phản hồi: {last_error}")
+
+    @classmethod
     def snap_and_denormalize(
         cls,
         ai_data: Dict[str, Any],

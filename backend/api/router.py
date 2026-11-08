@@ -126,13 +126,15 @@ async def normalize_sprite(
 async def analyze_character(
     file: UploadFile = File(...),
     api_key: Optional[str] = Form(None),
+    provider: Optional[str] = Form(None),
+    base_url: Optional[str] = Form(None),
     auto_remove_bg: bool = Form(True),
     use_ai: bool = Form(False)
 ):
     """
     Phân tích tỷ lệ giải phẫu học của Sprite:
     - Tự động nhận diện đầu, thân, cổ, hông, mặt đất tiếp xúc.
-    - Hỗ trợ kết hợp AI Gemini Vision (nếu bật use_ai và có API Key trong form hoặc biến môi trường).
+    - Hỗ trợ kết hợp AI Gemini Vision hoặc OpenAI ChatGPT (GPT-4o Vision).
     - Vẽ trực quan các hộp bounding box giải phẫu và trả về ảnh Base64.
     """
     if not file.content_type.startswith("image/"):
@@ -142,12 +144,23 @@ async def analyze_character(
         contents = await file.read()
         image = Image.open(io.BytesIO(contents))
 
-        # Chỉ sử dụng API Key khi người dùng bật cờ use_ai
-        effective_key = (api_key or os.getenv("GEMINI_API_KEY")) if use_ai else None
+        active_provider = (provider or os.getenv("AI_PROVIDER", "gemini")).lower()
+        active_base_url = base_url or os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
+
+        # Xác định API Key dựa theo nhà cung cấp được chọn
+        if use_ai:
+            if active_provider == "openai":
+                effective_key = api_key or os.getenv("OPENAI_API_KEY")
+            else:
+                effective_key = api_key or os.getenv("GEMINI_API_KEY")
+        else:
+            effective_key = None
 
         metrics, message = CharacterAnalyzer.analyze_with_ai(
             image_or_path=image,
             api_key=effective_key,
+            provider=active_provider,
+            base_url=active_base_url,
             auto_remove_solid_bg=auto_remove_bg
         )
 
@@ -182,17 +195,18 @@ class PromptAdviceRequest(BaseModel):
     body_width_rule: str = "Bằng nhân vật gốc"
     body_height_rule: str = "Bằng nhân vật gốc"
     api_key: Optional[str] = None
+    provider: Optional[str] = None
+    base_url: Optional[str] = None
 
 
 @api_router.post("/prompt-advice")
 async def get_prompt_advice(request: PromptAdviceRequest):
     """
-    Sinh Prompt tối ưu cho Midjourney / DALL-E / Leonardo AI dựa trên toán học nghịch đảo từ nhân vật mẫu:
+    Sinh Prompt tối ưu cho Midjourney / DALL-E / Leonardo AI dựa trên toán học nghịch đảo:
+    - Hỗ trợ cả Google Gemini lẫn OpenAI ChatGPT (GPT-4o-mini).
     - Tính toán tỷ lệ đầu và không gian chiếm dụng trên khung hình AI 1024x1024.
-    - Đồng bộ mật độ hạt pixel theo hệ 8-bit, 16-bit hay 32-bit.
     """
     try:
-        # Tái tạo đối tượng CharacterMetrics từ dictionary
         metrics_data = request.metrics
         metrics = CharacterMetrics(
             canvas_width=metrics_data.get("canvas_width", 64),
@@ -230,7 +244,13 @@ async def get_prompt_advice(request: PromptAdviceRequest):
             ai_feedback=metrics_data.get("ai_feedback")
         )
 
-        effective_key = request.api_key or os.getenv("GEMINI_API_KEY")
+        active_provider = (request.provider or os.getenv("AI_PROVIDER", "gemini")).lower()
+        active_base_url = request.base_url or os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
+
+        if active_provider == "openai":
+            effective_key = request.api_key or os.getenv("OPENAI_API_KEY")
+        else:
+            effective_key = request.api_key or os.getenv("GEMINI_API_KEY")
 
         advice = PromptAdvisor.generate_prompt(
             metrics=metrics,
@@ -238,7 +258,9 @@ async def get_prompt_advice(request: PromptAdviceRequest):
             body_width_rule=request.body_width_rule,
             body_height_rule=request.body_height_rule,
             character_concept=request.character_concept,
-            api_key=effective_key
+            api_key=effective_key,
+            provider=active_provider,
+            base_url=active_base_url
         )
 
         return {
@@ -265,109 +287,171 @@ def mask_api_key(key: str) -> str:
     return f"{key[:6]}{'•' * max(6, len(key) - 10)}{key[-4:]}"
 
 
-def save_api_key_to_env(new_key: str):
+def save_settings_to_env(settings: Dict[str, str]):
     """
-    Lưu khóa API an toàn vào file .env ở thư mục gốc và cập nhật ngay vào biến môi trường hệ thống.
+    Lưu các biến cấu hình API an toàn vào file .env ở thư mục gốc và cập nhật ngay vào os.environ.
     """
     env_path = Path(__file__).resolve().parent.parent.parent / ".env"
     lines = []
-    found = False
-
     if env_path.exists():
         with open(env_path, "r", encoding="utf-8") as f:
             lines = f.readlines()
 
-    new_lines = []
+    current_env = {}
     for line in lines:
-        if line.strip().startswith("GEMINI_API_KEY="):
-            new_lines.append(f'GEMINI_API_KEY="{new_key}"\n')
-            found = True
-        else:
-            new_lines.append(line)
+        s = line.strip()
+        if s and not s.startswith("#") and "=" in s:
+            k, v = s.split("=", 1)
+            v = v.strip().strip('"').strip("'")
+            current_env[k.strip()] = v
 
-    if not found:
-        if new_lines and not new_lines[-1].endswith("\n"):
-            new_lines[-1] += "\n"
-        new_lines.append(f'GEMINI_API_KEY="{new_key}"\n')
+    # Cập nhật các giá trị mới
+    for k, v in settings.items():
+        if v is not None:
+            current_env[k] = str(v)
+            os.environ[k] = str(v)
 
+    # Ghi lại file .env
+    new_lines = [f'{k}="{v}"\n' for k, v in current_env.items()]
     with open(env_path, "w", encoding="utf-8") as f:
         f.writelines(new_lines)
-
-    # Cập nhật trực tiếp vào bộ nhớ RAM hệ thống
-    os.environ["GEMINI_API_KEY"] = new_key
 
 
 # ========================================================
 # ROUTE CÀI ĐẶT CẤU HÌNH API (SETTINGS)
 # ========================================================
-class SaveApiKeyRequest(BaseModel):
-    api_key: str
+class SaveSettingsRequest(BaseModel):
+    provider: str = "gemini"
+    gemini_api_key: Optional[str] = None
+    openai_api_key: Optional[str] = None
+    openai_base_url: Optional[str] = "https://api.openai.com/v1"
 
 
 class TestApiKeyRequest(BaseModel):
+    provider: str = "gemini"
     api_key: Optional[str] = None
+    base_url: Optional[str] = "https://api.openai.com/v1"
 
 
 @api_router.get("/settings")
 async def get_settings():
     """
-    Đọc trạng thái cấu hình API Key hiện tại.
-    Chỉ trả về chuỗi đã được che giấu (masking) để bảo vệ bản quyền và bảo mật.
+    Đọc trạng thái cấu hình API Key hiện tại (cả Google Gemini lẫn OpenAI ChatGPT).
     """
-    key = os.getenv("GEMINI_API_KEY", "")
+    provider = os.getenv("AI_PROVIDER", "gemini")
+    gemini_key = os.getenv("GEMINI_API_KEY", "")
+    openai_key = os.getenv("OPENAI_API_KEY", "")
+    openai_base_url = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
+
     return {
         "status": "success",
-        "has_key": bool(key.strip()),
-        "masked_key": mask_api_key(key)
+        "provider": provider,
+        "gemini_has_key": bool(gemini_key.strip()),
+        "gemini_masked_key": mask_api_key(gemini_key),
+        "openai_has_key": bool(openai_key.strip()),
+        "openai_masked_key": mask_api_key(openai_key),
+        "openai_base_url": openai_base_url
     }
 
 
 @api_router.post("/settings")
-async def save_settings(request: SaveApiKeyRequest):
+async def save_settings(request: SaveSettingsRequest):
     """
-    Lưu Google Gemini API Key mới vào file .env và cập nhật biến môi trường tức thì.
+    Lưu cấu hình API Key và nhà cung cấp AI vào file .env.
     """
-    key = request.api_key.strip()
-    if not key:
-        raise HTTPException(status_code=400, detail="Khóa API không được để trống.")
+    new_settings = {
+        "AI_PROVIDER": request.provider
+    }
+    if request.gemini_api_key is not None and request.gemini_api_key.strip():
+        new_settings["GEMINI_API_KEY"] = request.gemini_api_key.strip()
+    if request.openai_api_key is not None and request.openai_api_key.strip():
+        new_settings["OPENAI_API_KEY"] = request.openai_api_key.strip()
+    if request.openai_base_url is not None and request.openai_base_url.strip():
+        new_settings["OPENAI_BASE_URL"] = request.openai_base_url.strip()
 
-    save_api_key_to_env(key)
+    save_settings_to_env(new_settings)
+
+    gemini_key = os.getenv("GEMINI_API_KEY", "")
+    openai_key = os.getenv("OPENAI_API_KEY", "")
+
     return {
         "status": "success",
-        "message": "Đã lưu và cập nhật Google Gemini API Key thành công!",
-        "masked_key": mask_api_key(key)
+        "message": f"Đã lưu và kích hoạt cấu hình {request.provider.upper()} thành công!",
+        "provider": request.provider,
+        "gemini_masked_key": mask_api_key(gemini_key),
+        "openai_masked_key": mask_api_key(openai_key),
+        "openai_base_url": os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
     }
 
 
 @api_router.post("/settings/test-key")
 async def test_api_key(request: TestApiKeyRequest):
     """
-    Gửi request kiểm tra kết nối nhanh tới Google Gemini API xem key có hợp lệ không.
+    Kiểm tra nhanh kết nối tới Google Gemini hoặc OpenAI ChatGPT.
     """
-    key = (request.api_key or os.getenv("GEMINI_API_KEY", "")).strip()
-    if not key:
-        raise HTTPException(status_code=400, detail="Chưa có API Key để kiểm tra.")
+    provider = request.provider.lower()
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent?key={key}"
-    payload = {
-        "contents": [{"parts": [{"text": "ping"}]}],
-        "generationConfig": {"maxOutputTokens": 5}
-    }
+    if provider == "openai":
+        key = (request.api_key or os.getenv("OPENAI_API_KEY", "")).strip()
+        if not key:
+            raise HTTPException(status_code=400, detail="Chưa có OpenAI API Key để kiểm tra.")
 
-    try:
-        resp = requests.post(url, json=payload, timeout=10)
-        if resp.status_code == 200:
-            return {
-                "status": "success",
-                "message": "Kết nối thành công! Khóa Google Gemini API hoạt động hoàn hảo."
-            }
-        else:
+        base_url = (request.base_url or os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")).rstrip("/")
+        headers = {
+            "Authorization": f"Bearer {key}",
+            "Content-Type": "application/json"
+        }
+        url = f"{base_url}/chat/completions"
+        payload = {
+            "model": "gpt-4o-mini",
+            "messages": [{"role": "user", "content": "ping"}],
+            "max_tokens": 5
+        }
+
+        try:
+            resp = requests.post(url, json=payload, headers=headers, timeout=12)
+            if resp.status_code == 200:
+                return {
+                    "status": "success",
+                    "message": "Kết nối thành công! Khóa OpenAI ChatGPT hoạt động hoàn hảo."
+                }
+            else:
+                return {
+                    "status": "error",
+                    "message": f"OpenAI ChatGPT báo lỗi ({resp.status_code}): {resp.text[:120]}"
+                }
+        except Exception as e:
             return {
                 "status": "error",
-                "message": f"Google Gemini báo lỗi ({resp.status_code}): {resp.text[:120]}"
+                "message": f"Không thể kết nối máy chủ OpenAI ({base_url}): {str(e)}"
             }
-    except Exception as e:
-        return {
-            "status": "error",
-            "message": f"Lỗi kết nối mạng tới Google API: {str(e)}"
+
+    else:
+        # Kiểm tra Google Gemini
+        key = (request.api_key or os.getenv("GEMINI_API_KEY", "")).strip()
+        if not key:
+            raise HTTPException(status_code=400, detail="Chưa có Google Gemini API Key để kiểm tra.")
+
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent?key={key}"
+        payload = {
+            "contents": [{"parts": [{"text": "ping"}]}],
+            "generationConfig": {"maxOutputTokens": 5}
         }
+
+        try:
+            resp = requests.post(url, json=payload, timeout=10)
+            if resp.status_code == 200:
+                return {
+                    "status": "success",
+                    "message": "Kết nối thành công! Khóa Google Gemini API hoạt động hoàn hảo."
+                }
+            else:
+                return {
+                    "status": "error",
+                    "message": f"Google Gemini báo lỗi ({resp.status_code}): {resp.text[:120]}"
+                }
+        except Exception as e:
+            return {
+                "status": "error",
+                "message": f"Lỗi kết nối mạng tới Google Gemini: {str(e)}"
+            }
