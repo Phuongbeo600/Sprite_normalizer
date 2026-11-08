@@ -12,6 +12,16 @@ import { FolderOpen, ScanSearch, Sparkles, Copy, Check, Eye, EyeOff } from 'luci
 // ========================================================
 // 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Components & Dữ liệu)
 // ========================================================
+// Component thanh điều hướng phân hệ phân tích hồ sơ nhân vật
+import CharacterProfileTabs from '../components/character-profile/CharacterProfileTabs';
+// Component hiển thị phân hệ 1: Phong cách & Vật liệu toàn cục
+import TabGlobalView from '../components/character-profile/TabGlobalView';
+// Component hiển thị phân hệ 2: 3 Hướng nhìn (Down, Side, Up)
+import TabDirectionsView from '../components/character-profile/TabDirectionsView';
+// Component hiển thị phân hệ 3: Hoạt họa chuyển động (Idle, Walk)
+import TabAnimationsView from '../components/character-profile/TabAnimationsView';
+// Component hiển thị phân hệ 4: Ràng buộc tính nhất quán & Phòng tạo Prompt AI
+import TabConstraintsPromptView from '../components/character-profile/TabConstraintsPromptView';
 
 // ========================================================
 // 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
@@ -19,10 +29,11 @@ import { FolderOpen, ScanSearch, Sparkles, Copy, Check, Eye, EyeOff } from 'luci
 // Định dạng giao diện được kế thừa từ theme.css thông qua index.css
 
 /**
- * Màn hình Phân tích Giải phẫu Sprite và Cố vấn Prompt AI (Inverse Scaling Engine).
- * Tích hợp đầy đủ các thuật toán từ mô hình MVC cũ:
+ * Màn hình Phân tích Giải phẫu Sprite và Cố vấn Prompt AI (Inverse Scaling Engine & AI Reference Profile).
+ * Tích hợp kiến trúc phân hệ Tab hiện đại:
  * - Bước 1: Quét hình học & giải phẫu học cơ thể Sprite (Heuristic + AI Gemini Vision).
- * - Bước 2: Toán học nghịch đảo & sinh Prompt khống chế tỷ lệ cho Midjourney / DALL-E / Stable Diffusion.
+ * - Bước 2: Hồ sơ Nhân vật tham chiếu theo Tab (Global, Directions, Animations, Constraints)
+ *           kết hợp Cố vấn Prompt AI & Toán học nghịch đảo.
  * 
  * @returns {React.ReactElement} Giao diện phân tích 2 cột trực quan.
  */
@@ -38,13 +49,34 @@ export default function ProjectAnalysis() {
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisError, setAnalysisError] = useState('');
 
-  // Trạng thái các trường sinh Prompt Cố vấn
+  // ========================================================
+  // TRẠNG THÁI PHÂN HỆ HỒ SƠ NHÂN VẬT THEO TAB (CHARACTER PROFILE)
+  // ========================================================
+  // Tab đang kích hoạt: 'global' | 'directions' | 'animations' | 'constraints' | 'inverse_math'
+  const [activeProfileTab, setActiveProfileTab] = useState('global');
+  // Dữ liệu hồ sơ nhân vật hoàn chỉnh
+  const [profileData, setProfileData] = useState({
+    global_analysis: null,
+    direction_analysis: null,
+    animation_analysis: null,
+    consistency_analysis: null,
+    negative_constraints: null,
+  });
+  // Tab đang được gửi yêu cầu phân tích lên máy chủ (null | string)
+  const [analyzingTab, setAnalyzingTab] = useState(null);
+  // Lỗi phân tích hồ sơ
+  const [profileError, setProfileError] = useState('');
+  // Kết quả sinh prompt từ hồ sơ nhân vật
+  const [generatedProfilePrompt, setGeneratedProfilePrompt] = useState(null);
+  const [generatingProfilePrompt, setGeneratingProfilePrompt] = useState(false);
+
+  // ========================================================
+  // TRẠNG THÁI TOÁN HỌC NGHỊCH ĐẢO CŨ (INVERSE SCALING ENGINE)
+  // ========================================================
   const [headRule, setHeadRule] = useState('Bằng nhân vật gốc (Tỷ lệ chuẩn)');
   const [bodyWidthRule, setBodyWidthRule] = useState('Bằng nhân vật gốc');
   const [bodyHeightRule, setBodyHeightRule] = useState('Bằng nhân vật gốc');
   const [characterConcept, setCharacterConcept] = useState('Chiến binh Pixel Art cầm kiếm phong trần');
-
-  // Trạng thái kết quả Prompt và Toán học nghịch đảo
   const [generatingPrompt, setGeneratingPrompt] = useState(false);
   const [positivePrompt, setPositivePrompt] = useState('');
   const [negativePrompt, setNegativePrompt] = useState('');
@@ -79,6 +111,16 @@ export default function ProjectAnalysis() {
       setPositivePrompt('');
       setNegativePrompt('');
       setMathPlanText('');
+      // Đặt lại dữ liệu hồ sơ nhân vật khi đổi ảnh mới
+      setProfileData({
+        global_analysis: null,
+        direction_analysis: null,
+        animation_analysis: null,
+        consistency_analysis: null,
+        negative_constraints: null,
+      });
+      setGeneratedProfilePrompt(null);
+      setProfileError('');
     }
     event.target.value = '';
   };
@@ -117,6 +159,137 @@ export default function ProjectAnalysis() {
       setAnalysisError(err.message || 'Lỗi kết nối máy chủ phân tích.');
     } finally {
       setAnalyzing(false);
+    }
+  };
+
+  /**
+   * Phân tích độc lập một Tab trong Hồ sơ nhân vật (Tiết kiệm token tối đa).
+   * 
+   * @param {string} tabName Tên phân hệ cần quét ('global' | 'directions' | 'animations' | 'constraints').
+   */
+  const handleAnalyzeTab = async (tabName) => {
+    if (!reference || analyzingTab) return;
+
+    setAnalyzingTab(tabName);
+    setProfileError('');
+
+    const formData = new FormData();
+    formData.append('file', reference.file);
+    formData.append('tab_name', tabName);
+    formData.append('current_profile_json', JSON.stringify(profileData));
+
+    try {
+      const response = await fetch('/api/character-profile/analyze-tab', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errJson = await response.json();
+        throw new Error(errJson.detail || `Lỗi phân tích phân hệ ${tabName}`);
+      }
+
+      const resJson = await response.json();
+      const tabData = resJson.data;
+
+      // Cập nhật từng trường tương ứng trong hồ sơ
+      setProfileData((prev) => {
+        if (tabName === 'global') {
+          return { ...prev, global_analysis: tabData };
+        } else if (tabName === 'directions') {
+          return { ...prev, direction_analysis: tabData };
+        } else if (tabName === 'animations') {
+          return { ...prev, animation_analysis: tabData };
+        } else if (tabName === 'constraints') {
+          return {
+            ...prev,
+            consistency_analysis: tabData.consistency_analysis,
+            negative_constraints: tabData.negative_constraints,
+          };
+        }
+        return prev;
+      });
+    } catch (err) {
+      setProfileError(err.message || 'Lỗi khi quét phân hệ.');
+    } finally {
+      setAnalyzingTab(null);
+    }
+  };
+
+  /**
+   * Phân tích toàn bộ 4 phân hệ của Hồ sơ nhân vật tham chiếu.
+   */
+  const handleAnalyzeAll = async () => {
+    if (!reference || analyzingTab) return;
+
+    setAnalyzingTab('all');
+    setProfileError('');
+
+    const formData = new FormData();
+    formData.append('file', reference.file);
+    formData.append('tab_name', 'all');
+
+    try {
+      const response = await fetch('/api/character-profile/analyze-tab', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errJson = await response.json();
+        throw new Error(errJson.detail || 'Lỗi phân tích toàn bộ hồ sơ');
+      }
+
+      const resJson = await response.json();
+      const fullAnalysis = resJson.data;
+
+      setProfileData({
+        global_analysis: fullAnalysis.global_analysis || null,
+        direction_analysis: fullAnalysis.direction_analysis || null,
+        animation_analysis: fullAnalysis.animation_analysis || null,
+        consistency_analysis: fullAnalysis.consistency_analysis || null,
+        negative_constraints: fullAnalysis.negative_constraints || null,
+      });
+    } catch (err) {
+      setProfileError(err.message || 'Lỗi khi quét toàn bộ hồ sơ.');
+    } finally {
+      setAnalyzingTab(null);
+    }
+  };
+
+  /**
+   * Sinh Prompt AI tiếng Anh tối ưu hóa dựa trên Hồ sơ nhân vật tham chiếu.
+   * 
+   * @param {string} concept Ý tưởng nhân vật mới.
+   * @param {string} targetDir Hướng nhìn mục tiêu.
+   */
+  const handleGeneratePromptFromProfile = async (concept, targetDir) => {
+    if (generatingProfilePrompt) return;
+
+    setGeneratingProfilePrompt(true);
+
+    try {
+      const response = await fetch('/api/character-profile/generate-prompt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          profile_data: profileData,
+          character_concept: concept || 'Pixel Art Character',
+          target_direction: targetDir || 'Front / Down view',
+        }),
+      });
+
+      if (!response.ok) {
+        const errJson = await response.json();
+        throw new Error(errJson.detail || 'Lỗi khi sinh Prompt từ hồ sơ.');
+      }
+
+      const resJson = await response.json();
+      setGeneratedProfilePrompt(resJson.data);
+    } catch (err) {
+      alert(err.message || 'Lỗi kết nối máy chủ sinh prompt.');
+    } finally {
+      setGeneratingProfilePrompt(false);
     }
   };
 
@@ -187,6 +360,15 @@ export default function ProjectAnalysis() {
       setCopiedNegative(true);
       setTimeout(() => setCopiedNegative(false), 2000);
     }
+  };
+
+  // Trạng thái đã phân tích của từng tab
+  const tabStatuses = {
+    global: Boolean(profileData.global_analysis),
+    directions: Boolean(profileData.direction_analysis),
+    animations: Boolean(profileData.animation_analysis),
+    constraints: Boolean(profileData.consistency_analysis && profileData.negative_constraints),
+    inverse_math: Boolean(metrics),
   };
 
   return (
@@ -314,99 +496,155 @@ export default function ProjectAnalysis() {
       </section>
 
       {/* ========================================================
-          CỘT PHẢI: BƯỚC 2 - CỐ VẤN PROMPT AI & TOÁN HỌC NGHỊCH ĐẢO
+          CỘT PHẢI: BƯỚC 2 - HỒ SƠ PHÂN TÍCH NHÂN VẬT & PROMPT STUDIO THEO TAB
           ======================================================== */}
       <section className="analysis-panel" aria-labelledby="prompt-title">
-        <h2 id="prompt-title">Bước 2. Yêu cầu và tạo prompt</h2>
-        <div className="analysis-fields">
-          <label>Đầu nhân vật mới
-            <select value={headRule} onChange={(e) => setHeadRule(e.target.value)}>
-              <option value="Bằng nhân vật gốc (Tỷ lệ chuẩn)">Bằng nhân vật mẫu (Tỷ lệ chuẩn)</option>
-              <option value="To hơn nhân vật gốc (Chibi hơn)">Lớn hơn nhân vật mẫu (Chibi hơn)</option>
-              <option value="Nhỏ hơn nhân vật gốc (Dáng cao hơn)">Nhỏ hơn nhân vật mẫu (Dáng cao)</option>
-            </select>
-          </label>
-          <label>Chiều rộng thân
-            <select value={bodyWidthRule} onChange={(e) => setBodyWidthRule(e.target.value)}>
-              <option value="Bằng nhân vật gốc">Bằng nhân vật mẫu</option>
-              <option value="Rộng hơn nhân vật gốc">Rộng hơn nhân vật mẫu (Cơ bắp/Mập)</option>
-              <option value="Hẹp hơn nhân vật gốc">Hẹp hơn nhân vật mẫu (Gầy/Thon)</option>
-            </select>
-          </label>
-          <label>Chiều cao thân
-            <select value={bodyHeightRule} onChange={(e) => setBodyHeightRule(e.target.value)}>
-              <option value="Bằng nhân vật gốc">Bằng nhân vật mẫu</option>
-              <option value="Cao hơn nhân vật gốc">Cao hơn nhân vật mẫu</option>
-              <option value="Thấp hơn nhân vật gốc">Thấp hơn nhân vật mẫu</option>
-            </select>
-          </label>
-          <label>Ý tưởng nhân vật mới (Concept)
-            <input
-              type="text"
-              value={characterConcept}
-              placeholder="Ví dụ: Nữ hiệp sĩ áo giáp bạc cầm khiên, Slime độc tím..."
-              onChange={(e) => setCharacterConcept(e.target.value)}
+        <h2 id="prompt-title">Bước 2. Hồ sơ Phân tích AI & Cố vấn Prompt</h2>
+
+        {/* Thanh chuyển đổi phân hệ Tab */}
+        <CharacterProfileTabs
+          activeTab={activeProfileTab}
+          onSelectTab={setActiveProfileTab}
+          tabStatuses={tabStatuses}
+          analyzingTab={analyzingTab}
+          onAnalyzeTab={handleAnalyzeTab}
+          onAnalyzeAll={handleAnalyzeAll}
+          disabled={!reference}
+        />
+
+        {/* Thông báo lỗi nếu phân tích thất bại */}
+        {profileError && (
+          <p className="analysis-result" style={{ color: '#ef4444' }}>
+            ⚠️ {profileError}
+          </p>
+        )}
+
+        {/* ========================================================
+            NỘI DUNG TỪNG PHÂN HỆ TAB
+            ======================================================== */}
+
+        {/* Tab 1: Phong cách & Vật liệu Toàn cục */}
+        {activeProfileTab === 'global' && (
+          <TabGlobalView data={profileData.global_analysis} />
+        )}
+
+        {/* Tab 2: 3 Hướng nhìn (Down / Side / Up) */}
+        {activeProfileTab === 'directions' && (
+          <TabDirectionsView data={profileData.direction_analysis} />
+        )}
+
+        {/* Tab 3: Hoạt họa chuyển động (Idle / Walk) */}
+        {activeProfileTab === 'animations' && (
+          <TabAnimationsView data={profileData.animation_analysis} />
+        )}
+
+        {/* Tab 4: Ràng buộc tính nhất quán & Phòng tạo Prompt AI */}
+        {activeProfileTab === 'constraints' && (
+          <TabConstraintsPromptView
+            consistency={profileData.consistency_analysis}
+            negativeConstraints={profileData.negative_constraints}
+            fullProfile={profileData}
+            onGeneratePrompt={handleGeneratePromptFromProfile}
+            generatingPrompt={generatingProfilePrompt}
+            generatedPromptResult={generatedProfilePrompt}
+          />
+        )}
+
+        {/* Tab 5: Kế hoạch Toán học nghịch đảo (Inverse Scaling Engine) */}
+        {activeProfileTab === 'inverse_math' && (
+          <div>
+            <div className="analysis-fields">
+              <label>Đầu nhân vật mới
+                <select value={headRule} onChange={(e) => setHeadRule(e.target.value)}>
+                  <option value="Bằng nhân vật gốc (Tỷ lệ chuẩn)">Bằng nhân vật mẫu (Tỷ lệ chuẩn)</option>
+                  <option value="To hơn nhân vật gốc (Chibi hơn)">Lớn hơn nhân vật mẫu (Chibi hơn)</option>
+                  <option value="Nhỏ hơn nhân vật gốc (Dáng cao hơn)">Nhỏ hơn nhân vật mẫu (Dáng cao)</option>
+                </select>
+              </label>
+              <label>Chiều rộng thân
+                <select value={bodyWidthRule} onChange={(e) => setBodyWidthRule(e.target.value)}>
+                  <option value="Bằng nhân vật gốc">Bằng nhân vật mẫu</option>
+                  <option value="Rộng hơn nhân vật gốc">Rộng hơn nhân vật mẫu (Cơ bắp/Mập)</option>
+                  <option value="Hẹp hơn nhân vật gốc">Hẹp hơn nhân vật mẫu (Gầy/Thon)</option>
+                </select>
+              </label>
+              <label>Chiều cao thân
+                <select value={bodyHeightRule} onChange={(e) => setBodyHeightRule(e.target.value)}>
+                  <option value="Bằng nhân vật gốc">Bằng nhân vật mẫu</option>
+                  <option value="Cao hơn nhân vật gốc">Cao hơn nhân vật mẫu</option>
+                  <option value="Thấp hơn nhân vật gốc">Thấp hơn nhân vật mẫu</option>
+                </select>
+              </label>
+              <label>Ý tưởng nhân vật mới (Concept)
+                <input
+                  type="text"
+                  value={characterConcept}
+                  placeholder="Ví dụ: Nữ hiệp sĩ áo giáp bạc cầm khiên, Slime độc tím..."
+                  onChange={(e) => setCharacterConcept(e.target.value)}
+                />
+              </label>
+            </div>
+
+            <button
+              type="button"
+              className="analysis-generate"
+              disabled={!metrics || generatingPrompt}
+              onClick={handleGeneratePromptAdvice}
+              style={{ marginTop: '8px' }}
+            >
+              <Sparkles size={18} />
+              {generatingPrompt ? 'Đang tính toán nghịch đảo…' : 'Phân tích tỉ lệ và tạo prompt AI'}
+            </button>
+
+            {/* Phân tích kế hoạch tỷ lệ & toán học nghịch đảo */}
+            <div
+              className="analysis-result"
+              style={{ whiteSpace: 'pre-wrap', lineHeight: '1.5', fontSize: '0.825rem', margin: '12px 0' }}
+            >
+              {mathPlanText || 'Chưa có phân tích phong cách hoặc kế hoạch tỉ lệ. Hãy quét giải phẫu Bước 1 trước.'}
+            </div>
+
+            {/* Positive Prompt */}
+            <div className="analysis-output-title">
+              <h3 id="positive-prompt-title">Positive Prompt (Cho Midjourney / DALL-E)</h3>
+              <button
+                type="button"
+                disabled={!positivePrompt}
+                onClick={() => handleCopyPrompt(positivePrompt, 'positive')}
+              >
+                {copiedPositive ? <Check size={14} color="#10b981" /> : <Copy size={14} />}
+                {copiedPositive ? 'Đã sao chép!' : 'Sao chép'}
+              </button>
+            </div>
+            <textarea
+              aria-labelledby="positive-prompt-title"
+              rows={7}
+              readOnly
+              value={positivePrompt}
+              placeholder="Prompt tiếng Anh tối ưu hóa không gian và tỷ lệ đầu sẽ xuất hiện ở đây..."
             />
-          </label>
-        </div>
 
-        <button
-          type="button"
-          className="analysis-generate"
-          disabled={!metrics || generatingPrompt}
-          onClick={handleGeneratePromptAdvice}
-        >
-          <Sparkles size={18} />
-          {generatingPrompt ? 'Đang tính toán nghịch đảo…' : 'Phân tích tỉ lệ và tạo prompt AI'}
-        </button>
-
-        {/* Phân tích kế hoạch tỷ lệ & toán học nghịch đảo */}
-        <div
-          className="analysis-result"
-          style={{ whiteSpace: 'pre-wrap', lineHeight: '1.5', fontSize: '0.825rem', margin: '12px 0' }}
-        >
-          {mathPlanText || 'Chưa có phân tích phong cách hoặc kế hoạch tỉ lệ. Hãy quét giải phẫu Bước 1 trước.'}
-        </div>
-
-        {/* Positive Prompt */}
-        <div className="analysis-output-title">
-          <h3 id="positive-prompt-title">Positive Prompt (Cho Midjourney / DALL-E)</h3>
-          <button
-            type="button"
-            disabled={!positivePrompt}
-            onClick={() => handleCopyPrompt(positivePrompt, 'positive')}
-          >
-            {copiedPositive ? <Check size={14} color="#10b981" /> : <Copy size={14} />}
-            {copiedPositive ? 'Đã sao chép!' : 'Sao chép'}
-          </button>
-        </div>
-        <textarea
-          aria-labelledby="positive-prompt-title"
-          rows={7}
-          readOnly
-          value={positivePrompt}
-          placeholder="Prompt tiếng Anh tối ưu hóa không gian và tỷ lệ đầu sẽ xuất hiện ở đây..."
-        />
-
-        {/* Negative Prompt */}
-        <div className="analysis-output-title" style={{ marginTop: '12px' }}>
-          <h3 id="negative-prompt-title">Negative Prompt (Chống lỗi giải phẫu & nhòe)</h3>
-          <button
-            type="button"
-            disabled={!negativePrompt}
-            onClick={() => handleCopyPrompt(negativePrompt, 'negative')}
-          >
-            {copiedNegative ? <Check size={14} color="#10b981" /> : <Copy size={14} />}
-            {copiedNegative ? 'Đã sao chép!' : 'Sao chép'}
-          </button>
-        </div>
-        <textarea
-          aria-labelledby="negative-prompt-title"
-          rows={3}
-          readOnly
-          value={negativePrompt}
-          placeholder="Negative prompt chống cắt chân, chống nhiễu hạt..."
-        />
+            {/* Negative Prompt */}
+            <div className="analysis-output-title" style={{ marginTop: '12px' }}>
+              <h3 id="negative-prompt-title">Negative Prompt (Chống lỗi giải phẫu & nhòe)</h3>
+              <button
+                type="button"
+                disabled={!negativePrompt}
+                onClick={() => handleCopyPrompt(negativePrompt, 'negative')}
+              >
+                {copiedNegative ? <Check size={14} color="#10b981" /> : <Copy size={14} />}
+                {copiedNegative ? 'Đã sao chép!' : 'Sao chép'}
+              </button>
+            </div>
+            <textarea
+              aria-labelledby="negative-prompt-title"
+              rows={3}
+              readOnly
+              value={negativePrompt}
+              placeholder="Negative prompt chống cắt chân, chống nhiễu hạt..."
+            />
+          </div>
+        )}
       </section>
     </div>
   );

@@ -15,6 +15,7 @@ from .projects import projects_router
 from .sprites import sprites_router
 from .prompt import prompt_router
 from .settings import settings_router
+from .character_analysis import character_analysis_router
 
 # ========================================================
 # 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
@@ -25,5 +26,6 @@ __all__ = [
     "projects_router",
     "sprites_router",
     "prompt_router",
-    "settings_router"
+    "settings_router",
+    "character_analysis_router"
 ]

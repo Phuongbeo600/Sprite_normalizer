@@ -20,6 +20,8 @@ from backend.api.v1.sprites import sprites_router
 from backend.api.v1.prompt import prompt_router
 # settings_router: Phân hệ cấu hình hệ thống & API Key (/api/settings)
 from backend.api.v1.settings import settings_router
+# character_analysis_router: Phân hệ phân tích hồ sơ nhân vật tham chiếu theo Tab (/api/character-profile)
+from backend.api.v1.character_analysis import character_analysis_router
 
 # ========================================================
 # 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
@@ -33,6 +35,7 @@ api_router.include_router(projects_router)
 api_router.include_router(sprites_router)
 api_router.include_router(prompt_router)
 api_router.include_router(settings_router)
+api_router.include_router(character_analysis_router)
 
 
 @api_router.get("/health", tags=["Health Check"])

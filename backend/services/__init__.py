@@ -16,6 +16,7 @@ from .settings_service import SettingsService
 from .sprite_service import SpriteService
 from .anatomy_service import AnatomyService
 from .prompt_service import PromptService
+from .character_analysis_service import CharacterAnalysisService
 
 # ========================================================
 # 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
@@ -27,5 +28,6 @@ __all__ = [
     "SettingsService",
     "SpriteService",
     "AnatomyService",
-    "PromptService"
+    "PromptService",
+    "CharacterAnalysisService"
 ]
