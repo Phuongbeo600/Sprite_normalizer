@@ -5,6 +5,8 @@
 import io
 # os: Đọc biến môi trường hệ thống như GEMINI_API_KEY
 import os
+# Path: Định vị đường dẫn tuyệt đối tới file cấu hình .env ở thư mục gốc
+from pathlib import Path
 # base64: Mã hóa hình ảnh kết quả phân tích sang base64 để hiển thị tức thời trên trình duyệt
 import base64
 # asdict: Chuyển đổi dataclass CharacterMetrics sang dictionary JSON
@@ -15,6 +17,8 @@ from typing import Optional, Dict, Any
 # ========================================================
 # 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
 # ========================================================
+# requests: Gửi HTTP request thử nghiệm kết nối tới Google Generative AI
+import requests
 # fastapi: Framework xây dựng REST API hiệu năng cao
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends
 # Response: Trả về dữ liệu ảnh trực tiếp dưới dạng binary stream
@@ -243,3 +247,127 @@ async def get_prompt_advice(request: PromptAdviceRequest):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lỗi khi sinh Prompt Cố vấn: {str(e)}")
+
+
+# ========================================================
+# HÀM BẢO MẬT & QUẢN LÝ CẤU HÌNH API KEY (.ENV)
+# ========================================================
+def mask_api_key(key: str) -> str:
+    """
+    Rút gọn và che giấu (masking/hashcode) API Key để tránh lộ lọt trên màn hình.
+    Ví dụ: 'AIzaSy1234567890abcdef' -> 'AIzaSy••••••••••••cdef'
+    """
+    if not key:
+        return ""
+    key = key.strip()
+    if len(key) <= 8:
+        return "••••••••"
+    return f"{key[:6]}{'•' * max(6, len(key) - 10)}{key[-4:]}"
+
+
+def save_api_key_to_env(new_key: str):
+    """
+    Lưu khóa API an toàn vào file .env ở thư mục gốc và cập nhật ngay vào biến môi trường hệ thống.
+    """
+    env_path = Path(__file__).resolve().parent.parent.parent / ".env"
+    lines = []
+    found = False
+
+    if env_path.exists():
+        with open(env_path, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+
+    new_lines = []
+    for line in lines:
+        if line.strip().startswith("GEMINI_API_KEY="):
+            new_lines.append(f'GEMINI_API_KEY="{new_key}"\n')
+            found = True
+        else:
+            new_lines.append(line)
+
+    if not found:
+        if new_lines and not new_lines[-1].endswith("\n"):
+            new_lines[-1] += "\n"
+        new_lines.append(f'GEMINI_API_KEY="{new_key}"\n')
+
+    with open(env_path, "w", encoding="utf-8") as f:
+        f.writelines(new_lines)
+
+    # Cập nhật trực tiếp vào bộ nhớ RAM hệ thống
+    os.environ["GEMINI_API_KEY"] = new_key
+
+
+# ========================================================
+# ROUTE CÀI ĐẶT CẤU HÌNH API (SETTINGS)
+# ========================================================
+class SaveApiKeyRequest(BaseModel):
+    api_key: str
+
+
+class TestApiKeyRequest(BaseModel):
+    api_key: Optional[str] = None
+
+
+@api_router.get("/settings")
+async def get_settings():
+    """
+    Đọc trạng thái cấu hình API Key hiện tại.
+    Chỉ trả về chuỗi đã được che giấu (masking) để bảo vệ bản quyền và bảo mật.
+    """
+    key = os.getenv("GEMINI_API_KEY", "")
+    return {
+        "status": "success",
+        "has_key": bool(key.strip()),
+        "masked_key": mask_api_key(key)
+    }
+
+
+@api_router.post("/settings")
+async def save_settings(request: SaveApiKeyRequest):
+    """
+    Lưu Google Gemini API Key mới vào file .env và cập nhật biến môi trường tức thì.
+    """
+    key = request.api_key.strip()
+    if not key:
+        raise HTTPException(status_code=400, detail="Khóa API không được để trống.")
+
+    save_api_key_to_env(key)
+    return {
+        "status": "success",
+        "message": "Đã lưu và cập nhật Google Gemini API Key thành công!",
+        "masked_key": mask_api_key(key)
+    }
+
+
+@api_router.post("/settings/test-key")
+async def test_api_key(request: TestApiKeyRequest):
+    """
+    Gửi request kiểm tra kết nối nhanh tới Google Gemini API xem key có hợp lệ không.
+    """
+    key = (request.api_key or os.getenv("GEMINI_API_KEY", "")).strip()
+    if not key:
+        raise HTTPException(status_code=400, detail="Chưa có API Key để kiểm tra.")
+
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent?key={key}"
+    payload = {
+        "contents": [{"parts": [{"text": "ping"}]}],
+        "generationConfig": {"maxOutputTokens": 5}
+    }
+
+    try:
+        resp = requests.post(url, json=payload, timeout=10)
+        if resp.status_code == 200:
+            return {
+                "status": "success",
+                "message": "Kết nối thành công! Khóa Google Gemini API hoạt động hoàn hảo."
+            }
+        else:
+            return {
+                "status": "error",
+                "message": f"Google Gemini báo lỗi ({resp.status_code}): {resp.text[:120]}"
+            }
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"Lỗi kết nối mạng tới Google API: {str(e)}"
+        }
