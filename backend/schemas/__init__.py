@@ -11,9 +11,29 @@
 # ========================================================
 # 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Pydantic Schemas)
 # ========================================================
+# Schemas hiện có cho Dự án, Cài đặt và Cố vấn Prompt
 from .project import ProjectCreateRequest, ProjectItem, ProjectListResponse
 from .settings import SettingsResponse, SettingsUpdateRequest, TestApiKeyRequest
 from .prompt import PromptAdviceRequest
+# Schema mới cho Phân tích Asset nhân vật tham chiếu AI
+from .character import (
+    IdentityAnalysis,
+    AnatomyAnalysis,
+    PixelStyleAnalysis,
+    MaterialType,
+    MaterialAnalysis,
+    ViewType,
+    DirectionProfile,
+    DirectionAnalysis,
+    AnimationType,
+    AnimationProfile,
+    DirectionAnimation,
+    AnimationAnalysis,
+    GlobalAnalysis,
+    ConsistencyAnalysis,
+    NegativeConstraints,
+    AIAnalysis
+)
 
 # ========================================================
 # 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
@@ -21,11 +41,29 @@ from .prompt import PromptAdviceRequest
 # (Không áp dụng cho file backend)
 
 __all__ = [
+    # Schemas hệ thống hiện tại
     "ProjectCreateRequest",
     "ProjectItem",
     "ProjectListResponse",
     "SettingsResponse",
     "SettingsUpdateRequest",
     "TestApiKeyRequest",
-    "PromptAdviceRequest"
+    "PromptAdviceRequest",
+    # Schemas phân tích nhân vật mới
+    "IdentityAnalysis",
+    "AnatomyAnalysis",
+    "PixelStyleAnalysis",
+    "MaterialType",
+    "MaterialAnalysis",
+    "ViewType",
+    "DirectionProfile",
+    "DirectionAnalysis",
+    "AnimationType",
+    "AnimationProfile",
+    "DirectionAnimation",
+    "AnimationAnalysis",
+    "GlobalAnalysis",
+    "ConsistencyAnalysis",
+    "NegativeConstraints",
+    "AIAnalysis"
 ]
