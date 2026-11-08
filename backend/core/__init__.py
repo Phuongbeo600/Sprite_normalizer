@@ -1,33 +1,33 @@
-"""
-========================================================
-1. THƯ VIỆN NỀN TẢNG PYTHON
-========================================================
-"""
+# ========================================================
+# 1. THƯ VIỆN NỀN TẢNG PYTHON (Khởi tạo package)
+# ========================================================
+# Package core chứa toàn bộ các thuật toán cốt lõi xử lý hình ảnh và giải phẫu
 
-"""
-========================================================
-2. THƯ VIỆN BÊN NGOÀI
-========================================================
-"""
+# ========================================================
+# 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
+# ========================================================
+# (Không có phụ thuộc bên ngoài)
 
-"""
-========================================================
-3. THÀNH PHẦN NỘI BỘ DỰ ÁN
-========================================================
-"""
-# SpriteNormalizer: Bộ chuẩn hóa kích thước và căn lề điểm neo Sprite
+# ========================================================
+# 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Core Modules)
+# ========================================================
+from .character_metrics import CharacterMetrics
+from .masking import BackgroundMaskExtractor
 from .normalizer import SpriteNormalizer
-# CharacterAnalyzer & CharacterMetrics: Bộ phân tích hình học và giải phẫu học cơ thể Sprite
-from .character_analyzer import CharacterAnalyzer, CharacterMetrics
-# AiVisionAnalyzer: Bộ kết nối Google Gemini Vision nhận diện giải phẫu Visual Grounding
-from .ai_vision_analyzer import AiVisionAnalyzer
-# PromptAdvisor: Bộ máy Toán học Nghịch đảo và sinh Prompt AI Pixel Art
-from .prompt_advisor import PromptAdvisor
+from .visual_renderer import AnatomyVisualRenderer
+from .heuristic_analyzer import HeuristicAnalyzer
+from .inverse_scaling import InverseScalingEngine
+
+# ========================================================
+# 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
+# ========================================================
+# (Không áp dụng cho file backend)
 
 __all__ = [
-    "SpriteNormalizer",
-    "CharacterAnalyzer",
     "CharacterMetrics",
-    "AiVisionAnalyzer",
-    "PromptAdvisor"
+    "BackgroundMaskExtractor",
+    "SpriteNormalizer",
+    "AnatomyVisualRenderer",
+    "HeuristicAnalyzer",
+    "InverseScalingEngine"
 ]

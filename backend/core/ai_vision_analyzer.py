@@ -1,161 +1,42 @@
 # ========================================================
-# 1. THƯ VIỆN NỀN TẢNG PYTHON (Hệ thống & Xử lý chuỗi nhị phân)
+# 1. THƯ VIỆN NỀN TẢNG PYTHON (Cấu trúc & Kiểu dữ liệu)
 # ========================================================
-# os: Đọc biến môi trường hệ thống
-import os
-# json: Phân tích cú pháp dữ liệu JSON trả về từ API Google Gemini
-import json
-# base64: Mã hóa hình ảnh sang chuỗi base64 để đính kèm vào payload gửi đi
-import base64
-# io: Xử lý bộ đệm nhị phân dữ liệu ảnh trong bộ nhớ RAM
-import io
-# typing: Định nghĩa các kiểu dữ liệu trả về cho hàm
+# typing: Định nghĩa các kiểu từ điển, tùy chọn, bộ giá trị
 from typing import Dict, Any, Optional, Tuple
 
 # ========================================================
 # 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
 # ========================================================
-# requests: Thư viện gửi HTTP request tới REST API của Google Generative AI
-import requests
-# numpy: Xử lý mảng ma trận pixel đa chiều để thực hiện thuật toán Snap Pixel
-import numpy as np
-# PIL (Pillow): Mở, resize và chuyển đổi định dạng ảnh
+# PIL (Pillow): Thao tác ảnh
 from PIL import Image
+# numpy: Ma trận điểm ảnh
+import numpy as np
 
 # ========================================================
-# 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Internal modules)
+# 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Providers & Services)
 # ========================================================
-# (Không có phụ thuộc nội bộ)
+# AiProviderFactory: Khởi tạo Provider đa hình
+from backend.providers.factory import AiProviderFactory
+# AnatomyService: Dịch vụ giải phẫu học
+from backend.services.anatomy_service import AnatomyService
+
+# ========================================================
+# 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
+# ========================================================
+# (Không áp dụng cho file backend)
 
 
 class AiVisionAnalyzer:
     """
-    Bộ phân tích thị giác máy tính kết nối Google Gemini Vision API (Visual Grounding).
-    
-    Khắc phục triệt để các hạn chế của thuật toán hình học truyền thống:
-    - Nhận diện đúng hộp sọ & khuôn mặt (loại bỏ vũ khí giơ cao, trượng ma thuật, cánh, sừng).
-    - Nhận diện đúng vị trí cổ sinh học (kể cả khi bị che khuất bởi giáp vai to, râu dài hoặc khăn choàng).
-    - Nhận diện đúng điểm hông/háng và điểm tiếp đất của bàn chân.
-    - Hút (Snap) tọa độ chuẩn hóa từ AI vào ma trận Alpha Mask để giữ độ chính xác tuyệt đối.
+    Facade Adapter cung cấp khả năng tương thích ngược cho các lời gọi AiVisionAnalyzer cũ.
+    Toàn bộ logic kết nối API đã được chuyển sang tầng Đa hình (Polymorphism) backend/providers/.
     """
-
-    CANDIDATE_MODELS = [
-        "gemini-flash-lite-latest",
-        "gemini-3.1-flash-lite",
-        "gemini-2.5-flash-lite",
-        "gemini-3.8-flash"
-    ]
-    API_URL_TEMPLATE = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
 
     @classmethod
     def call_gemini_vision(cls, image: Image.Image, api_key: str) -> Dict[str, Any]:
-        """
-        Gửi ảnh Sprite lên Google Gemini Vision kèm cơ chế tự động Fallback qua danh sách Model.
-
-        @param {Image.Image} image Ảnh sprite cần phân tích.
-        @param {str} api_key Khóa Google Gemini API.
-        @returns {Dict[str, Any]} Dữ liệu JSON chứa tọa độ chuẩn hóa (0-1000) của hộp sọ, cổ, hông, đất.
-        """
-        if not api_key or not api_key.strip():
-            raise ValueError("Chưa cấu hình Google Gemini API Key.")
-
-        # Chuẩn bị dữ liệu ảnh base64 gửi đi
-        # Nếu ảnh lớn hơn 512px thì thu nhỏ tạm thời để gửi nhanh hơn (tọa độ tỷ lệ 0-1000 không đổi)
-        buffered = io.BytesIO()
-        image_to_send = image.convert("RGBA")
-        max_dim = max(image_to_send.size)
-        if max_dim > 512:
-            scale_send = 512.0 / max_dim
-            sw = max(1, int(round(image_to_send.width * scale_send)))
-            sh = max(1, int(round(image_to_send.height * scale_send)))
-            image_to_send = image_to_send.resize((sw, sh), Image.Resampling.BILINEAR)
-
-        image_to_send.save(buffered, format="PNG")
-        img_b64 = base64.b64encode(buffered.getvalue()).decode("utf-8")
-
-        prompt = """
-You are an expert in 2D video game pixel art character anatomy, sprite sheets, and character design.
-Analyze the 2D character sprite in this image.
-
-Your task is to segment and detect coordinates normalized from 0 to 1000 [ymin, xmin, ymax, xmax] for BOTH anatomical body parts and non-body parts/accessories:
-
-1. ANATOMICAL BODY PARTS (STRICTLY EXCLUDE weapons, capes, wings, shadows):
-- "head_box": [ymin, xmin, ymax, xmax] enclosing ONLY the actual head, face, and hair/helmet.
-- "torso_box": [ymin, xmin, ymax, xmax] enclosing the torso from neck to crotch/hips (chest, abdomen, waist).
-- "legs_box": [ymin, xmin, ymax, xmax] enclosing the legs and feet from crotch/hips down to ground contact.
-- "neck_y": integer (0-1000) representing the biological neck line junction.
-- "crotch_y": integer (0-1000) representing the hips/crotch line where legs split from torso.
-- "ground_y": integer (0-1000) representing the lowest foot contacting the ground surface.
-
-2. NON-BODY REGIONS / ACCESSORIES (Set to null if not present):
-- "weapon_box": [ymin, xmin, ymax, xmax] or null enclosing held weapons (swords, shields, spears, staves, bows, guns).
-- "cape_wings_box": [ymin, xmin, ymax, xmax] or null enclosing flying capes, loose fabrics, scarves, or wings.
-- "shadow_box": [ymin, xmin, ymax, xmax] or null enclosing contact shadow or aura on the floor beneath feet.
-
-3. ARCHETYPE & NOTES:
-- "character_archetype": short string describing character (e.g. "Knight with greatsword", "Mage", "Monster").
-- "anatomy_notes": short 1-2 sentence assessment in Vietnamese of body proportions vs accessories.
-
-Return ONLY a valid JSON object matching this schema without any markdown surrounding text:
-{
-  "head_box": [ymin, xmin, ymax, xmax],
-  "torso_box": [ymin, xmin, ymax, xmax],
-  "legs_box": [ymin, xmin, ymax, xmax],
-  "weapon_box": [ymin, xmin, ymax, xmax] or null,
-  "cape_wings_box": [ymin, xmin, ymax, xmax] or null,
-  "shadow_box": [ymin, xmin, ymax, xmax] or null,
-  "neck_y": int,
-  "crotch_y": int,
-  "ground_y": int,
-  "character_archetype": str,
-  "anatomy_notes": str
-}
-"""
-
-        payload = {
-            "contents": [
-                {
-                    "parts": [
-                        {"text": prompt.strip()},
-                        {
-                            "inline_data": {
-                                "mime_type": "image/png",
-                                "data": img_b64
-                            }
-                        }
-                    ]
-                }
-            ],
-            "generationConfig": {
-                "response_mime_type": "application/json",
-                "temperature": 0.1
-            }
-        }
-
-        last_error = ""
-        # Thử lần lượt các model trong danh sách fallback
-        for model in cls.CANDIDATE_MODELS:
-            url = cls.API_URL_TEMPLATE.format(model=model, api_key=api_key.strip())
-            try:
-                resp = requests.post(url, json=payload, timeout=20)
-                if resp.status_code == 200:
-                    res_json = resp.json()
-                    raw_text = res_json["candidates"][0]["content"]["parts"][0]["text"].strip()
-                    # Làm sạch markdown json nếu có
-                    if raw_text.startswith("```json"):
-                        raw_text = raw_text[7:]
-                    if raw_text.endswith("```"):
-                        raw_text = raw_text[:-3]
-                    data = json.loads(raw_text.strip())
-                    data["model_used"] = model
-                    return data
-                else:
-                    last_error = f"{model} status {resp.status_code}: {resp.text[:100]}"
-            except Exception as e:
-                last_error = f"{model} error: {str(e)}"
-                continue
-
-        raise RuntimeError(f"Tất cả các Model Gemini Vision đều không phản hồi: {last_error}")
+        """Ủy nhiệm gọi Gemini Vision cho GeminiProvider."""
+        provider = AiProviderFactory.get_provider("gemini")
+        return provider.analyze_vision(image, api_key, AnatomyService.VISION_PROMPT)
 
     @classmethod
     def call_openai_vision(
@@ -164,114 +45,9 @@ Return ONLY a valid JSON object matching this schema without any markdown surrou
         api_key: str,
         base_url: str = "https://api.openai.com/v1"
     ) -> Dict[str, Any]:
-        """
-        Gửi ảnh Sprite lên OpenAI ChatGPT (GPT-4o / GPT-4o-mini Vision) để phân tích giải phẫu học.
-
-        @param {Image.Image} image Ảnh sprite cần phân tích.
-        @param {str} api_key Khóa OpenAI API (ChatGPT).
-        @param {str} base_url Địa chỉ máy chủ API (mặc định https://api.openai.com/v1 hoặc URL Proxy).
-        @returns {Dict[str, Any]} Dữ liệu JSON chứa tọa độ chuẩn hóa (0-1000) của hộp sọ, cổ, hông, đất.
-        """
-        if not api_key or not api_key.strip():
-            raise ValueError("Chưa cấu hình OpenAI API Key (ChatGPT).")
-
-        buffered = io.BytesIO()
-        image_to_send = image.convert("RGBA")
-        max_dim = max(image_to_send.size)
-        if max_dim > 512:
-            scale_send = 512.0 / max_dim
-            sw = max(1, int(round(image_to_send.width * scale_send)))
-            sh = max(1, int(round(image_to_send.height * scale_send)))
-            image_to_send = image_to_send.resize((sw, sh), Image.Resampling.BILINEAR)
-
-        image_to_send.save(buffered, format="PNG")
-        img_b64 = base64.b64encode(buffered.getvalue()).decode("utf-8")
-
-        prompt = """
-You are an expert in 2D video game pixel art character anatomy, sprite sheets, and character design.
-Analyze the 2D character sprite in this image.
-
-Your task is to segment and detect coordinates normalized from 0 to 1000 [ymin, xmin, ymax, xmax] for BOTH anatomical body parts and non-body parts/accessories:
-
-1. ANATOMICAL BODY PARTS (STRICTLY EXCLUDE weapons, capes, wings, shadows):
-- "head_box": [ymin, xmin, ymax, xmax] enclosing ONLY the actual head, face, and hair/helmet.
-- "torso_box": [ymin, xmin, ymax, xmax] enclosing the torso from neck to crotch/hips (chest, abdomen, waist).
-- "legs_box": [ymin, xmin, ymax, xmax] enclosing the legs and feet from crotch/hips down to ground contact.
-- "neck_y": integer (0-1000) representing the biological neck line junction.
-- "crotch_y": integer (0-1000) representing the hips/crotch line where legs split from torso.
-- "ground_y": integer (0-1000) representing the lowest foot contacting the ground surface.
-
-2. NON-BODY REGIONS / ACCESSORIES (Set to null if not present):
-- "weapon_box": [ymin, xmin, ymax, xmax] or null enclosing held weapons (swords, shields, spears, staves, bows, guns).
-- "cape_wings_box": [ymin, xmin, ymax, xmax] or null enclosing flying capes, loose fabrics, scarves, or wings.
-- "shadow_box": [ymin, xmin, ymax, xmax] or null enclosing contact shadow or aura on the floor beneath feet.
-
-3. ARCHETYPE & NOTES:
-- "character_archetype": short string describing character (e.g. "Knight with greatsword", "Mage", "Monster").
-- "anatomy_notes": short 1-2 sentence assessment in Vietnamese of body proportions vs accessories.
-
-Return ONLY a valid JSON object matching this schema:
-{
-  "head_box": [ymin, xmin, ymax, xmax],
-  "torso_box": [ymin, xmin, ymax, xmax],
-  "legs_box": [ymin, xmin, ymax, xmax],
-  "weapon_box": [ymin, xmin, ymax, xmax] or null,
-  "cape_wings_box": [ymin, xmin, ymax, xmax] or null,
-  "shadow_box": [ymin, xmin, ymax, xmax] or null,
-  "neck_y": int,
-  "crotch_y": int,
-  "ground_y": int,
-  "character_archetype": str,
-  "anatomy_notes": str
-}
-"""
-        clean_base = base_url.rstrip("/")
-        url = f"{clean_base}/chat/completions"
-        headers = {
-            "Authorization": f"Bearer {api_key.strip()}",
-            "Content-Type": "application/json"
-        }
-
-        # Danh sách model OpenAI ưu tiên
-        candidate_models = ["gpt-4o-mini", "gpt-4o", "chatgpt-4o-latest"]
-        last_error = ""
-
-        for model in candidate_models:
-            payload = {
-                "model": model,
-                "response_format": {"type": "json_object"},
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": [
-                            {"type": "text", "text": prompt.strip()},
-                            {
-                                "type": "image_url",
-                                "image_url": {
-                                    "url": f"data:image/png;base64,{img_b64}"
-                                }
-                            }
-                        ]
-                    }
-                ],
-                "temperature": 0.1
-            }
-
-            try:
-                resp = requests.post(url, json=payload, headers=headers, timeout=25)
-                if resp.status_code == 200:
-                    res_json = resp.json()
-                    raw_text = res_json["choices"][0]["message"]["content"].strip()
-                    data = json.loads(raw_text)
-                    data["model_used"] = f"OpenAI {model}"
-                    return data
-                else:
-                    last_error = f"{model} status {resp.status_code}: {resp.text[:100]}"
-            except Exception as e:
-                last_error = f"{model} error: {str(e)}"
-                continue
-
-        raise RuntimeError(f"OpenAI ChatGPT Vision không phản hồi: {last_error}")
+        """Ủy nhiệm gọi OpenAI Vision cho OpenAiProvider."""
+        provider = AiProviderFactory.get_provider("openai")
+        return provider.analyze_vision(image, api_key, AnatomyService.VISION_PROMPT, base_url=base_url)
 
     @classmethod
     def snap_and_denormalize(
@@ -280,142 +56,22 @@ Return ONLY a valid JSON object matching this schema:
         image_size: Tuple[int, int],
         mask: np.ndarray
     ) -> Dict[str, Any]:
-        """
-        Quy đổi tọa độ chuẩn hóa (0-1000) từ AI Vision (Gemini / GPT-4o) thành tọa độ Pixel thật trên ảnh.
-        Kết hợp thuật toán Snap (Hút Pixel) trên Alpha Mask để đạt độ chuẩn xác 100%,
-        tách biệt rõ ràng giữa vùng cơ thể giải phẫu học và vùng phụ kiện (vũ khí, áo choàng, bóng).
-
-        @param {Dict[str, Any]} ai_data Dữ liệu giải phẫu trả về từ AI.
-        @param {Tuple[int, int]} image_size Kích thước thực tế của ảnh (width, height).
-        @param {np.ndarray} mask Ma trận boolean của nhân vật.
-        @returns {Dict[str, Any]} Tọa độ pixel thật đã được snap chính xác.
-        """
-        w, h = image_size
-
-        def _denorm_box(raw_box: Optional[Any]) -> Optional[Tuple[int, int, int, int]]:
-            """Hàm phụ trợ chuyển đổi danh sách [ymin, xmin, ymax, xmax] từ thang 0-1000 sang pixel thật."""
-            if not raw_box or not isinstance(raw_box, (list, tuple)) or len(raw_box) < 4:
-                return None
-            try:
-                ymin = max(0, min(h - 1, int(round(float(raw_box[0]) / 1000.0 * h))))
-                xmin = max(0, min(w - 1, int(round(float(raw_box[1]) / 1000.0 * w))))
-                ymax = max(ymin + 1, min(h - 1, int(round(float(raw_box[2]) / 1000.0 * h))))
-                xmax = max(xmin + 1, min(w - 1, int(round(float(raw_box[3]) / 1000.0 * w))))
-                return (ymin, xmin, ymax, xmax)
-            except (ValueError, TypeError):
-                return None
-
-        # 1. Đổi tọa độ các bộ phận cơ thể sang pixel thực tế
-        raw_head_box = ai_data.get("head_box", [100, 200, 400, 600])
-        head_ymin_px = int(round(raw_head_box[0] / 1000.0 * h))
-        head_xmin_px = int(round(raw_head_box[1] / 1000.0 * w))
-        head_ymax_px = int(round(raw_head_box[2] / 1000.0 * h))
-        head_xmax_px = int(round(raw_head_box[3] / 1000.0 * w))
-
-        neck_raw_px = int(round(ai_data.get("neck_y", 350) / 1000.0 * h))
-        crotch_raw_px = int(round(ai_data.get("crotch_y", 650) / 1000.0 * h))
-        ground_raw_px = int(round(ai_data.get("ground_y", 950) / 1000.0 * h))
-
-        # Giới hạn trong kích thước ảnh hợp lệ
-        head_ymin_px = max(0, min(h - 1, head_ymin_px))
-        head_ymax_px = max(head_ymin_px + 1, min(h - 1, head_ymax_px))
-        head_xmin_px = max(0, min(w - 1, head_xmin_px))
-        head_xmax_px = max(head_xmin_px + 1, min(w - 1, head_xmax_px))
-
-        # 2. Đổi tọa độ các vùng phụ kiện và không phải cơ thể
-        torso_box_px = _denorm_box(ai_data.get("torso_box"))
-        legs_box_px = _denorm_box(ai_data.get("legs_box"))
-        weapon_box_px = _denorm_box(ai_data.get("weapon_box"))
-        cape_wings_box_px = _denorm_box(ai_data.get("cape_wings_box"))
-        shadow_box_px = _denorm_box(ai_data.get("shadow_box"))
-
-        # 3. Thuật toán Snap vào Pixel Mask thực tế
-        y_indices, x_indices = np.where(mask)
-
-        if len(y_indices) > 0:
-            char_y_min, char_y_max = int(y_indices.min()), int(y_indices.max())
-            char_x_min, char_x_max = int(x_indices.min()), int(x_indices.max())
-
-            # Bàn chân tiếp đất thật: Nếu có shadow_box thì loại trừ vùng bóng ra khỏi chân
-            if shadow_box_px is not None:
-                shadow_ymin = shadow_box_px[0]
-                # Nếu bóng nằm ở đáy, điểm tiếp đất thực sự là đáy chân ngay trên bóng
-                feet_y_indices = y_indices[y_indices <= max(char_y_min + 5, shadow_ymin)]
-                if len(feet_y_indices) > 0:
-                    ground_snapped_px = int(feet_y_indices.max())
-                else:
-                    ground_snapped_px = min(char_y_max, ground_raw_px)
-            else:
-                ground_snapped_px = char_y_max
-
-            # Đỉnh đầu cao nhất có pixel của cơ thể (loại trừ nếu vũ khí giơ cao hơn đỉnh đầu)
-            true_top_y = char_y_min
-            # Nếu vũ khí giơ cao hơn đầu, head_ymin_px vẫn giữ theo AI nhận diện để không bị kéo lên đỉnh vũ khí
-            if weapon_box_px is not None and weapon_box_px[0] < head_ymin_px:
-                # Đỉnh đầu được giữ đúng vùng đầu sinh học
-                head_ymin_px = max(true_top_y, head_ymin_px)
-            else:
-                head_ymin_px = min(head_ymin_px, true_top_y)
-
-            # Snap Neck Y: Tìm dòng có bề ngang thắt hẹp nhất quanh bán kính neck_raw_px
-            search_start = max(char_y_min + 2, neck_raw_px - 4)
-            search_end = min(char_y_max - 2, neck_raw_px + 4)
-
-            if search_end > search_start:
-                widths = []
-                for y in range(search_start, search_end + 1):
-                    xs = np.where(mask[y, :])[0]
-                    widths.append(len(xs) if len(xs) > 0 else 9999)
-                min_w_idx = int(np.argmin(widths))
-                neck_snapped_px = search_start + min_w_idx
-            else:
-                neck_snapped_px = max(char_y_min + 1, min(char_y_max - 1, neck_raw_px))
-
-            # Snap Head Box: Đảm bảo nằm trong vùng có pixel thực của đầu
-            head_pixels_y, head_pixels_x = np.where(mask[head_ymin_px:neck_snapped_px + 1, :])
-            if len(head_pixels_x) > 0:
-                snapped_h_xmin = max(char_x_min, head_xmin_px)
-                snapped_h_xmax = min(char_x_max, head_xmax_px)
-                if snapped_h_xmax <= snapped_h_xmin:
-                    snapped_h_xmin = int(head_pixels_x.min())
-                    snapped_h_xmax = int(head_pixels_x.max())
-            else:
-                snapped_h_xmin = head_xmin_px
-                snapped_h_xmax = head_xmax_px
-
-            # Snap Crotch Y (Háng/Hông)
-            crotch_search_start = max(neck_snapped_px + 2, crotch_raw_px - 5)
-            crotch_search_end = min(char_y_max - 2, crotch_raw_px + 5)
-            crotch_snapped_px = crotch_raw_px
-            if crotch_search_end > crotch_search_start:
-                counts = []
-                for y in range(crotch_search_start, crotch_search_end + 1):
-                    xs = np.where(mask[y, :])[0]
-                    counts.append(len(xs) if len(xs) > 0 else 9999)
-                crotch_snapped_px = crotch_search_start + int(np.argmin(counts))
-            else:
-                crotch_snapped_px = max(neck_snapped_px + 2, min(char_y_max - 1, crotch_raw_px))
-
-        else:
-            ground_snapped_px = ground_raw_px
-            neck_snapped_px = neck_raw_px
-            crotch_snapped_px = crotch_raw_px
-            snapped_h_xmin = head_xmin_px
-            snapped_h_xmax = head_xmax_px
-
+        """Ủy nhiệm thuật toán Snap Pixel cho AnatomyService."""
+        dummy_img = Image.new("RGBA", image_size)
+        metrics = AnatomyService._snap_and_build_metrics(ai_data, dummy_img, mask)
         return {
-            "neck_y": neck_snapped_px,
-            "crotch_y": crotch_snapped_px,
-            "ground_y": ground_snapped_px,
-            "head_x_min": snapped_h_xmin,
-            "head_x_max": snapped_h_xmax,
-            "head_y_min": head_ymin_px,
-            "head_y_max": neck_snapped_px,
-            "torso_box": torso_box_px,
-            "legs_box": legs_box_px,
-            "weapon_box": weapon_box_px,
-            "cape_wings_box": cape_wings_box_px,
-            "shadow_box": shadow_box_px,
-            "character_archetype": ai_data.get("character_archetype", "Sprite Character"),
-            "anatomy_notes": ai_data.get("anatomy_notes", "Đo bằng AI Vision thành công.")
+            "neck_y": metrics.neck_y,
+            "crotch_y": metrics.crotch_y,
+            "ground_y": metrics.ground_y,
+            "head_x_min": metrics.head_x_min,
+            "head_x_max": metrics.head_x_max,
+            "head_y_min": metrics.head_y_min,
+            "head_y_max": metrics.head_y_max,
+            "torso_box": metrics.torso_box,
+            "legs_box": metrics.legs_box,
+            "weapon_box": metrics.weapon_box,
+            "cape_wings_box": metrics.cape_wings_box,
+            "shadow_box": metrics.shadow_box,
+            "character_archetype": metrics.style_category,
+            "anatomy_notes": metrics.ai_feedback or ""
         }
