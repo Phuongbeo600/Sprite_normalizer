@@ -122,12 +122,13 @@ async def normalize_sprite(
 async def analyze_character(
     file: UploadFile = File(...),
     api_key: Optional[str] = Form(None),
-    auto_remove_bg: bool = Form(True)
+    auto_remove_bg: bool = Form(True),
+    use_ai: bool = Form(False)
 ):
     """
     Phân tích tỷ lệ giải phẫu học của Sprite:
     - Tự động nhận diện đầu, thân, cổ, hông, mặt đất tiếp xúc.
-    - Hỗ trợ kết hợp AI Gemini Vision (nếu có API Key trong form hoặc biến môi trường).
+    - Hỗ trợ kết hợp AI Gemini Vision (nếu bật use_ai và có API Key trong form hoặc biến môi trường).
     - Vẽ trực quan các hộp bounding box giải phẫu và trả về ảnh Base64.
     """
     if not file.content_type.startswith("image/"):
@@ -137,7 +138,8 @@ async def analyze_character(
         contents = await file.read()
         image = Image.open(io.BytesIO(contents))
 
-        effective_key = api_key or os.getenv("GEMINI_API_KEY")
+        # Chỉ sử dụng API Key khi người dùng bật cờ use_ai
+        effective_key = (api_key or os.getenv("GEMINI_API_KEY")) if use_ai else None
 
         metrics, message = CharacterAnalyzer.analyze_with_ai(
             image_or_path=image,

@@ -96,6 +96,7 @@ export default function ProjectAnalysis() {
     const formData = new FormData();
     formData.append('file', reference.file);
     formData.append('auto_remove_bg', 'true');
+    formData.append('use_ai', useGemini ? 'true' : 'false');
 
     try {
       const response = await fetch('/api/analyze', {
