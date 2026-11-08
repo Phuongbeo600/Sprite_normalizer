@@ -1,26 +1,95 @@
-import React, { useState } from 'react';
+// ========================================================
+// 1. THƯ VIỆN NỀN TẢNG REACT
+// ========================================================
+// React dựng giao diện, useState giữ danh sách và useEffect tải dữ liệu.
+import React, { useEffect, useState } from 'react';
+
+// ========================================================
+// 2. THƯ VIỆN BÊN NGOÀI
+// ========================================================
+
+// ========================================================
+// 3. THÀNH PHẦN NỘI BỘ DỰ ÁN
+// ========================================================
+// Thanh nút tạo và nhập dự án.
 import ActionBar from '../components/projects/ActionBar';
+// Dòng hiển thị một dự án và cho phép mở dự án đó.
 import ProjectRow from '../components/projects/ProjectRow';
-import { INITIAL_PROJECTS } from '../constants/initialProjects';
+
+// ========================================================
+// 4. ĐỊNH DẠNG GIAO DIỆN VÀ MÀU SẮC
+// ========================================================
 
 /**
- * PROJECTS PAGE (Bản Tinh Giản)
+ * Hiển thị danh sách dự án do máy chủ cung cấp.
+ * @param {object} props Thuộc tính của màn hình dự án.
+ * @param {Function} props.onOpenProject Hàm nhận dự án được chọn để mở.
+ * @returns {React.ReactElement} Giao diện danh sách và các nút thao tác.
  */
 export default function Projects({ onOpenProject }) {
-  const [projects, setProjects] = useState(INITIAL_PROJECTS);
+  const [projects, setProjects] = useState([]);
 
-  const handleCreateProject = () => {
-    const name = prompt('Nhập tên dự án mới:', 'Dự án Sprite mới');
+  useEffect(() => {
+    const controller = new AbortController();
+
+    /** @returns {Promise<void>} Cập nhật danh sách sau khi tải từ máy chủ. */
+    async function loadProjects() {
+      try {
+        const response = await fetch('/api/projects', { signal: controller.signal });
+        if (!response.ok) {
+          throw new Error('Không tải được danh sách dự án.');
+        }
+
+        const { data } = await response.json();
+        if (controller.signal.aborted) return;
+
+        // Giữ các dự án vừa tạo nếu yêu cầu tải danh sách vẫn đang chạy.
+        const loadedIds = new Set(data.map((project) => project.id));
+        setProjects((currentProjects) => [
+          ...currentProjects.filter((project) => !loadedIds.has(project.id)),
+          ...data,
+        ]);
+      } catch {
+        if (!controller.signal.aborted) {
+          alert('Không tải được danh sách dự án. Hãy kiểm tra máy chủ rồi tải lại trang.');
+        }
+      }
+    }
+
+    loadProjects();
+    return () => controller.abort();
+  }, []);
+
+  /** @returns {Promise<void>} Thêm dự án vào danh sách sau khi máy chủ lưu thành công. */
+  const handleCreateProject = async () => {
+    const name = prompt('Nhập tên dự án mới:', 'Dự án Sprite mới')?.trim();
     if (!name) return;
 
-    const newProj = {
-      id: `proj_${Date.now()}`,
-      name: name,
-      statusText: 'Vừa tạo',
-    };
-    setProjects([newProj, ...projects]);
+    if (Array.from(name).length > 255) {
+      alert('Tên dự án chỉ được dài tối đa 255 ký tự.');
+      return;
+    }
+
+    const body = new FormData();
+    body.append('name', name);
+
+    try {
+      const response = await fetch('/api/projects', { method: 'POST', body });
+      if (!response.ok) {
+        throw new Error('Không tạo được dự án.');
+      }
+
+      const { data } = await response.json();
+      setProjects((currentProjects) => [
+        data,
+        ...currentProjects.filter((project) => project.id !== data.id),
+      ]);
+    } catch {
+      alert('Không xác nhận được dự án đã lưu. Hãy tải lại danh sách trước khi thử lại.');
+    }
   };
 
+  /** @returns {void} Hiện thông báo về thao tác nhập thư mục dự án. */
   const handleImportProject = () => {
     alert('Tính năng: Chọn thư mục sprite để nhập dự án.');
   };
