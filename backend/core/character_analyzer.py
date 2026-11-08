@@ -74,9 +74,15 @@ class CharacterMetrics:
     style_category: str             # "Chibi Lùn (2.0 - 2.5 đầu)", "Semi-Chibi (3.0 - 4.0 đầu)", "Dáng Thật (5.0+ đầu)"
     summary_text: str               # Tóm tắt nhanh bằng tiếng Việt
 
-    # Phân đoạn chi tiết bổ sung AI
+    # Phân đoạn chi tiết bổ sung AI và các vùng ngoại vi
     crotch_y: Optional[int] = None
     ground_y: Optional[int] = None
+    anatomical_height: Optional[int] = None                     # Chiều cao cơ thể thuần (đỉnh đầu đến gót chân, loại bỏ vũ khí & bóng)
+    torso_box: Optional[Tuple[int, int, int, int]] = None       # [ymin, xmin, ymax, xmax] pixel thật của thân trên
+    legs_box: Optional[Tuple[int, int, int, int]] = None        # [ymin, xmin, ymax, xmax] pixel thật của chân
+    weapon_box: Optional[Tuple[int, int, int, int]] = None      # [ymin, xmin, ymax, xmax] pixel thật của vũ khí
+    cape_wings_box: Optional[Tuple[int, int, int, int]] = None  # [ymin, xmin, ymax, xmax] pixel thật của áo choàng/cánh
+    shadow_box: Optional[Tuple[int, int, int, int]] = None      # [ymin, xmin, ymax, xmax] pixel thật của bóng chân
     detection_source: str = "Heuristic (Toán học)"
     ai_feedback: Optional[str] = None
 
@@ -349,6 +355,17 @@ class CharacterAnalyzer:
                 head_w = max(1, head_x_max - head_x_min + 1)
                 head_h = max(1, head_y_max - head_y_min + 1)
 
+                torso_box = snapped.get("torso_box")
+                legs_box = snapped.get("legs_box")
+                weapon_box = snapped.get("weapon_box")
+                cape_wings_box = snapped.get("cape_wings_box")
+                shadow_box = snapped.get("shadow_box")
+
+                # Chiều cao sinh học thuần (Anatomical height):
+                # Tính từ đỉnh đầu đến gót chân tiếp đất (ground_y),
+                # loại bỏ hoàn toàn chiều cao của vũ khí giơ cao hoặc bóng đổ dưới sàn
+                anatomical_h = max(1, ground_y - head_y_min + 1)
+
                 body_x_min = x_min
                 body_x_max = x_max
                 body_y_min = neck_y + 1
@@ -359,8 +376,9 @@ class CharacterAnalyzer:
                 torso_h = max(1, crotch_y - neck_y) if crotch_y > neck_y else body_h
                 torso_w = body_w
 
-                head_ratio = head_h / max(vis_h, 1)
-                heads_tall = vis_h / max(head_h, 1)
+                # Tỷ lệ đầu/thân tính theo cơ thể sinh học thuần (loại trừ vũ khí/bóng)
+                head_ratio = head_h / max(anatomical_h, 1)
+                heads_tall = anatomical_h / max(head_h, 1)
                 head_to_body_w = head_w / max(body_w, 1)
                 body_aspect = body_w / max(body_h, 1)
 
@@ -373,14 +391,32 @@ class CharacterAnalyzer:
 
                 archetype = snapped.get("character_archetype", "Character Sprite")
                 notes = snapped.get("anatomy_notes", "")
-                model_used = ai_data.get("model_used", "Gemini Flash")
+                model_used = ai_data.get("model_used", "AI Vision")
+
+                # Liệt kê các vùng ngoại vi phát hiện được
+                accessories_found = []
+                if weapon_box:
+                    wb_w = weapon_box[3] - weapon_box[1] + 1
+                    wb_h = weapon_box[2] - weapon_box[0] + 1
+                    accessories_found.append(f"Vũ khí ({wb_w}x{wb_h}px)")
+                if cape_wings_box:
+                    cb_w = cape_wings_box[3] - cape_wings_box[1] + 1
+                    cb_h = cape_wings_box[2] - cape_wings_box[0] + 1
+                    accessories_found.append(f"Áo choàng/Cánh ({cb_w}x{cb_h}px)")
+                if shadow_box:
+                    sb_w = shadow_box[3] - shadow_box[1] + 1
+                    sb_h = shadow_box[2] - shadow_box[0] + 1
+                    accessories_found.append(f"Bóng sàn ({sb_w}x{sb_h}px)")
+
+                acc_desc = " | ".join(accessories_found) if accessories_found else "Không phát hiện phụ kiện thừa"
 
                 summary = (
-                    f"✨ [NGUỒN PHÂN TÍCH: AI GEMINI VISION ({model_used})]\n"
+                    f"✨ [NGUỒN PHÂN TÍCH: AI VISION ({model_used})]\n"
                     f"Archetype: {archetype} | Phong cách: {style_cat}\n"
-                    f"Kích thước hiển thị: {vis_w}x{vis_h} px (Canvas: {canvas_w}x{canvas_h} px)\n"
-                    f"Đầu (Đã lọc vũ khí & khoảng trống): {head_w}x{head_h} px ({head_ratio*100:.1f}%, 1:{heads_tall:.1f} đầu)\n"
-                    f"Ranh giới Cổ: y={neck_y} px  |  Háng: y={crotch_y} px  |  Đất: y={ground_y} px\n"
+                    f"Chiều cao cơ thể thuần: {anatomical_h} px (Ảnh hiển thị: {vis_w}x{vis_h} px, Canvas: {canvas_w}x{canvas_h} px)\n"
+                    f"Đầu sinh học: {head_w}x{head_h} px (Chiếm {head_ratio*100:.1f}% cơ thể, chuẩn 1:{heads_tall:.1f} đầu)\n"
+                    f"Ranh giới Cổ: y={neck_y} px  |  Háng: y={crotch_y} px  |  Chân chạm đất: y={ground_y} px\n"
+                    f"Vùng ngoại vi (Đã loại trừ khỏi tỷ lệ): {acc_desc}\n"
                     f"Nhận định AI: {notes}"
                 )
 
@@ -416,7 +452,13 @@ class CharacterAnalyzer:
                     summary_text=summary,
                     crotch_y=crotch_y,
                     ground_y=ground_y,
-                    detection_source=f"Gemini Vision ({model_used})",
+                    anatomical_height=anatomical_h,
+                    torso_box=torso_box,
+                    legs_box=legs_box,
+                    weapon_box=weapon_box,
+                    cape_wings_box=cape_wings_box,
+                    shadow_box=shadow_box,
+                    detection_source=f"AI Vision ({model_used})",
                     ai_feedback=notes
                 )
                 return metrics, "Phân tích AI Vision thành công!"
@@ -437,7 +479,10 @@ class CharacterAnalyzer:
     @classmethod
     def draw_annotated_image(cls, image: Image.Image, metrics: CharacterMetrics, scale: int = 1) -> Image.Image:
         """
-        Vẽ overlay trực quan đánh dấu vùng Đầu (Cyan), Thân (Cam), Cổ (Vàng), Háng (Hồng) và Mặt đất (Xanh lá).
+        Vẽ overlay trực quan đánh dấu phân biệt:
+        - Vùng cơ thể sinh học: Đầu (Cyan), Thân (Cam), Chân (Tím) - Đường viền nét liền (Solid lines).
+        - Ranh giới giải phẫu: Cổ (Vàng), Háng (Hồng), Chân tiếp đất (Xanh lá).
+        - Vùng ngoại vi: Vũ khí (Vàng nét đứt), Áo choàng/Cánh (Hồng nét đứt), Bóng đổ (Xám nét đứt).
 
         @param {Image.Image} image Ảnh sprite gốc.
         @param {CharacterMetrics} metrics Dữ liệu giải phẫu học cần vẽ.
@@ -464,29 +509,81 @@ class CharacterAnalyzer:
         neck_y = (metrics.neck_y + 1) * s
         line_w = max(1, 2 * s // 4)
 
-        # 1. Vẽ hộp Đầu (Cyan)
+        def draw_dashed_rect(x0, y0, x1, y1, color, dash_len=4, width=1):
+            """Hàm phụ trợ vẽ hình chữ nhật viền đứt nét (Dashed Rectangle) cho các vùng ngoại vi."""
+            dash_step = max(2, dash_len * 2)
+            # Cạnh ngang trên & dưới
+            for x in range(int(x0), int(x1), dash_step):
+                seg_end = min(x + dash_len, int(x1))
+                draw.line([(x, y0), (seg_end, y0)], fill=color, width=width)
+                draw.line([(x, y1), (seg_end, y1)], fill=color, width=width)
+            # Cạnh dọc trái & phải
+            for y in range(int(y0), int(y1), dash_step):
+                seg_end = min(y + dash_len, int(y1))
+                draw.line([(x0, y), (x0, seg_end)], fill=color, width=width)
+                draw.line([(x1, y), (x1, seg_end)], fill=color, width=width)
+
+        # 1. Vẽ hộp Đầu sinh học (Cyan nét liền)
         draw.rectangle([hx0, hy0, hx1, hy1], outline=(0, 230, 255, 230), width=line_w)
         draw.rectangle([hx0, hy0, hx1, hy1], fill=(0, 200, 255, 40))
         draw.text((hx0 + 3, hy0 + 2), f"HEAD: {metrics.head_width}x{metrics.head_height}", fill=(0, 240, 255, 255), font=font)
 
-        # 2. Vẽ hộp Thân (Cam)
-        draw.rectangle([bx0, by0, bx1, by1], outline=(255, 140, 0, 210), width=line_w)
-        draw.rectangle([bx0, by0, bx1, by1], fill=(255, 120, 0, 35))
+        # 2. Vẽ hộp Thân trên (Cam nét liền)
+        if metrics.torso_box:
+            ty0, tx0, ty1, tx1 = [c * s for c in metrics.torso_box]
+            draw.rectangle([tx0, ty0, tx1, ty1], outline=(255, 140, 0, 210), width=line_w)
+            draw.rectangle([tx0, ty0, tx1, ty1], fill=(255, 120, 0, 35))
+            draw.text((tx0 + 3, ty0 + 2), "TORSO", fill=(255, 150, 0, 255), font=font)
+        else:
+            crotch_bound = (metrics.crotch_y + 1) * s if metrics.crotch_y else by1
+            draw.rectangle([bx0, by0, bx1, crotch_bound], outline=(255, 140, 0, 210), width=line_w)
+            draw.rectangle([bx0, by0, bx1, crotch_bound], fill=(255, 120, 0, 35))
+            draw.text((bx0 + 3, by0 + 2), "TORSO", fill=(255, 150, 0, 255), font=font)
 
-        # 3. Vẽ đường ranh giới Cổ (Vàng rực)
+        # 3. Vẽ hộp Chân (Tím nét liền) nếu có tọa độ
+        if metrics.legs_box:
+            ly0, lx0, ly1, lx1 = [c * s for c in metrics.legs_box]
+            draw.rectangle([lx0, ly0, lx1, ly1], outline=(186, 85, 211, 220), width=line_w)
+            draw.rectangle([lx0, ly0, lx1, ly1], fill=(186, 85, 211, 30))
+            draw.text((lx0 + 3, ly0 + 2), "LEGS", fill=(210, 120, 240, 255), font=font)
+        elif metrics.crotch_y is not None:
+            cy_start = (metrics.crotch_y + 1) * s
+            g_end = (metrics.ground_y + 1) * s if metrics.ground_y else by1
+            if g_end > cy_start:
+                draw.rectangle([bx0, cy_start, bx1, g_end], outline=(186, 85, 211, 200), width=line_w)
+                draw.rectangle([bx0, cy_start, bx1, g_end], fill=(186, 85, 211, 25))
+                draw.text((bx0 + 3, cy_start + 2), "LEGS", fill=(210, 120, 240, 255), font=font)
+
+        # 4. Vẽ các vùng ngoại vi (Vũ khí, Áo choàng/Cánh, Bóng chân) - Nét đứt (Dashed)
+        if metrics.weapon_box:
+            wy0, wx0, wy1, wx1 = [c * s for c in metrics.weapon_box]
+            draw_dashed_rect(wx0, wy0, wx1, wy1, color=(255, 215, 0, 230), dash_len=max(3, s * 2), width=line_w)
+            draw.text((wx0 + 2, max(0, wy0 - 10)), "[WEAPON]", fill=(255, 215, 0, 255), font=font)
+
+        if metrics.cape_wings_box:
+            cy0, cx0, cy1, cx1 = [c * s for c in metrics.cape_wings_box]
+            draw_dashed_rect(cx0, cy0, cx1, cy1, color=(255, 105, 180, 210), dash_len=max(3, s * 2), width=line_w)
+            draw.text((cx0 + 2, max(0, cy0 - 10)), "[CAPE/WINGS]", fill=(255, 105, 180, 255), font=font)
+
+        if metrics.shadow_box:
+            sy0, sx0, sy1, sx1 = [c * s for c in metrics.shadow_box]
+            draw_dashed_rect(sx0, sy0, sx1, sy1, color=(160, 160, 160, 200), dash_len=max(3, s * 2), width=line_w)
+            draw.text((sx0 + 2, max(0, sy0 - 10)), "[SHADOW (LỌC BỎ)]", fill=(180, 180, 180, 255), font=font)
+
+        # 5. Vẽ đường ranh giới Cổ (Vàng rực)
         draw.line([(0, neck_y), (base.width, neck_y)], fill=(255, 255, 0, 240), width=line_w)
         draw.text((4, max(0, neck_y - 12)), f"NECK: y={metrics.neck_y}", fill=(255, 255, 0, 255), font=font)
 
-        # 4. Vẽ đường Hông/Háng (Hồng Magenta) nếu có
+        # 6. Vẽ đường Hông/Háng (Hồng Magenta)
         if metrics.crotch_y is not None:
             crotch_y = (metrics.crotch_y + 1) * s
             draw.line([(0, crotch_y), (base.width, crotch_y)], fill=(255, 105, 180, 220), width=line_w)
             draw.text((4, max(0, crotch_y - 12)), f"CROTCH: y={metrics.crotch_y}", fill=(255, 120, 200, 255), font=font)
 
-        # 5. Vẽ đường Mặt đất (Xanh lá Neon)
+        # 7. Vẽ đường Mặt đất tiếp xúc (Xanh lá Neon)
         ground_y = (metrics.ground_y + 1) * s if metrics.ground_y is not None else by1
         draw.line([(0, ground_y), (base.width, ground_y)], fill=(50, 255, 100, 230), width=max(1, line_w + 1))
         draw.text((4, max(0, ground_y - 12)), f"GROUND: y={metrics.ground_y if metrics.ground_y is not None else metrics.visible_y_max}", fill=(80, 255, 120, 255), font=font)
 
-        # 6. Ghép lớp overlay vào ảnh gốc
+        # 8. Ghép lớp overlay vào ảnh gốc
         return Image.alpha_composite(base, overlay)

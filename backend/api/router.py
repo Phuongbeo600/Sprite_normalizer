@@ -91,10 +91,12 @@ async def normalize_sprite(
     file: UploadFile = File(...),
     target_width: int = Form(64),
     target_height: int = Form(64),
-    anchor: str = Form("bottom_center")
+    anchor: str = Form("bottom_center"),
+    ground_y: Optional[int] = Form(None)
 ):
     """
     Nhận 1 ảnh sprite, thực hiện chuẩn hóa biên và căn lề qua thuật toán core (MVC).
+    Hỗ trợ căn chỉnh thông minh theo mốc chân tiếp đất sinh học (ground_y) do AI phát hiện.
     """
     if not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="File tải lên phải là định dạng hình ảnh.")
@@ -108,7 +110,7 @@ async def normalize_sprite(
             target_height=target_height,
             anchor=anchor
         )
-        normalized = normalizer.normalize_frame(image)
+        normalized = normalizer.normalize_frame(image, ground_y=ground_y)
 
         out_buffer = io.BytesIO()
         normalized.save(out_buffer, format="PNG")

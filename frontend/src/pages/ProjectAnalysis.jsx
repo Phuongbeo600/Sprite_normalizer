@@ -243,7 +243,7 @@ export default function ProjectAnalysis() {
               checked={useGemini}
               onChange={(e) => setUseGemini(e.target.checked)}
             />
-            Dùng AI Gemini Vision
+            Dùng AI Vision (Gemini / ChatGPT)
           </label>
           <button
             type="button"
@@ -254,12 +254,52 @@ export default function ProjectAnalysis() {
           </button>
         </div>
 
+        {/* Chú giải trực quan các vùng phân tách (Legend) */}
+        {annotatedUrl && (
+          <div style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: '8px',
+            fontSize: '0.75rem',
+            padding: '8px 10px',
+            background: 'rgba(255, 255, 255, 0.03)',
+            borderRadius: '6px',
+            border: '1px solid var(--border-color, #333)',
+            marginBottom: '10px'
+          }}>
+            <span style={{ color: '#00e5ff', fontWeight: 600 }}>■ [HEAD] Đầu</span>
+            <span style={{ color: '#ff8c00', fontWeight: 600 }}>■ [TORSO] Thân</span>
+            <span style={{ color: '#ba55d3', fontWeight: 600 }}>■ [LEGS] Chân</span>
+            <span style={{ color: '#ffd700', fontWeight: 600, borderBottom: '1px dashed #ffd700' }}>╌ [WEAPON] Vũ khí</span>
+            <span style={{ color: '#ff69b4', fontWeight: 600, borderBottom: '1px dashed #ff69b4' }}>╌ [CAPE/WINGS] Áo/Cánh</span>
+            <span style={{ color: '#a0a0a0', fontWeight: 600, borderBottom: '1px dashed #a0a0a0' }}>╌ [SHADOW] Bóng sàn</span>
+          </div>
+        )}
+
         <h3>Kết quả đo lường giải phẫu</h3>
         {analysisError && (
           <p className="analysis-result" style={{ color: '#ef4444' }}>
             ⚠️ {analysisError}
           </p>
         )}
+
+        {/* Thông báo thông minh nếu phát hiện phụ kiện ngoại vi */}
+        {metrics && (metrics.weapon_box || metrics.cape_wings_box || metrics.shadow_box) && (
+          <div style={{
+            fontSize: '0.8rem',
+            padding: '8px 12px',
+            marginBottom: '8px',
+            background: 'rgba(16, 185, 129, 0.1)',
+            borderLeft: '3px solid #10b981',
+            borderRadius: '4px',
+            color: '#34d399',
+            lineHeight: '1.4'
+          }}>
+            🛡️ <strong>AI & Python đã tự động tách vùng:</strong> Chiều cao cơ thể sinh học thuần là{' '}
+            <strong>{metrics.anatomical_height || metrics.visible_height}px</strong> (đã loại bỏ vũ khí/bóng sàn khỏi tỷ lệ chuẩn hóa).
+          </div>
+        )}
+
         <div
           className="analysis-result"
           style={{ whiteSpace: 'pre-wrap', lineHeight: '1.5', fontSize: '0.875rem' }}

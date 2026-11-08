@@ -77,18 +77,33 @@ class AiVisionAnalyzer:
 You are an expert in 2D video game pixel art character anatomy, sprite sheets, and character design.
 Analyze the 2D character sprite in this image.
 
-Your task is to detect the EXACT anatomical landmarks of the core body, STRICTLY IGNORING any tall held weapons (swords, axes, staves, spears), floating wings, capes blowing in the wind, or empty background space:
+Your task is to segment and detect coordinates normalized from 0 to 1000 [ymin, xmin, ymax, xmax] for BOTH anatomical body parts and non-body parts/accessories:
 
-1. "head_box": [ymin, xmin, ymax, xmax] coordinates normalized from 0 to 1000 enclosing ONLY the actual head, face, and hair/helmet. (DO NOT expand this box to weapons held next to or above the head).
-2. "neck_y": integer normalized from 0 to 1000 representing the vertical Y line of the neck (the junction between chin/jawline and collarbones/shoulders). If covered by armor or beard, estimate the true biological neck position.
-3. "crotch_y": integer normalized from 0 to 1000 representing the vertical Y line of the hips/crotch where legs split from the torso (even if covered by a skirt, robe, or armor).
-4. "ground_y": integer normalized from 0 to 1000 representing the vertical Y line of the lowest foot contacting the ground surface.
-5. "character_archetype": short string describing the character (e.g. "Warrior with sword", "Mage", "Monster", "Chibi rogue").
-6. "anatomy_notes": short 1-2 sentence assessment in Vietnamese of proportions and clothing/weapons.
+1. ANATOMICAL BODY PARTS (STRICTLY EXCLUDE weapons, capes, wings, shadows):
+- "head_box": [ymin, xmin, ymax, xmax] enclosing ONLY the actual head, face, and hair/helmet.
+- "torso_box": [ymin, xmin, ymax, xmax] enclosing the torso from neck to crotch/hips (chest, abdomen, waist).
+- "legs_box": [ymin, xmin, ymax, xmax] enclosing the legs and feet from crotch/hips down to ground contact.
+- "neck_y": integer (0-1000) representing the biological neck line junction.
+- "crotch_y": integer (0-1000) representing the hips/crotch line where legs split from torso.
+- "ground_y": integer (0-1000) representing the lowest foot contacting the ground surface.
+
+2. NON-BODY REGIONS / ACCESSORIES (Set to null if not present):
+- "weapon_box": [ymin, xmin, ymax, xmax] or null enclosing held weapons (swords, shields, spears, staves, bows, guns).
+- "cape_wings_box": [ymin, xmin, ymax, xmax] or null enclosing flying capes, loose fabrics, scarves, or wings.
+- "shadow_box": [ymin, xmin, ymax, xmax] or null enclosing contact shadow or aura on the floor beneath feet.
+
+3. ARCHETYPE & NOTES:
+- "character_archetype": short string describing character (e.g. "Knight with greatsword", "Mage", "Monster").
+- "anatomy_notes": short 1-2 sentence assessment in Vietnamese of body proportions vs accessories.
 
 Return ONLY a valid JSON object matching this schema without any markdown surrounding text:
 {
   "head_box": [ymin, xmin, ymax, xmax],
+  "torso_box": [ymin, xmin, ymax, xmax],
+  "legs_box": [ymin, xmin, ymax, xmax],
+  "weapon_box": [ymin, xmin, ymax, xmax] or null,
+  "cape_wings_box": [ymin, xmin, ymax, xmax] or null,
+  "shadow_box": [ymin, xmin, ymax, xmax] or null,
   "neck_y": int,
   "crotch_y": int,
   "ground_y": int,
@@ -176,18 +191,33 @@ Return ONLY a valid JSON object matching this schema without any markdown surrou
 You are an expert in 2D video game pixel art character anatomy, sprite sheets, and character design.
 Analyze the 2D character sprite in this image.
 
-Your task is to detect the EXACT anatomical landmarks of the core body, STRICTLY IGNORING any tall held weapons (swords, axes, staves, spears), floating wings, capes blowing in the wind, or empty background space:
+Your task is to segment and detect coordinates normalized from 0 to 1000 [ymin, xmin, ymax, xmax] for BOTH anatomical body parts and non-body parts/accessories:
 
-1. "head_box": [ymin, xmin, ymax, xmax] coordinates normalized from 0 to 1000 enclosing ONLY the actual head, face, and hair/helmet. (DO NOT expand this box to weapons held next to or above the head).
-2. "neck_y": integer normalized from 0 to 1000 representing the vertical Y line of the neck (the junction between chin/jawline and collarbones/shoulders). If covered by armor or beard, estimate the true biological neck position.
-3. "crotch_y": integer normalized from 0 to 1000 representing the vertical Y line of the hips/crotch where legs split from the torso (even if covered by a skirt, robe, or armor).
-4. "ground_y": integer normalized from 0 to 1000 representing the vertical Y line of the lowest foot contacting the ground surface.
-5. "character_archetype": short string describing the character (e.g. "Warrior with sword", "Mage", "Monster", "Chibi rogue").
-6. "anatomy_notes": short 1-2 sentence assessment in Vietnamese of proportions and clothing/weapons.
+1. ANATOMICAL BODY PARTS (STRICTLY EXCLUDE weapons, capes, wings, shadows):
+- "head_box": [ymin, xmin, ymax, xmax] enclosing ONLY the actual head, face, and hair/helmet.
+- "torso_box": [ymin, xmin, ymax, xmax] enclosing the torso from neck to crotch/hips (chest, abdomen, waist).
+- "legs_box": [ymin, xmin, ymax, xmax] enclosing the legs and feet from crotch/hips down to ground contact.
+- "neck_y": integer (0-1000) representing the biological neck line junction.
+- "crotch_y": integer (0-1000) representing the hips/crotch line where legs split from torso.
+- "ground_y": integer (0-1000) representing the lowest foot contacting the ground surface.
+
+2. NON-BODY REGIONS / ACCESSORIES (Set to null if not present):
+- "weapon_box": [ymin, xmin, ymax, xmax] or null enclosing held weapons (swords, shields, spears, staves, bows, guns).
+- "cape_wings_box": [ymin, xmin, ymax, xmax] or null enclosing flying capes, loose fabrics, scarves, or wings.
+- "shadow_box": [ymin, xmin, ymax, xmax] or null enclosing contact shadow or aura on the floor beneath feet.
+
+3. ARCHETYPE & NOTES:
+- "character_archetype": short string describing character (e.g. "Knight with greatsword", "Mage", "Monster").
+- "anatomy_notes": short 1-2 sentence assessment in Vietnamese of body proportions vs accessories.
 
 Return ONLY a valid JSON object matching this schema:
 {
   "head_box": [ymin, xmin, ymax, xmax],
+  "torso_box": [ymin, xmin, ymax, xmax],
+  "legs_box": [ymin, xmin, ymax, xmax],
+  "weapon_box": [ymin, xmin, ymax, xmax] or null,
+  "cape_wings_box": [ymin, xmin, ymax, xmax] or null,
+  "shadow_box": [ymin, xmin, ymax, xmax] or null,
   "neck_y": int,
   "crotch_y": int,
   "ground_y": int,
@@ -251,8 +281,9 @@ Return ONLY a valid JSON object matching this schema:
         mask: np.ndarray
     ) -> Dict[str, Any]:
         """
-        Quy đổi tọa độ chuẩn hóa (0-1000) từ Gemini thành tọa độ Pixel thật trên ảnh,
-        kết hợp thuật toán Snap (Hút Pixel) trên Alpha Mask để đạt độ chuẩn xác 100%.
+        Quy đổi tọa độ chuẩn hóa (0-1000) từ AI Vision (Gemini / GPT-4o) thành tọa độ Pixel thật trên ảnh.
+        Kết hợp thuật toán Snap (Hút Pixel) trên Alpha Mask để đạt độ chuẩn xác 100%,
+        tách biệt rõ ràng giữa vùng cơ thể giải phẫu học và vùng phụ kiện (vũ khí, áo choàng, bóng).
 
         @param {Dict[str, Any]} ai_data Dữ liệu giải phẫu trả về từ AI.
         @param {Tuple[int, int]} image_size Kích thước thực tế của ảnh (width, height).
@@ -261,7 +292,20 @@ Return ONLY a valid JSON object matching this schema:
         """
         w, h = image_size
 
-        # 1. Đổi tọa độ tỷ lệ sang pixel thực tế
+        def _denorm_box(raw_box: Optional[Any]) -> Optional[Tuple[int, int, int, int]]:
+            """Hàm phụ trợ chuyển đổi danh sách [ymin, xmin, ymax, xmax] từ thang 0-1000 sang pixel thật."""
+            if not raw_box or not isinstance(raw_box, (list, tuple)) or len(raw_box) < 4:
+                return None
+            try:
+                ymin = max(0, min(h - 1, int(round(float(raw_box[0]) / 1000.0 * h))))
+                xmin = max(0, min(w - 1, int(round(float(raw_box[1]) / 1000.0 * w))))
+                ymax = max(ymin + 1, min(h - 1, int(round(float(raw_box[2]) / 1000.0 * h))))
+                xmax = max(xmin + 1, min(w - 1, int(round(float(raw_box[3]) / 1000.0 * w))))
+                return (ymin, xmin, ymax, xmax)
+            except (ValueError, TypeError):
+                return None
+
+        # 1. Đổi tọa độ các bộ phận cơ thể sang pixel thực tế
         raw_head_box = ai_data.get("head_box", [100, 200, 400, 600])
         head_ymin_px = int(round(raw_head_box[0] / 1000.0 * h))
         head_xmin_px = int(round(raw_head_box[1] / 1000.0 * w))
@@ -278,19 +322,40 @@ Return ONLY a valid JSON object matching this schema:
         head_xmin_px = max(0, min(w - 1, head_xmin_px))
         head_xmax_px = max(head_xmin_px + 1, min(w - 1, head_xmax_px))
 
-        # 2. Thuật toán Snap vào Pixel Mask thực tế
+        # 2. Đổi tọa độ các vùng phụ kiện và không phải cơ thể
+        torso_box_px = _denorm_box(ai_data.get("torso_box"))
+        legs_box_px = _denorm_box(ai_data.get("legs_box"))
+        weapon_box_px = _denorm_box(ai_data.get("weapon_box"))
+        cape_wings_box_px = _denorm_box(ai_data.get("cape_wings_box"))
+        shadow_box_px = _denorm_box(ai_data.get("shadow_box"))
+
+        # 3. Thuật toán Snap vào Pixel Mask thực tế
         y_indices, x_indices = np.where(mask)
 
         if len(y_indices) > 0:
             char_y_min, char_y_max = int(y_indices.min()), int(y_indices.max())
             char_x_min, char_x_max = int(x_indices.min()), int(x_indices.max())
 
-            # Bàn chân tiếp đất thật luôn là char_y_max
-            ground_snapped_px = char_y_max
+            # Bàn chân tiếp đất thật: Nếu có shadow_box thì loại trừ vùng bóng ra khỏi chân
+            if shadow_box_px is not None:
+                shadow_ymin = shadow_box_px[0]
+                # Nếu bóng nằm ở đáy, điểm tiếp đất thực sự là đáy chân ngay trên bóng
+                feet_y_indices = y_indices[y_indices <= max(char_y_min + 5, shadow_ymin)]
+                if len(feet_y_indices) > 0:
+                    ground_snapped_px = int(feet_y_indices.max())
+                else:
+                    ground_snapped_px = min(char_y_max, ground_raw_px)
+            else:
+                ground_snapped_px = char_y_max
 
-            # Đỉnh đầu cao nhất có pixel
+            # Đỉnh đầu cao nhất có pixel của cơ thể (loại trừ nếu vũ khí giơ cao hơn đỉnh đầu)
             true_top_y = char_y_min
-            head_ymin_px = min(head_ymin_px, true_top_y)
+            # Nếu vũ khí giơ cao hơn đầu, head_ymin_px vẫn giữ theo AI nhận diện để không bị kéo lên đỉnh vũ khí
+            if weapon_box_px is not None and weapon_box_px[0] < head_ymin_px:
+                # Đỉnh đầu được giữ đúng vùng đầu sinh học
+                head_ymin_px = max(true_top_y, head_ymin_px)
+            else:
+                head_ymin_px = min(head_ymin_px, true_top_y)
 
             # Snap Neck Y: Tìm dòng có bề ngang thắt hẹp nhất quanh bán kính neck_raw_px
             search_start = max(char_y_min + 2, neck_raw_px - 4)
@@ -307,7 +372,7 @@ Return ONLY a valid JSON object matching this schema:
                 neck_snapped_px = max(char_y_min + 1, min(char_y_max - 1, neck_raw_px))
 
             # Snap Head Box: Đảm bảo nằm trong vùng có pixel thực của đầu
-            head_pixels_y, head_pixels_x = np.where(mask[true_top_y:neck_snapped_px + 1, :])
+            head_pixels_y, head_pixels_x = np.where(mask[head_ymin_px:neck_snapped_px + 1, :])
             if len(head_pixels_x) > 0:
                 snapped_h_xmin = max(char_x_min, head_xmin_px)
                 snapped_h_xmax = min(char_x_max, head_xmax_px)
@@ -346,6 +411,11 @@ Return ONLY a valid JSON object matching this schema:
             "head_x_max": snapped_h_xmax,
             "head_y_min": head_ymin_px,
             "head_y_max": neck_snapped_px,
+            "torso_box": torso_box_px,
+            "legs_box": legs_box_px,
+            "weapon_box": weapon_box_px,
+            "cape_wings_box": cape_wings_box_px,
+            "shadow_box": shadow_box_px,
             "character_archetype": ai_data.get("character_archetype", "Sprite Character"),
-            "anatomy_notes": ai_data.get("anatomy_notes", "Đo bằng Google Gemini Vision thành công.")
+            "anatomy_notes": ai_data.get("anatomy_notes", "Đo bằng AI Vision thành công.")
         }
