@@ -1,10 +1,26 @@
-//1.Thư viện nền tảng react
+// 1. THƯ VIỆN NỀN TẢNG REACT
+// React dựng các mục điều hướng.
 import React from 'react';
-//2.Thư viện bên thứ ba
-import { Folder, Settings, Bot } from 'lucide-react';
+
+// 2. THƯ VIỆN BÊN NGOÀI
+// Bộ biểu tượng cho logo và các mục điều hướng.
+import { Folder, Settings, Bot, ScanSearch, Image } from 'lucide-react';
+
+// 3. THÀNH PHẦN NỘI BỘ DỰ ÁN
+// Cấu hình logo và thông tin tài khoản hiển thị cuối thanh.
 import { CURRENT_USER, APP_CONFIG } from '../constants/initialProjects';
 
-export default function Sidebar({ activeTab, onSelectTab }) {
+// 4. ĐỊNH DẠNG GIAO DIỆN VÀ MÀU SẮC
+
+/**
+ * Hiển thị các mục điều hướng theo trạng thái mở dự án.
+ * @param {object} props Thuộc tính của thanh điều hướng.
+ * @param {string} props.activeTab Mục đang được hiển thị.
+ * @param {object|null} props.currentProject Dự án đang mở, nếu có.
+ * @param {Function} props.onSelectTab Hàm chuyển sang mục được chọn.
+ * @returns {React.ReactElement} Thanh điều hướng bên trái.
+ */
+export default function Sidebar({ activeTab, currentProject, onSelectTab }) {
   return (
     <aside className="minimal-sidebar">
       <div>
@@ -25,13 +41,32 @@ export default function Sidebar({ activeTab, onSelectTab }) {
 
         {/* 2. Menu Điều Hướng */}
         <nav className="minimal-nav">
-          <button
-            className={`minimal-nav-item ${activeTab === 'projects' ? 'active' : ''}`}
-            onClick={() => onSelectTab('projects')}
-          >
-            <Folder size={18} />
-            <span>Dự án</span>
-          </button>
+          {currentProject ? (
+            <>
+              <button
+                className={`minimal-nav-item ${activeTab === 'analysis' ? 'active' : ''}`}
+                onClick={() => onSelectTab('analysis')}
+              >
+                <ScanSearch size={18} />
+                <span>Phân tích &amp; Prompt</span>
+              </button>
+              <button
+                className={`minimal-nav-item ${activeTab === 'workspace' ? 'active' : ''}`}
+                onClick={() => onSelectTab('workspace')}
+              >
+                <Image size={18} />
+                <span>Xử lý ảnh</span>
+              </button>
+            </>
+          ) : (
+            <button
+              className={`minimal-nav-item ${activeTab === 'projects' ? 'active' : ''}`}
+              onClick={() => onSelectTab('projects')}
+            >
+              <Folder size={18} />
+              <span>Dự án</span>
+            </button>
+          )}
 
           <button
             className={`minimal-nav-item ${activeTab === 'settings' ? 'active' : ''}`}

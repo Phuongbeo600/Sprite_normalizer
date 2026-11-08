@@ -1,203 +1,199 @@
-import React, { useState } from 'react';
-import { Upload, Play, Download, RefreshCw, ZoomIn } from 'lucide-react';
+// 1. THƯ VIỆN NỀN TẢNG REACT
+// React hiển thị khung ảnh, quản lý danh sách và vòng đời xem trước.
+import React, { useEffect, useState } from 'react';
 
-export default function Workspace({ currentProject }) {
+// 2. THƯ VIỆN BÊN NGOÀI
+// Các biểu tượng dùng cho nút nạp ảnh, phát và tải xuống.
+import { Download, FolderOpen, Pause, Play, Zap } from 'lucide-react';
+
+// 3. THÀNH PHẦN NỘI BỘ DỰ ÁN
+
+// 4. ĐỊNH DẠNG GIAO DIỆN VÀ MÀU SẮC
+// Kiểu trình bày được nạp từ theme.css qua điểm khởi động ứng dụng.
+
+/**
+ * Nạp, xem trước và chuẩn hóa ảnh trong dự án đang mở.
+ * @returns {React.ReactElement} Bảng điều khiển xử lý ảnh.
+ */
+export default function Workspace() {
+  const [images, setImages] = useState([]);
+  const [index, setIndex] = useState(0);
+  const [preview, setPreview] = useState(null);
+  const [dimensions, setDimensions] = useState(null);
   const [targetWidth, setTargetWidth] = useState(64);
   const [targetHeight, setTargetHeight] = useState(64);
   const [anchor, setAnchor] = useState('bottom_center');
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [previewOriginal, setPreviewOriginal] = useState(null);
-  const [previewNormalized, setPreviewNormalized] = useState(null);
+  const [fps, setFps] = useState(6);
+  const [playing, setPlaying] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const activeImage = images[index];
 
-  const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setSelectedFile(file);
-      setPreviewOriginal(URL.createObjectURL(file));
-      setPreviewNormalized(null);
-    }
+  useEffect(() => {
+    if (!activeImage) return;
+
+    // Tạo đường dẫn tạm cho khung đang xem và giải phóng khi đổi khung.
+    const original = URL.createObjectURL(activeImage.file);
+    const normalized = activeImage.result && URL.createObjectURL(activeImage.result);
+    setPreview({ image: activeImage, original, normalized });
+    return () => {
+      URL.revokeObjectURL(original);
+      if (normalized) URL.revokeObjectURL(normalized);
+    };
+  }, [activeImage]);
+
+  useEffect(() => {
+    if (!playing || images.length < 2) return;
+    const timer = setInterval(() => {
+      setIndex((current) => (current + 1) % images.length);
+    }, 1000 / fps);
+    return () => clearInterval(timer);
+  }, [playing, fps, images.length]);
+
+  /**
+   * Nạp ảnh và đưa khung xem trước về ảnh đầu tiên.
+   * @param {React.ChangeEvent<HTMLInputElement>} event Sự kiện chọn tệp.
+   * @returns {void} Cập nhật danh sách ảnh đang xử lý.
+   */
+  const handleFileChange = (event) => {
+    const files = Array.from(event.target.files);
+    event.target.value = '';
+    if (!files.length) return;
+
+    setPlaying(false);
+    setIndex(0);
+    setError('');
+    setImages(files.map((file) => ({ file, result: null })));
   };
 
-  const handleNormalize = async () => {
-    if (!selectedFile) {
-      alert('Vui lòng chọn hoặc tải lên một ảnh sprite trước!');
-      return;
-    }
+  /**
+   * Gửi ảnh đang chọn cùng kích thước và điểm neo đến API chuẩn hóa.
+   * @param {React.FormEvent<HTMLFormElement>} event Sự kiện gửi biểu mẫu.
+   * @returns {Promise<void>} Cập nhật ảnh kết quả hoặc thông báo lỗi.
+   */
+  const handleNormalize = async (event) => {
+    event.preventDefault();
+    if (!activeImage || loading) return;
 
+    setPlaying(false);
     setLoading(true);
-    const formData = new FormData();
-    formData.append('file', selectedFile);
-    formData.append('target_width', targetWidth);
-    formData.append('target_height', targetHeight);
-    formData.append('anchor', anchor);
+    setError('');
+    const body = new FormData();
+    body.append('file', activeImage.file);
+    body.append('target_width', targetWidth);
+    body.append('target_height', targetHeight);
+    body.append('anchor', anchor);
 
     try {
-      const response = await fetch('/api/normalize', {
-        method: 'POST',
-        body: formData,
-      });
+      const response = await fetch('/api/normalize', { method: 'POST', body });
+      if (!response.ok) throw new Error('Không chuẩn hóa được ảnh.');
+      const result = await response.blob();
 
-      if (!response.ok) {
-        throw new Error('Không thể xử lý sprite qua API');
-      }
-
-      const blob = await response.blob();
-      setPreviewNormalized(URL.createObjectURL(blob));
-    } catch (err) {
-      console.error(err);
-      alert('Lỗi kết nối tới backend FastAPI (/api/normalize). Hãy chắc chắn backend đã được khởi động.');
+      // Gắn kết quả vào ảnh đã gửi, kể cả khi người dùng chuyển khung.
+      setImages((current) => current.map((image) => (
+        image === activeImage ? { ...image, result } : image
+      )));
+    } catch {
+      setError('Không chuẩn hóa được ảnh. Hãy kiểm tra tệp và kết nối backend.');
     } finally {
       setLoading(false);
     }
   };
 
+  const visiblePreview = preview?.image === activeImage ? preview : null;
+  const visibleDimensions = dimensions?.preview === visiblePreview ? dimensions : null;
+
   return (
-    <div className="page-container" style={{ padding: '20px 24px', height: 'calc(100vh - 64px)' }}>
-      <div className="workspace-layout">
-        {/* Canvas Display Viewport */}
-        <div className="workspace-canvas-panel">
-          <div className="canvas-header">
-            <div>
-              <strong>{currentProject ? currentProject.name : 'Workspace Trực Quan'}</strong>
-              <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                Target: {targetWidth}x{targetHeight}px | Anchor: {anchor}
-              </div>
+    <section className="analysis-panel sprite-workbench" aria-labelledby="sprite-workbench-title">
+      <h2 id="sprite-workbench-title">Bước 3. Nạp nhiều ảnh, Sprite Size &amp; Export</h2>
+
+      <label className="analysis-file">
+        <FolderOpen size={17} aria-hidden="true" />
+        Nạp một hoặc nhiều ảnh sprite / dải AI
+        <input type="file" accept="image/png,image/jpeg,image/webp" multiple
+          disabled={loading} onChange={handleFileChange} />
+      </label>
+
+      <div className="sprite-toolbar">
+        <button type="button" disabled={playing || index === 0} onClick={() => setIndex(index - 1)}>◀ Trước</button>
+        <span className="sprite-filename">{activeImage?.file.name ?? 'Chưa nạp ảnh.'}</span>
+        <button type="button" disabled={playing || index >= images.length - 1} onClick={() => setIndex(index + 1)}>Sau ▶</button>
+      </div>
+
+      <fieldset className="sprite-strip" disabled>
+        <legend>Tách dải hoạt ảnh</legend>
+        <label>Số frame <input type="number" defaultValue={4} min={1} /></label>
+        <label><input type="checkbox" defaultChecked /> Giữ trọn ô gốc</label>
+        <button type="button">Cắt dải</button>
+      </fieldset>
+
+      <div className="sprite-action-grid">
+        <button type="button" disabled>Đặt canvas cũ</button>
+        <button type="button" disabled>Đặt độ phân giải thật cũ</button>
+      </div>
+
+      <form className="sprite-settings" onSubmit={handleNormalize}>
+        <label className="sprite-toolbar">Điểm neo
+          <select value={anchor} onChange={(event) => setAnchor(event.target.value)}>
+            <option value="bottom_center">Dưới và giữa</option>
+            <option value="center">Chính giữa</option>
+            <option value="top_left">Góc trên bên trái</option>
+          </select>
+        </label>
+        <div className="sprite-action-grid">
+          <details className="sprite-size">
+            <summary>Sprite Size (LibreSprite)</summary>
+            <div className="sprite-toolbar">
+              <label>Rộng <input type="number" value={targetWidth} min={1} max={512} required
+                onChange={(event) => setTargetWidth(event.target.value)} /></label>
+              <label>Cao <input type="number" value={targetHeight} min={1} max={512} required
+                onChange={(event) => setTargetHeight(event.target.value)} /></label>
             </div>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              {previewNormalized && (
-                <a
-                  href={previewNormalized}
-                  download="normalized_sprite.png"
-                  className="btn btn-secondary"
-                  style={{ textDecoration: 'none' }}
-                >
-                  <Download size={15} /> Tải ảnh
-                </a>
-              )}
-            </div>
-          </div>
-
-          <div className="canvas-viewport">
-            {!previewOriginal && !previewNormalized ? (
-              <div style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>
-                <Upload size={40} style={{ margin: '0 auto 12px', display: 'block', opacity: 0.5 }} />
-                <p>Kéo thả ảnh Sprite vào đây hoặc chọn từ bảng điều khiển bên phải</p>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', gap: '32px', alignItems: 'center' }}>
-                {previewOriginal && (
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: '0.75rem', marginBottom: '8px', color: 'var(--text-secondary)' }}>
-                      ẢNH GỐC
-                    </div>
-                    <div style={{ padding: '12px', background: 'rgba(0,0,0,0.4)', borderRadius: '8px', border: '1px solid var(--border)' }}>
-                      <img
-                        src={previewOriginal}
-                        alt="Original"
-                        style={{ maxWidth: '160px', maxHeight: '160px', objectFit: 'contain', imageRendering: 'pixelated' }}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {previewNormalized && (
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: '0.75rem', marginBottom: '8px', color: '#10b981', fontWeight: 600 }}>
-                      KẾT QUẢ CHUẨN HÓA (CORE MVC)
-                    </div>
-                    <div style={{ padding: '12px', background: 'rgba(0,0,0,0.4)', borderRadius: '8px', border: '1px solid #10b981' }}>
-                      <img
-                        src={previewNormalized}
-                        alt="Normalized"
-                        style={{ width: `${targetWidth * 2}px`, height: `${targetHeight * 2}px`, objectFit: 'contain', imageRendering: 'pixelated' }}
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Right Controller Form */}
-        <div className="workspace-control-panel">
-          <h3 style={{ fontSize: '1rem', borderBottom: '1px solid var(--border)', paddingBottom: '10px' }}>
-            Thông số chuẩn hóa
-          </h3>
-
-          <div className="control-group">
-            <label className="control-label">Tải lên Sprite</label>
-            <input
-              type="file"
-              accept="image/png, image/jpeg, image/webp"
-              onChange={handleFileChange}
-              className="input-field"
-              style={{ cursor: 'pointer' }}
-            />
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-            <div className="control-group">
-              <label className="control-label">Chiều rộng (W)</label>
-              <input
-                type="number"
-                value={targetWidth}
-                onChange={(e) => setTargetWidth(Number(e.target.value))}
-                className="input-field"
-                min={16}
-                max={512}
-                step={8}
-              />
-            </div>
-            <div className="control-group">
-              <label className="control-label">Chiều cao (H)</label>
-              <input
-                type="number"
-                value={targetHeight}
-                onChange={(e) => setTargetHeight(Number(e.target.value))}
-                className="input-field"
-                min={16}
-                max={512}
-                step={8}
-              />
-            </div>
-          </div>
-
-          <div className="control-group">
-            <label className="control-label">Điểm neo (Anchor Point)</label>
-            <select
-              className="select-field"
-              value={anchor}
-              onChange={(e) => setAnchor(e.target.value)}
-            >
-              <option value="bottom_center">Dưới - Giữa (Bottom Center)</option>
-              <option value="center">Chính giữa (Center)</option>
-              <option value="top_left">Góc trên - Trái (Top Left)</option>
-            </select>
-          </div>
-
-          <div className="control-group">
-            <label className="control-label">Tùy chọn xử lý</label>
-            <label style={{ fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-              <input type="checkbox" defaultChecked /> Tự động cắt viền alpha (Auto Trim)
-            </label>
-            <label style={{ fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-              <input type="checkbox" defaultChecked /> Giữ nguyên tỉ lệ góc (Keep Aspect Ratio)
-            </label>
-          </div>
-
-          <button
-            className="btn btn-primary"
-            style={{ width: '100%', justifyContent: 'center', marginTop: 'auto', padding: '12px' }}
-            onClick={handleNormalize}
-            disabled={loading}
-          >
-            {loading ? <RefreshCw className="animate-spin" size={16} /> : <Play size={16} />}
-            {loading ? 'Đang chạy thuật toán...' : 'Chạy chuẩn hóa (Execute Core)'}
+          </details>
+          <button type="submit" disabled={!activeImage || loading}>
+            <Zap size={17} aria-hidden="true" /> {loading ? 'Đang chuẩn hóa…' : 'Chuẩn hóa 1-Click'}
           </button>
         </div>
+      </form>
+
+      <figure className="analysis-preview sprite-preview">
+        {visiblePreview ? (
+          <img src={visiblePreview.normalized || visiblePreview.original} alt={activeImage.file.name}
+            onLoad={(event) => setDimensions({
+              preview: visiblePreview,
+              width: event.currentTarget.naturalWidth,
+              height: event.currentTarget.naturalHeight,
+            })} />
+        ) : <span>Ảnh xem trước sẽ hiện ở đây</span>}
+      </figure>
+
+      <div className="sprite-toolbar">
+        <button type="button" disabled={images.length < 2 || loading} onClick={() => setPlaying(!playing)}>
+          {playing ? <Pause size={16} aria-hidden="true" /> : <Play size={16} aria-hidden="true" />}
+          {playing ? 'Tạm dừng' : 'Phát'}
+        </button>
+        <label>Tốc độ <select value={fps} onChange={(event) => setFps(Number(event.target.value))}>
+          {[3, 4, 6, 8, 12].map((rate) => <option key={rate} value={rate}>{rate} FPS</option>)}
+        </select></label>
+        <span className="sprite-frame-count">Frame {activeImage ? index + 1 : '–'} / {images.length || '–'}</span>
       </div>
-    </div>
+      <p aria-live="polite">Độ phân giải {visibleDimensions
+        ? `${visibleDimensions.width} × ${visibleDimensions.height} px`
+        : '— Chưa có ảnh'}</p>
+      {error && <p role="alert">{error}</p>}
+
+      <div className="sprite-action-grid">
+        <button type="button" disabled>Xuất hàng loạt tất cả ảnh</button>
+        <button type="button" disabled>Xuất frame rời (Godot)</button>
+        <button type="button" disabled>Export File (LibreSprite)</button>
+        <button type="button" disabled>Xuất GIF động</button>
+        {visiblePreview?.normalized ? (
+          <a className="sprite-save" href={visiblePreview.normalized} download="normalized_sprite.png">
+            <Download size={17} aria-hidden="true" /> Lưu file PNG
+          </a>
+        ) : <button type="button" className="sprite-save" disabled>Lưu file PNG</button>}
+      </div>
+      <p className="analysis-result">Tách dải, căn theo ảnh mẫu và xuất nâng cao đang chờ nối thuật toán MVC.</p>
+    </section>
   );
 }
