@@ -1,0 +1,9 @@
+{
+  "name": "sprite-normalizer-root",
+  "version": "1.0.0",
+  "description": "Sprite Normalizer (Fullstack FastAPI + React)",
+  "scripts": {
+    "dev": "python run.py",
+    "start": "python run.py"
+  }
+}
