@@ -1,3 +1,10 @@
+"""
+Module: backend.main
+Mục đích: Điểm khởi nhập (Entry Point) của máy chủ FastAPI backend.
+Ai gọi nó: Máy chủ ASGI Uvicorn (hoặc lệnh khởi chạy `uvicorn backend.main:app`).
+Tại sao tồn tại: Thiết lập cấu hình ứng dụng web, kích hoạt tự động cập nhật schema CSDL MySQL khi khởi động, mở chính sách CORS cho frontend React kết nối và gắn kết toàn bộ các API Router v1.
+"""
+
 # ========================================================
 # 1. THƯ VIỆN NỀN TẢNG PYTHON (Khởi tạo hệ thống)
 # ========================================================

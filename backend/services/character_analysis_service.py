@@ -1,8 +1,19 @@
+"""
+Module: backend.services.character_analysis_service
+Mục đích: Dịch vụ nghiệp vụ phân tích nhân vật pixel art chuyên sâu.
+Ai gọi nó: API router `backend.api.v1.character_analysis`.
+Tại sao tồn tại: Đóng vai trò nhạc trưởng (Orchestrator) kết hợp 2 tầng:
+  1. Tầng Heuristics offline (NumPy, Pillow): đo đạc hệ màu sắc và giải phẫu không tốn token.
+  2. Tầng AI Vision online (Gemini, OpenAI): phân tích chi tiết theo 7 Schemas Pydantic.
+"""
+
 # ========================================================
-# 1. THƯ VIỆN NỀN TẢNG PYTHON (Hệ thống & Xử lý JSON)
+# 1. THƯ VIỆN NỀN TẢNG PYTHON (Hệ thống, Logging & Xử lý JSON)
 # ========================================================
 # json: Chuyển đổi và bóc tách dữ liệu JSON phản hồi từ AI
 import json
+# logging: Ghi nhận nhật ký hoạt động và cảnh báo lỗi
+import logging
 # os: Đọc biến môi trường hệ thống
 import os
 # typing: Định nghĩa các kiểu từ điển, danh sách, tùy chọn
@@ -259,14 +270,14 @@ Return ONLY the raw JSON object adhering to the schema.
         effective_key, effective_provider, clean_base = cls._resolve_credentials(api_key, provider, base_url)
 
         # 1. Trích xuất thông tin nhân vật tham chiếu (Chỉ lấy quy chuẩn kỹ thuật, không lấy trang phục/vũ khí)
-        g = profile_data.get("global_analysis", {}) or {}
-        ident = g.get("identity", {}) or {}
-        anat = g.get("anatomy", {}) or {}
-        style = g.get("pixel_style", {}) or {}
-        mats = g.get("materials", []) or []
+        global_data = profile_data.get("global_analysis", {}) or {}
+        identity_data = global_data.get("identity", {}) or {}
+        anatomy_data = global_data.get("anatomy", {}) or {}
+        pixel_style_data = global_data.get("pixel_style", {}) or {}
+        materials_data = global_data.get("materials", []) or []
 
         # 2. Xác định góc nhìn mục tiêu và quy tắc che khuất từ Phân hệ 2 (Directions)
-        dir_data = profile_data.get("direction_analysis", {}) or {}
+        direction_data = profile_data.get("direction_analysis", {}) or {}
         clean_target_lower = (target_direction or "").lower()
         if "side" in clean_target_lower or "profile" in clean_target_lower:
             dir_key = "side"
@@ -275,11 +286,11 @@ Return ONLY the raw JSON object adhering to the schema.
         else:
             dir_key = "down"
 
-        dir_profile = dir_data.get(dir_key, {}) or {}
+        direction_profile = direction_data.get(dir_key, {}) or {}
 
         # 3. Trích xuất Phân hệ 4 (Consistency & Negative Constraints)
-        cons = profile_data.get("consistency_analysis", {}) or {}
-        neg = profile_data.get("negative_constraints", {}) or {}
+        consistency_data = profile_data.get("consistency_analysis", {}) or {}
+        negative_data = profile_data.get("negative_constraints", {}) or {}
 
         # ========================================================
         # A. XỬ LÝ DỮ LIỆU CỦA NHÂN VẬT MỚI (NEW CHARACTER DATA)
@@ -289,7 +300,7 @@ Return ONLY the raw JSON object adhering to the schema.
         clean_weapons = (weapons_and_props or "").strip() if weapons_and_props else ""
 
         # Quy chuẩn vóc dáng (Stature)
-        base_body_type = ident.get("body_type") or "Chibi / Stylized Proportions"
+        base_body_type = identity_data.get("body_type") or "Chibi / Stylized Proportions"
         if "To hơn" in stature_rule or "Chibi hơn" in stature_rule:
             stature_desc = "Cute oversized head, compact chibi proportions (2.0 heads tall)"
         elif "Nhỏ hơn" in stature_rule or "Dáng cao" in stature_rule:
@@ -299,7 +310,7 @@ Return ONLY the raw JSON object adhering to the schema.
         elif "Hẹp hơn" in stature_rule or "Thon" in stature_rule:
             stature_desc = "Slender, lean nimble build"
         else:
-            stature_desc = f"{base_body_type} proportion, {ident.get('shape_language', 'balanced compact silhouette')}"
+            stature_desc = f"{base_body_type} proportion, {identity_data.get('shape_language', 'balanced compact silhouette')}"
 
         # ========================================================
         # B. QUY CHUẨN KỸ THUẬT KẾ THỪA TỪ NHÂN VẬT THAM CHIẾU
@@ -319,23 +330,23 @@ Return ONLY the raw JSON object adhering to the schema.
                 scale_guidance = "Scale constraint: Standard 2D game sprite framing, character occupying 80% canvas height, grounded feet"
 
         # Quy chuẩn đồ họa Pixel (Pixel Art Blueprint)
-        art_style = style.get("art_style") or "16-bit retro console pixel art"
-        outline_style = style.get("outline_style") or "Selective dark outline (selout)"
-        shading_style = style.get("shading_style") or "Cel-shading with hue-shifting"
-        shading_levels = style.get("shading_levels") or 3
-        dithering_style = style.get("dithering_style") or "Clean clusters, no heavy dithering"
-        cluster_style = style.get("pixel_cluster_style") or "Crisp, intentional pixel clusters without stray noise"
-        lighting_dir = style.get("lighting_direction") or "Top-left directional light (45 degrees)"
+        art_style = pixel_style_data.get("art_style") or "16-bit retro console pixel art"
+        outline_style = pixel_style_data.get("outline_style") or "Selective dark outline (selout)"
+        shading_style = pixel_style_data.get("shading_style") or "Cel-shading with hue-shifting"
+        shading_levels = pixel_style_data.get("shading_levels") or 3
+        dithering_style = pixel_style_data.get("dithering_style") or "Clean clusters, no heavy dithering"
+        cluster_style = pixel_style_data.get("pixel_cluster_style") or "Crisp, intentional pixel clusters without stray noise"
+        lighting_dir = pixel_style_data.get("lighting_direction") or "Top-left directional light (45 degrees)"
 
         # Quy tắc góc nhìn và che khuất (Perspective & Occlusion)
-        view_type = dir_profile.get("view_type") or target_direction
-        body_orient = dir_profile.get("body_orientation") or "Facing forward"
-        head_orient = dir_profile.get("head_orientation") or "Facing forward"
-        limb_placement = anat.get("relative_limb_placement") or "Grounded stance"
-        occlusion_rules = ", ".join(dir_profile.get("occlusion_rules", [])[:3]) or "Layer held accessories naturally over body"
+        view_type = direction_profile.get("view_type") or target_direction
+        body_orient = direction_profile.get("body_orientation") or "Facing forward"
+        head_orient = direction_profile.get("head_orientation") or "Facing forward"
+        limb_placement = anatomy_data.get("relative_limb_placement") or "Grounded stance"
+        occlusion_rules = ", ".join(direction_profile.get("occlusion_rules", [])[:3]) or "Layer held accessories naturally over body"
 
         # Lỗi cấm kỵ (Negative Constraints)
-        visual_defects = neg.get("visual_defects_to_avoid", []) or [
+        visual_defects = negative_data.get("visual_defects_to_avoid", []) or [
             "Pillow shading", "Banding", "Orphan stray pixels", "Dithering noise", "Mixed pixel resolutions"
         ]
         visual_defects_str = ", ".join(visual_defects[:5])
@@ -380,18 +391,20 @@ Return ONLY a valid JSON object:
         if effective_key:
             try:
                 ai_provider = AiProviderFactory.get_provider(effective_provider)
-                data = ai_provider.generate_json(prompt_instruction, effective_key, base_url=clean_base)
-                pos = data.get("positive_prompt")
-                neg_res = data.get("negative_prompt")
-                tech = data.get("technical_notes")
-                if pos and neg_res:
+                ai_response_data = ai_provider.generate_json(prompt_instruction, effective_key, base_url=clean_base)
+                ai_positive_prompt = ai_response_data.get("positive_prompt")
+                ai_negative_prompt = ai_response_data.get("negative_prompt")
+                ai_technical_notes = ai_response_data.get("technical_notes")
+                if ai_positive_prompt and ai_negative_prompt:
                     return {
-                        "positive_prompt": pos,
-                        "negative_prompt": neg_res,
-                        "technical_notes": tech or f"Prompt tối ưu hóa cho nhân vật mới ({clean_concept}), kế thừa góc nhìn {view_type} và phong cách {art_style}."
+                        "positive_prompt": ai_positive_prompt,
+                        "negative_prompt": ai_negative_prompt,
+                        "technical_notes": ai_technical_notes or f"Prompt tối ưu hóa cho nhân vật mới ({clean_concept}), kế thừa góc nhìn {view_type} và phong cách {art_style}."
                     }
-            except Exception:
-                pass
+            except Exception as exc:
+                logging.warning(
+                    f"Không thể sinh prompt qua AI Provider '{effective_provider}': {exc}. Tự động chuyển sang chế độ ngoại tuyến."
+                )
 
         # ========================================================
         # D. BỘ MÁY TỔNG HỢP PROMPT NGOẠI TUYẾN (OFFLINE ENGINE - 0 TOKEN)

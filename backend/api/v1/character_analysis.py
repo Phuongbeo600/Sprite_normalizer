@@ -1,12 +1,14 @@
 # ========================================================
-# 1. THƯ VIỆN NỀN TẢNG PYTHON (Hệ thống & Xử lý JSON)
+# 1. THƯ VIỆN NỀN TẢNG PYTHON (Hệ thống, Logging & Xử lý JSON)
 # ========================================================
 # io: Xử lý bộ đệm luồng byte hình ảnh tải lên
 import io
 # json: Phân tích cú pháp dữ liệu JSON truyền vào
 import json
-# typing: Định nghĩa các kiểu từ điển, tùy chọn
-from typing import Optional, Dict, Any
+# logging: Ghi nhận nhật ký cảnh báo lỗi
+import logging
+# typing: Định nghĩa các kiểu từ điển, tùy chọn, bộ giá trị
+from typing import Optional, Dict, Any, Tuple
 
 # ========================================================
 # 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
@@ -29,8 +31,8 @@ from backend.services.prompt_builder_service import PromptBuilderService
 from backend.schemas.prompt import NewCharacterPromptRequest
 # SessionLocal: Tạo phiên làm việc CSDL MySQL để truy xuất key của dự án
 from backend.db import SessionLocal
-# ProjectRepository: Truy vấn cấu hình API Key của dự án
-from backend.repositories.project_repository import ProjectRepository
+# ProjectService: Dịch vụ dự án xử lý truy xuất cấu hình API Key
+from backend.services.project_service import ProjectService
 
 # ========================================================
 # 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
@@ -65,27 +67,27 @@ def _resolve_project_api_key(
     project_id: Optional[int],
     api_key: Optional[str],
     provider: Optional[str],
-    base_url: Optional[str]
-):
-    """Hàm phụ trợ lấy API Key từ CSDL MySQL của project nếu không truyền trực tiếp."""
+    base_url: Optional[str],
+    project_service: Optional[ProjectService] = None
+) -> Tuple[Optional[str], str, Optional[str]]:
+    """Hàm phụ trợ lấy API Key từ cấu hình dự án thông qua ProjectService nếu không truyền trực tiếp."""
     eff_key = api_key
     eff_prov = provider
     eff_base = base_url
 
     if not eff_key and project_id:
         try:
+            service = project_service or ProjectService()
             with SessionLocal() as db:
-                repo = ProjectRepository()
-                cfg = repo.get_api_config(db, project_id)
-                if cfg:
-                    eff_prov = eff_prov or cfg.get("api_provider")
-                    if eff_prov == "openai":
-                        eff_key = cfg.get("_openai_raw_key")
-                    else:
-                        eff_key = cfg.get("_gemini_raw_key")
-                    eff_base = eff_base or cfg.get("openai_base_url")
-        except Exception:
-            pass
+                return service.resolve_project_credentials(
+                    db=db,
+                    project_id=project_id,
+                    api_key=api_key,
+                    provider=provider,
+                    base_url=base_url
+                )
+        except Exception as exc:
+            logging.warning(f"Lỗi khi đọc cấu hình API Key từ CSDL cho dự án {project_id}: {exc}")
 
     return eff_key, eff_prov or "gemini", eff_base
 
@@ -150,21 +152,21 @@ async def analyze_character_tab(
 
         # Chạy toàn bộ (All tabs tuần tự)
         elif tab_clean == "all":
-            g_res = CharacterAnalysisService.analyze_tab_global(image, api_key=eff_key, provider=eff_prov, base_url=eff_base)
-            d_res = CharacterAnalysisService.analyze_tab_directions(image, api_key=eff_key, provider=eff_prov, base_url=eff_base)
-            a_res = CharacterAnalysisService.analyze_tab_animations(image, api_key=eff_key, provider=eff_prov, base_url=eff_base)
-            c_res = CharacterAnalysisService.analyze_tab_constraints(
-                global_data=g_res, direction_data=d_res, animation_data=a_res,
+            global_res = CharacterAnalysisService.analyze_tab_global(image, api_key=eff_key, provider=eff_prov, base_url=eff_base)
+            direction_res = CharacterAnalysisService.analyze_tab_directions(image, api_key=eff_key, provider=eff_prov, base_url=eff_base)
+            animation_res = CharacterAnalysisService.analyze_tab_animations(image, api_key=eff_key, provider=eff_prov, base_url=eff_base)
+            constraints_res = CharacterAnalysisService.analyze_tab_constraints(
+                global_data=global_res, direction_data=direction_res, animation_data=animation_res,
                 api_key=eff_key, provider=eff_prov, base_url=eff_base
             )
 
             full_ai_analysis = {
-                "global_analysis": g_res,
-                "direction_analysis": d_res,
-                "animation_analysis": a_res,
-                "consistency_analysis": c_res.get("consistency_analysis", {}),
-                "negative_constraints": c_res.get("negative_constraints", {}),
-                "palette_metrics": g_res.get("palette_metrics")
+                "global_analysis": global_res,
+                "direction_analysis": direction_res,
+                "animation_analysis": animation_res,
+                "consistency_analysis": constraints_res.get("consistency_analysis", {}),
+                "negative_constraints": constraints_res.get("negative_constraints", {}),
+                "palette_metrics": global_res.get("palette_metrics")
             }
             # Tự động ánh xạ dữ liệu 7 Schemas sang ma trận 15 frame hoạt họa có chân tay đối nghịch
             full_ai_analysis["frame_actions_data"] = PromptBuilderService.build_default_frame_actions(full_ai_analysis)

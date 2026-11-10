@@ -1,3 +1,10 @@
+"""
+Module: backend.core.heuristic_analyzer
+Mục đích: Bộ phân tích giải phẫu hình học offline của Sprite (Heuristic Anatomy Analyzer).
+Ai gọi nó: `CharacterAnalysisService` và bộ kiểm thử `tests.test_heuristic_analyzer`.
+Tại sao tồn tại: Trích xuất chính xác chiều cao nhân vật bằng pixel và tỷ lệ đầu/thân thông qua phép chiếu mật độ điểm ảnh ngang (Horizontal Density Projection), giúp cố định kích thước nhân vật mà không phụ thuộc vào suy đoán cảm tính của AI.
+"""
+
 # ========================================================
 # 1. THƯ VIỆN NỀN TẢNG PYTHON (Cấu trúc dữ liệu & Kiểu)
 # ========================================================

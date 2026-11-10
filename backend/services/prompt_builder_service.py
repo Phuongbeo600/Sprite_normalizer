@@ -1,3 +1,10 @@
+"""
+Module: backend.services.prompt_builder_service
+Mục đích: Dịch vụ xây dựng ma trận 15 frame hoạt họa và biên dịch prompt 3 tầng.
+Ai gọi nó: API router `backend.api.v1.character_analysis` và các bộ kiểm thử unit tests.
+Tại sao tồn tại: Chuyển hóa toàn bộ dữ liệu phân tích từ 7 Schemas (độ nhún trọng tâm, hướng sáng, nét viền, tỷ lệ giải phẫu) thành ma trận hành động chi tiết 15 frame (3 hướng x 5 frame chân tay đối nghịch), tạo câu prompt tối ưu cho AI vẽ Sprite Sheet.
+"""
+
 # ========================================================
 # 1. THƯ VIỆN NỀN TẢNG PYTHON (Cấu trúc dữ liệu & Kiểu)
 # ========================================================

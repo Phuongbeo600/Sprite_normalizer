@@ -17,6 +17,7 @@ from .normalizer import SpriteNormalizer
 from .visual_renderer import AnatomyVisualRenderer
 from .heuristic_analyzer import HeuristicAnalyzer
 from .inverse_scaling import InverseScalingEngine
+from .palette_analyzer import HeuristicPaletteAnalyzer
 
 # ========================================================
 # 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
@@ -29,5 +30,6 @@ __all__ = [
     "SpriteNormalizer",
     "AnatomyVisualRenderer",
     "HeuristicAnalyzer",
-    "InverseScalingEngine"
+    "InverseScalingEngine",
+    "HeuristicPaletteAnalyzer"
 ]

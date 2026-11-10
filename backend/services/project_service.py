@@ -1,8 +1,15 @@
+"""
+Module: backend.services.project_service
+Mục đích: Dịch vụ nghiệp vụ quản lý dự án (Project Service).
+Ai gọi nó: API router `backend.api.v1.projects` và `backend.api.v1.character_analysis`.
+Tại sao tồn tại: Đóng vai trò lớp trung gian độc lập kiểm tra tính hợp lệ dữ liệu, giải quyết thông tin xác thực API Key từ MySQL, và quản lý các bản ghi cấu hình Preset nhân vật.
+"""
+
 # ========================================================
 # 1. THƯ VIỆN NỀN TẢNG PYTHON (Cấu trúc & Kiểu dữ liệu)
 # ========================================================
-# typing: Khai báo kiểu danh sách, từ điển, tùy chọn
-from typing import List, Optional, Dict, Any
+# typing: Khai báo kiểu danh sách, từ điển, tùy chọn, bộ giá trị
+from typing import List, Optional, Dict, Any, Tuple
 
 # ========================================================
 # 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
@@ -79,6 +86,34 @@ class ProjectService:
         if not config:
             raise ValueError(f"Không tìm thấy dự án với ID = {project_id}")
         return config
+
+    def resolve_project_credentials(
+        self,
+        db: Session,
+        project_id: Optional[int],
+        api_key: Optional[str] = None,
+        provider: Optional[str] = None,
+        base_url: Optional[str] = None
+    ) -> Tuple[Optional[str], str, Optional[str]]:
+        """
+        Xác định thông tin xác thực API hiệu lực (API Key, Provider, Base URL).
+        Ưu tiên thông tin truyền trực tiếp từ client; nếu thiếu và có project_id sẽ tra cứu từ CSDL dự án.
+        """
+        eff_key = api_key
+        eff_prov = provider
+        eff_base = base_url
+
+        if not eff_key and project_id:
+            cfg = self.repository.get_api_config(db, project_id)
+            if cfg:
+                eff_prov = eff_prov or cfg.get("api_provider")
+                if eff_prov == "openai":
+                    eff_key = cfg.get("_openai_raw_key")
+                else:
+                    eff_key = cfg.get("_gemini_raw_key")
+                eff_base = eff_base or cfg.get("openai_base_url")
+
+        return eff_key, eff_prov or "gemini", eff_base
 
     def update_api_config(
         self,

@@ -1,3 +1,10 @@
+"""
+Module: backend.core.normalizer
+Mục đích: Thuật toán chuẩn hóa ảnh Sprite (SpriteNormalizer).
+Ai gọi nó: API router `backend.api.v1.sprites` và các bài kiểm thử `tests.test_sprite_normalizer`.
+Tại sao tồn tại: Xử lý tiền xử lý hình ảnh sprite: tự động phát hiện hộp bao tối thiểu (Bounding Box) bỏ viền trong suốt, căn chỉnh điểm neo chân đáy giữa (Bottom-Center Anchor) và đệm viền an toàn, đảm bảo mọi frame sprite có cùng chuẩn hệ quy chiếu hình học.
+"""
+
 # ========================================================
 # 1. THƯ VIỆN NỀN TẢNG PYTHON (Cấu trúc dữ liệu & Kiểu)
 # ========================================================
