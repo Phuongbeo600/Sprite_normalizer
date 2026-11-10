@@ -258,12 +258,12 @@ export default function ProjectAnalysis() {
   };
 
   /**
-   * Sinh Prompt AI tiếng Anh tối ưu hóa dựa trên Hồ sơ nhân vật tham chiếu.
+   * Sinh Prompt AI tiếng Anh tối ưu hóa cho Nhân vật Mới (Tự do sáng tạo).
+   * Kế thừa quy chuẩn kỹ thuật (kích thước khung game, tỷ lệ, nét vẽ, bóng) từ nhân vật tham chiếu.
    * 
-   * @param {string} concept Ý tưởng nhân vật mới.
-   * @param {string} targetDir Hướng nhìn mục tiêu.
+   * @param {Object} newCharConfig Thông số cấu hình nhân vật mới do người dùng nhập.
    */
-  const handleGeneratePromptFromProfile = async (concept, targetDir) => {
+  const handleGeneratePromptFromProfile = async (newCharConfig) => {
     if (generatingProfilePrompt) return;
 
     setGeneratingProfilePrompt(true);
@@ -274,8 +274,14 @@ export default function ProjectAnalysis() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           profile_data: profileData,
-          character_concept: concept || 'Pixel Art Character',
-          target_direction: targetDir || 'Front / Down view',
+          metrics: metrics,
+          core_concept: newCharConfig.core_concept || 'Pixel Art Character',
+          outfit_and_colors: newCharConfig.outfit_and_colors || null,
+          weapons_and_props: newCharConfig.weapons_and_props || null,
+          stature_rule: newCharConfig.stature_rule || 'Bằng nhân vật gốc (Tỷ lệ chuẩn)',
+          target_direction: newCharConfig.target_direction || 'Front / Down view',
+          inherit_scale: newCharConfig.inherit_scale ?? true,
+          inherit_style: newCharConfig.inherit_style ?? true,
         }),
       });
 

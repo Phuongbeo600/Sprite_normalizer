@@ -14,7 +14,7 @@
 # Schemas hiện có cho Dự án, Cài đặt và Cố vấn Prompt
 from .project import ProjectCreateRequest, ProjectItem, ProjectListResponse
 from .settings import SettingsResponse, SettingsUpdateRequest, TestApiKeyRequest
-from .prompt import PromptAdviceRequest
+from .prompt import PromptAdviceRequest, NewCharacterPromptRequest
 # Schema mới cho Phân tích Asset nhân vật tham chiếu AI
 from .character import (
     IdentityAnalysis,
@@ -49,6 +49,7 @@ __all__ = [
     "SettingsUpdateRequest",
     "TestApiKeyRequest",
     "PromptAdviceRequest",
+    "NewCharacterPromptRequest",
     # Schemas phân tích nhân vật mới
     "IdentityAnalysis",
     "AnatomyAnalysis",

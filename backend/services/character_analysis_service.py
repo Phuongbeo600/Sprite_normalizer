@@ -206,62 +206,200 @@ Return ONLY the raw JSON object adhering to the schema.
         profile_data: Dict[str, Any],
         new_character_concept: str,
         target_direction: str = "Front / Down view",
+        outfit_and_colors: Optional[str] = None,
+        weapons_and_props: Optional[str] = None,
+        stature_rule: str = "Bằng nhân vật gốc (Tỷ lệ chuẩn)",
+        inherit_scale: bool = True,
+        inherit_style: bool = True,
+        metrics: Optional[Dict[str, Any]] = None,
         api_key: Optional[str] = None,
         provider: str = "gemini",
         base_url: Optional[str] = None
     ) -> Dict[str, str]:
         """
         Sinh Prompt hình ảnh tối ưu dựa trên toàn bộ DNA của Hồ sơ nhân vật (Character Profile):
-        Khống chế Midjourney / DALL-E / Stable Diffusion sinh ra nhân vật mới đồng bộ 100% phong cách.
+        TÁCH BẠCH RẠCH RÒI 2 LUỒNG DỮ LIỆU:
+        1. Ý tưởng mới (New Concept): Do người dùng tự do nhập (Pháp sư, Ninja, Quái vật...).
+           -> Trang phục, màu sắc, vũ khí 100% là của con mới, KHÔNG bị gán cứng vào hiệp sĩ/kiếm/giáp cũ.
+        2. Quy chuẩn kỹ thuật (Technical Blueprint): Kế thừa từ nhân vật tham chiếu.
+           -> Tỷ lệ kích thước vào game không to không bé, nét viền pixel, số bậc đổ bóng, góc nhìn, che khuất.
         """
         effective_key, effective_provider, clean_base = cls._resolve_credentials(api_key, provider, base_url)
 
-        g = profile_data.get("global_analysis", {})
-        ident = g.get("identity", {})
-        style = g.get("pixel_style", {})
-        mats = g.get("materials", [])
-        mat_summary = ", ".join([f"{m.get('region_name')}: {m.get('color_description')} ({m.get('material_type')})" for m in mats[:4]])
+        # 1. Trích xuất thông tin nhân vật tham chiếu (Chỉ lấy quy chuẩn kỹ thuật, không lấy trang phục/vũ khí)
+        g = profile_data.get("global_analysis", {}) or {}
+        ident = g.get("identity", {}) or {}
+        anat = g.get("anatomy", {}) or {}
+        style = g.get("pixel_style", {}) or {}
+        mats = g.get("materials", []) or []
 
-        neg = profile_data.get("negative_constraints", {})
-        forbidden = ", ".join(neg.get("forbidden_design_changes", [])[:4])
-        visual_defects = ", ".join(neg.get("visual_defects_to_avoid", [])[:4])
+        # 2. Xác định góc nhìn mục tiêu và quy tắc che khuất từ Phân hệ 2 (Directions)
+        dir_data = profile_data.get("direction_analysis", {}) or {}
+        clean_target_lower = (target_direction or "").lower()
+        if "side" in clean_target_lower or "profile" in clean_target_lower:
+            dir_key = "side"
+        elif "back" in clean_target_lower or "up" in clean_target_lower:
+            dir_key = "up"
+        else:
+            dir_key = "down"
 
+        dir_profile = dir_data.get(dir_key, {}) or {}
+
+        # 3. Trích xuất Phân hệ 4 (Consistency & Negative Constraints)
+        cons = profile_data.get("consistency_analysis", {}) or {}
+        neg = profile_data.get("negative_constraints", {}) or {}
+
+        # ========================================================
+        # A. XỬ LÝ DỮ LIỆU CỦA NHÂN VẬT MỚI (NEW CHARACTER DATA)
+        # ========================================================
+        clean_concept = (new_character_concept or "").strip() or "Pixel Art Character"
+        clean_outfit = (outfit_and_colors or "").strip() if outfit_and_colors else ""
+        clean_weapons = (weapons_and_props or "").strip() if weapons_and_props else ""
+
+        # Quy chuẩn vóc dáng (Stature)
+        base_body_type = ident.get("body_type") or "Chibi / Stylized Proportions"
+        if "To hơn" in stature_rule or "Chibi hơn" in stature_rule:
+            stature_desc = "Cute oversized head, compact chibi proportions (2.0 heads tall)"
+        elif "Nhỏ hơn" in stature_rule or "Dáng cao" in stature_rule:
+            stature_desc = "Taller elongated proportions, semi-heroic stature (4.0 - 5.0 heads tall)"
+        elif "Rộng hơn" in stature_rule or "Cơ bắp" in stature_rule:
+            stature_desc = "Broad-shouldered, muscular stocky build"
+        elif "Hẹp hơn" in stature_rule or "Thon" in stature_rule:
+            stature_desc = "Slender, lean nimble build"
+        else:
+            stature_desc = f"{base_body_type} proportion, {ident.get('shape_language', 'balanced compact silhouette')}"
+
+        # ========================================================
+        # B. QUY CHUẨN KỸ THUẬT KẾ THỪA TỪ NHÂN VẬT THAM CHIẾU
+        # ========================================================
+        # Tỷ lệ kích thước game (Geometric Scale Blueprint)
+        scale_guidance = ""
+        if inherit_scale:
+            if metrics:
+                char_h = metrics.get("anatomical_height") or metrics.get("visible_height", 48)
+                heads_tall = metrics.get("heads_tall", 3.0)
+                scale_guidance = (
+                    f"Scale constraint: Character height ~{char_h}px relative ratio, "
+                    f"proportional head-to-body ratio {heads_tall:.1f} heads tall, "
+                    f"full-body framing occupying exactly 80% canvas height, feet aligned to ground baseline"
+                )
+            else:
+                scale_guidance = "Scale constraint: Standard 2D game sprite framing, character occupying 80% canvas height, grounded feet"
+
+        # Quy chuẩn đồ họa Pixel (Pixel Art Blueprint)
+        art_style = style.get("art_style") or "16-bit retro console pixel art"
+        outline_style = style.get("outline_style") or "Selective dark outline (selout)"
+        shading_style = style.get("shading_style") or "Cel-shading with hue-shifting"
+        shading_levels = style.get("shading_levels") or 3
+        dithering_style = style.get("dithering_style") or "Clean clusters, no heavy dithering"
+        cluster_style = style.get("pixel_cluster_style") or "Crisp, intentional pixel clusters without stray noise"
+        lighting_dir = style.get("lighting_direction") or "Top-left directional light (45 degrees)"
+
+        # Quy tắc góc nhìn và che khuất (Perspective & Occlusion)
+        view_type = dir_profile.get("view_type") or target_direction
+        body_orient = dir_profile.get("body_orientation") or "Facing forward"
+        head_orient = dir_profile.get("head_orientation") or "Facing forward"
+        limb_placement = anat.get("relative_limb_placement") or "Grounded stance"
+        occlusion_rules = ", ".join(dir_profile.get("occlusion_rules", [])[:3]) or "Layer held accessories naturally over body"
+
+        # Lỗi cấm kỵ (Negative Constraints)
+        visual_defects = neg.get("visual_defects_to_avoid", []) or [
+            "Pillow shading", "Banding", "Orphan stray pixels", "Dithering noise", "Mixed pixel resolutions"
+        ]
+        visual_defects_str = ", ".join(visual_defects[:5])
+
+        # ========================================================
+        # C. SINH PROMPT THÔNG QUA AI VISION / LLM (NẾU CÓ KEY)
+        # ========================================================
         prompt_instruction = f"""
-You are a Lead Prompt Engineer for 2D Pixel Art games.
-We need to generate a NEW character asset ({new_character_concept}) that perfectly matches the artistic DNA of an existing reference character.
+You are a Lead Art Director & Prompt Engineer specializing in 2D Pixel Art game asset creation.
+Your task is to generate a POSITIVE PROMPT and NEGATIVE PROMPT for modern generative AI (Midjourney v6, SDXL, DALL-E 3) to create a BRAND NEW CHARACTER:
 
-REFERENCE ARTISTIC DNA:
-- Art Style: {style.get('art_style', '16-bit retro pixel art')}
-- Outline Style: {style.get('outline_style', 'selective dark outline')}
-- Shading Style: {style.get('shading_style', 'cel-shading')}
-- Pixel Clusters: {style.get('pixel_cluster_style', 'clean chunky clusters')}
-- Materials Palette: {mat_summary}
-- Target View: {target_direction}
+NEW CHARACTER SPECIFICATIONS (CUSTOM REQUEST):
+- Core Identity / Subject: {clean_concept}
+- Desired Outfit & Colors: {clean_outfit if clean_outfit else "Design an authentic, stylish outfit fitting this character concept"}
+- Desired Weapons & Props: {clean_weapons if clean_weapons else "Equip fitting props/weapons matching this concept (or bare hands if unarmed)"}
+- Body Stature Rule: {stature_desc}
 
-DEFECTS & FORBIDDEN:
-- Avoid: {visual_defects}
-- Do not violate: {forbidden}
+TECHNICAL RENDERING BLUEPRINT (INHERITED FROM GAME DESIGN SYSTEM):
+- Target Perspective: {view_type} (Body {body_orient}, Head {head_orient}, Stance: {limb_placement})
+- Layering / Occlusion Rules: {occlusion_rules}
+- Game Canvas Scale: {scale_guidance if inherit_scale else "Standard full body framing"}
+- Pixel Art Style: {art_style if inherit_style else "Retro pixel art"}
+- Outline Rule: {outline_style}
+- Shading Rule: {shading_style} ({shading_levels} distinct shades)
+- Lighting Angle: {lighting_dir}
+- Cluster Rule: {cluster_style}, {dithering_style}
+- Forbidden Defects: {visual_defects_str}
 
-Generate a concise, high-impact POSITIVE PROMPT and NEGATIVE PROMPT in JSON:
+CRITICAL INSTRUCTIONS:
+1. DO NOT copy swords, armor, or knight gear from the reference character unless explicitly requested in the New Character Specifications.
+2. The Positive Prompt MUST describe the NEW character ({clean_concept}) with its own outfit and weapon, while strictly obeying the perspective, pixel technique, shading, and canvas scale rules.
+3. The Negative Prompt MUST aggressively filter out realistic 3D renders, blurry art, pillow shading, banding, stray orphan noise, and cut-off feet.
+4. Include concise Vietnamese technical notes summarizing how the new character was mapped into the game's design system.
+
+Return ONLY a valid JSON object:
 {{
-  "positive_prompt": "English prompt for text-to-image generator",
-  "negative_prompt": "English negative prompt"
+  "positive_prompt": "Ultra-detailed English positive prompt...",
+  "negative_prompt": "Exhaustive English negative prompt...",
+  "technical_notes": "Tóm tắt ngắn gọn bằng tiếng Việt..."
 }}
 """
         if effective_key:
-            ai_provider = AiProviderFactory.get_provider(effective_provider)
-            data = ai_provider.generate_json(prompt_instruction, effective_key, base_url=clean_base)
-            return {
-                "positive_prompt": data.get("positive_prompt", f"pixel art sprite of {new_character_concept}, {style.get('art_style', '16-bit')}, clean silhouette"),
-                "negative_prompt": data.get("negative_prompt", "blurry, 3d render, photo, photorealistic, noise, antialiasing"),
-                "technical_notes": data.get("technical_notes", f"Prompt tối ưu hóa theo góc nhìn {target_direction}, bảo lưu phong cách {style.get('art_style', 'Pixel Art')}.")
-            }
-        else:
-            return {
-                "positive_prompt": f"masterpiece, full body pixel art sprite of {new_character_concept}, {style.get('art_style', '16-bit SNES style')}, {style.get('outline_style', 'dark selout')}, clean pixel clusters, solid isolated background, game asset",
-                "negative_prompt": "blurry, 3d render, photo, photorealistic, jaggies, noise, antialiasing, cut off feet, cropped",
-                "technical_notes": f"Prompt tối ưu hóa theo góc nhìn {target_direction}, bảo lưu phong cách {style.get('art_style', '16-bit SNES style')}."
-            }
+            try:
+                ai_provider = AiProviderFactory.get_provider(effective_provider)
+                data = ai_provider.generate_json(prompt_instruction, effective_key, base_url=clean_base)
+                pos = data.get("positive_prompt")
+                neg_res = data.get("negative_prompt")
+                tech = data.get("technical_notes")
+                if pos and neg_res:
+                    return {
+                        "positive_prompt": pos,
+                        "negative_prompt": neg_res,
+                        "technical_notes": tech or f"Prompt tối ưu hóa cho nhân vật mới ({clean_concept}), kế thừa góc nhìn {view_type} và phong cách {art_style}."
+                    }
+            except Exception:
+                pass
+
+        # ========================================================
+        # D. BỘ MÁY TỔNG HỢP PROMPT NGOẠI TUYẾN (OFFLINE ENGINE - 0 TOKEN)
+        # ========================================================
+        outfit_part = f"wearing {clean_outfit}, " if clean_outfit else ""
+        weapon_part = f"holding {clean_weapons}, " if clean_weapons else ""
+
+        offline_pos = (
+            f"masterpiece, best quality, standalone full body 2D pixel art character sprite of {clean_concept}, "
+            f"{outfit_part}{weapon_part}"
+            f"exact {view_type} angle, body {body_orient}, head {head_orient}, {limb_placement}, "
+            f"{stature_desc}, "
+            f"authentic {art_style}, crisp {outline_style}, professional {shading_style} with {shading_levels} distinct shades, "
+            f"{lighting_dir} casting dynamic directional shadows, {cluster_style}, {dithering_style}, "
+            f"{scale_guidance}, "
+            f"perfect 1x pixel grid alignment, crisp sharp edges, solid isolated neutral dark background, game asset sprite sheet ready"
+        )
+
+        offline_neg = (
+            f"blurry, 3d render, realistic photograph, vector illustration, smooth gradients, anti-aliasing blur, "
+            f"pillow shading, color banding, stray orphan noise pixels, messy dithering, mixed pixel resolutions, non-pixel art, "
+            f"{visual_defects_str}, "
+            f"cropped, cut off feet, out of frame, awkward anatomy, extra limbs, mutated hands, multiple views, text, watermark, signature"
+        )
+
+        tech_notes_lines = [
+            f"🛡️ [BỘ MÁY TỔNG HỢP PROMPT NHÂN VẬT MỚI]:",
+            f"• Ý tưởng nhân vật mới: {clean_concept}",
+            f"• Trang phục & Vũ khí riêng: {clean_outfit or 'Theo concept'} | {clean_weapons or 'Tự do'}",
+            f"• Vóc dáng: {stature_desc}",
+            f"• Kế thừa góc nhìn: {view_type} (Đầu {head_orient}, Thân {body_orient})",
+            f"• Kế thừa kỹ thuật đồ họa: {art_style} (Viền: {outline_style}, Đổ bóng: {shading_style} {shading_levels} bậc sáng)",
+            f"• Khống chế tỷ lệ game: {scale_guidance or 'Chuẩn hóa tỷ lệ'}"
+        ]
+
+        return {
+            "positive_prompt": offline_pos,
+            "negative_prompt": offline_neg,
+            "technical_notes": "\n".join(tech_notes_lines)
+        }
 
     @staticmethod
     def _resolve_credentials(

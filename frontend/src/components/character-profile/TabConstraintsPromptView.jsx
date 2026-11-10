@@ -7,7 +7,7 @@ import React, { useState } from 'react';
 // 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
 // ========================================================
 // lucide-react: Bộ icon minh họa bảo vệ ràng buộc, sao chép prompt và cảnh báo lỗi
-import { ShieldCheck, ShieldAlert, Sparkles, Copy, Check, Info } from 'lucide-react';
+import { ShieldCheck, ShieldAlert, Sparkles, Copy, Check, Info, Sliders, Wand2 } from 'lucide-react';
 
 // ========================================================
 // 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Components & Dữ liệu)
@@ -21,9 +21,10 @@ import { ShieldCheck, ShieldAlert, Sparkles, Copy, Check, Info } from 'lucide-re
 
 /**
  * Phân hệ 4: Ràng buộc Tính nhất quán & Phòng tạo Prompt AI (ConsistencyAnalysis & Prompt Studio).
- * - Hiển thị các đặc điểm bất biến cần bảo tồn tuyệt đối.
- * - Hiển thị danh sách điều cấm kỵ (Negative Constraints): lỗi tạo hình, nhiễu pixel, trượt chân.
- * - Cung cấp biểu mẫu sinh Prompt AI (Midjourney / DALL-E / Stable Diffusion) kế thừa phong cách từ hồ sơ.
+ * - Cung cấp biểu mẫu tạo nhân vật MỚI tự do theo ý người dùng (không bị gán cứng vào hiệp sĩ cũ).
+ * - Cho phép nhập trang phục, dải màu, vũ khí, vóc dáng riêng của nhân vật mới.
+ * - Kế thừa quy chuẩn kỹ thuật (kích thước khung game, nét vẽ, số mức bóng) từ nhân vật tham chiếu.
+ * - Hiển thị các ràng buộc bất biến và danh sách điều cấm kỵ (Negative Constraints).
  * 
  * @param {Object} props Thuộc tính truyền vào component.
  * @param {Object|null} props.consistency Dữ liệu phân tích tính nhất quán (ConsistencyAnalysis).
@@ -42,9 +43,16 @@ export default function TabConstraintsPromptView({
   generatingPrompt,
   generatedPromptResult
 }) {
-  // Trạng thái nhập ý tưởng nhân vật mới và hướng mục tiêu
-  const [concept, setConcept] = useState('Chiến binh Pixel Art cầm khiên phong trần');
+  // Trạng thái các trường thông tin của NHÂN VẬT MỚI (Tự do sáng tạo)
+  const [concept, setConcept] = useState('Nữ pháp sư bóng đêm bí ẩn');
+  const [outfitAndColors, setOutfitAndColors] = useState('Áo choàng nhung tím đen viền chỉ vàng kim');
+  const [weaponsAndProps, setWeaponsAndProps] = useState('Tay phải cầm trượng phép đính ngọc xanh');
+  const [statureRule, setStatureRule] = useState('Bằng nhân vật gốc (Tỷ lệ chuẩn)');
   const [targetDir, setTargetDir] = useState('Front / Down view');
+
+  // Các tùy chọn kế thừa quy chuẩn kỹ thuật từ nhân vật cũ
+  const [inheritScale, setInheritScale] = useState(true);
+  const [inheritStyle, setInheritStyle] = useState(true);
 
   // Trạng thái sao chép prompt
   const [copiedPos, setCopiedPos] = useState(false);
@@ -68,52 +76,122 @@ export default function TabConstraintsPromptView({
     }
   };
 
+  /**
+   * Kích hoạt sinh Prompt cho nhân vật mới với các tùy chỉnh riêng biệt.
+   */
+  const handleSubmitGenerate = () => {
+    onGeneratePrompt({
+      core_concept: concept,
+      outfit_and_colors: outfitAndColors,
+      weapons_and_props: weaponsAndProps,
+      stature_rule: statureRule,
+      target_direction: targetDir,
+      inherit_scale: inheritScale,
+      inherit_style: inheritStyle,
+    });
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
       {/* ========================================================
-          1. PHÒNG TẠO PROMPT AI TỪ HỒ SƠ (PROMPT STUDIO)
+          1. PHÒNG TẠO PROMPT AI CHO NHÂN VẬT MỚI (PROMPT STUDIO)
           ======================================================== */}
       <section className="profile-section-card" style={{ borderColor: 'var(--accent-purple-glow)' }}>
         <h4 style={{ color: 'var(--text-white)' }}>
-          <Sparkles size={16} color="var(--accent-purple)" />
-          Phòng tạo Prompt AI Tối ưu (Dựa trên Hồ sơ nhân vật tham chiếu)
+          <Wand2 size={16} color="var(--accent-purple)" />
+          Tạo Prompt cho Nhân vật Mới (Không bị gán cứng vào nhân vật cũ)
         </h4>
+        <p style={{ margin: '0 0 6px', fontSize: '0.775rem', color: 'var(--text-muted)' }}>
+          Nhập tự do yêu cầu của nhân vật mới (Pháp sư, Slime, Ninja...). Hệ thống sẽ tự động ghép phong cách pixel và tỷ lệ kích thước game từ nhân vật mẫu vào nhân vật này.
+        </p>
 
         <div className="analysis-fields">
           <label>
-            Ý tưởng nhân vật mới:
+            Ý tưởng cốt lõi (Concept):
             <input
               type="text"
               value={concept}
-              placeholder="VD: Nữ cung thủ tóc bạc mặc áo choàng xanh ngọc..."
+              placeholder="VD: Nữ pháp sư bóng đêm, Slime độc xanh, Ninja áo đen..."
               onChange={(e) => setConcept(e.target.value)}
             />
+          </label>
+
+          <label>
+            Trang phục & Dải màu riêng:
+            <input
+              type="text"
+              value={outfitAndColors}
+              placeholder="VD: Áo choàng tím đen viền vàng, Giáp da sờn rách..."
+              onChange={(e) => setOutfitAndColors(e.target.value)}
+            />
+          </label>
+
+          <label>
+            Vũ khí & Đạo cụ riêng:
+            <input
+              type="text"
+              value={weaponsAndProps}
+              placeholder="VD: Cầm trượng phép đính ngọc, Song kiếm, hoặc Tay không..."
+              onChange={(e) => setWeaponsAndProps(e.target.value)}
+            />
+          </label>
+
+          <label>
+            Vóc dáng nhân vật mới:
+            <select value={statureRule} onChange={(e) => setStatureRule(e.target.value)}>
+              <option value="Bằng nhân vật gốc (Tỷ lệ chuẩn)">Bằng nhân vật mẫu (Tỷ lệ chuẩn như cũ)</option>
+              <option value="To hơn nhân vật gốc (Chibi hơn)">Lớn hơn nhân vật mẫu (Chibi đầu to hơn)</option>
+              <option value="Nhỏ hơn nhân vật gốc (Dáng cao hơn)">Nhỏ hơn nhân vật mẫu (Dáng cao thanh mảnh)</option>
+              <option value="Rộng hơn nhân vật gốc (Cơ bắp)">Rộng hơn nhân vật mẫu (Cơ bắp / Đậm người)</option>
+              <option value="Hẹp hơn nhân vật gốc (Thon gọn)">Hẹp hơn nhân vật mẫu (Thon gọn / Nhẹ nhàng)</option>
+            </select>
           </label>
 
           <label>
             Góc nhìn mục tiêu:
             <select value={targetDir} onChange={(e) => setTargetDir(e.target.value)}>
               <option value="Front / Down view">Down - Nhìn từ trước (Front View)</option>
-              <option value="Side Profile view">Side - Nhìn ngang (Side View)</option>
-              <option value="Back / Up view">Up - Nhìn từ sau (Back View)</option>
+              <option value="Side Profile view">Side - Nhìn ngang (Side View 90°)</option>
+              <option value="Back / Up view">Up - Nhìn từ sau lưng (Back View)</option>
             </select>
           </label>
+
+          {/* Các công tắc kế thừa kỹ thuật */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '14px', padding: '6px 0', fontSize: '0.8rem' }}>
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={inheritScale}
+                onChange={(e) => setInheritScale(e.target.checked)}
+              />
+              <span>🔒 <strong>Khóa tỷ lệ game</strong> (Vào game không to không bé)</span>
+            </label>
+
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={inheritStyle}
+                onChange={(e) => setInheritStyle(e.target.checked)}
+              />
+              <span>🎨 <strong>Đồng bộ nét vẽ pixel</strong> (Viền & Đổ bóng như cũ)</span>
+            </label>
+          </div>
         </div>
 
         <button
           type="button"
           className="analysis-generate"
           disabled={generatingPrompt || !fullProfile}
-          onClick={() => onGeneratePrompt(concept, targetDir)}
-          style={{ marginTop: '4px' }}
+          onClick={handleSubmitGenerate}
+          style={{ marginTop: '8px' }}
         >
           <Sparkles size={16} />
-          {generatingPrompt ? 'Đang tổng hợp Prompt từ hồ sơ…' : 'Sinh Prompt AI Đồng Bộ Tỷ Lệ & Phong Cách'}
+          {generatingPrompt ? 'Đang tổng hợp Prompt cho nhân vật mới…' : 'Sinh Prompt AI Tối Ưu Cho Nhân Vật Mới'}
         </button>
 
         {/* Kết quả Prompt đã sinh */}
         {generatedPromptResult && (
-          <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {/* Positive Prompt */}
             <div>
               <div className="analysis-output-title">
@@ -165,7 +243,8 @@ export default function TabConstraintsPromptView({
                 borderLeft: '3px solid var(--accent-purple)',
                 borderRadius: '4px',
                 color: 'var(--text-highlight)',
-                lineHeight: '1.4'
+                lineHeight: '1.4',
+                whiteSpace: 'pre-wrap'
               }}>
                 <Info size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '4px' }} />
                 <strong>Ghi chú kỹ thuật: </strong>

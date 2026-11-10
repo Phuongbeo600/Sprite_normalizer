@@ -114,6 +114,40 @@ class TestCharacterProfileService(unittest.TestCase):
         self.assertIn("Nữ hiệp sĩ tóc bạc áo giáp bạc", prompt_res["positive_prompt"])
         self.assertIn("pixel art", prompt_res["positive_prompt"].lower())
 
+    def test_generate_custom_new_character_not_hardcoded(self):
+        """
+        Kiểm tra Prompt nhân vật mới KHÔNG bị gán cứng vào trang phục/vũ khí của nhân vật cũ:
+        Ví dụ: Tạo 'Nữ phù thủy áo tím cầm trượng' từ nhân vật mẫu thì prompt mới
+        phải mang đúng áo tím và trượng phép của phù thủy, không bị ám giáp sắt/kiếm cũ.
+        """
+        global_res = CharacterAnalysisService.analyze_tab_global(self.sample_image)
+        profile_data = {
+            "global_analysis": global_res,
+            "direction_analysis": {},
+            "animation_analysis": {},
+            "consistency_analysis": {},
+            "negative_constraints": {}
+        }
+
+        prompt_res = CharacterAnalysisService.generate_character_prompt_from_profile(
+            profile_data=profile_data,
+            new_character_concept="Nữ phù thủy bóng đêm bí ẩn",
+            target_direction="Side Profile view",
+            outfit_and_colors="Áo choàng nhung tím đen viền vàng",
+            weapons_and_props="Trượng phép đính ngọc xanh",
+            stature_rule="Nhỏ hơn nhân vật gốc (Dáng cao hơn)",
+            inherit_scale=True,
+            inherit_style=True
+        )
+
+        pos_prompt = prompt_res["positive_prompt"]
+        self.assertIn("Nữ phù thủy bóng đêm bí ẩn", pos_prompt)
+        self.assertIn("Áo choàng nhung tím đen viền vàng", pos_prompt)
+        self.assertIn("Trượng phép đính ngọc xanh", pos_prompt)
+        # Khẳng định không bị nhét trang phục phiêu lưu của nhân vật mẫu vào
+        self.assertNotIn("Trang phục phiêu lưu", pos_prompt)
+        self.assertIn("16-bit", pos_prompt.lower())
+
 
 if __name__ == "__main__":
     unittest.main()

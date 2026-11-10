@@ -19,10 +19,12 @@ from pydantic import BaseModel, Field
 from PIL import Image
 
 # ========================================================
-# 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Services)
+# 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Services & Schemas)
 # ========================================================
 # CharacterAnalysisService: Dịch vụ phân tích nhân vật theo phân hệ Tab
 from backend.services.character_analysis_service import CharacterAnalysisService
+# NewCharacterPromptRequest: Schema yêu cầu tạo nhân vật mới không bị gán cứng
+from backend.schemas.prompt import NewCharacterPromptRequest
 
 # ========================================================
 # 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
@@ -33,9 +35,16 @@ character_analysis_router = APIRouter(prefix="/character-profile", tags=["Charac
 
 
 class GeneratePromptFromProfileRequest(BaseModel):
-    """Schema yêu cầu sinh Prompt dựa trên Hồ sơ nhân vật."""
-    profile_data: Dict[str, Any] = Field(..., description="Toàn bộ dữ liệu hồ sơ nhân vật (AIAnalysis)")
-    character_concept: str = Field(..., description="Ý tưởng nhân vật mới cần sinh")
+    """Schema yêu cầu sinh Prompt dựa trên Hồ sơ nhân vật (Hỗ trợ tương thích ngược)."""
+    profile_data: Dict[str, Any] = Field(default_factory=dict, description="Toàn bộ dữ liệu hồ sơ nhân vật (AIAnalysis)")
+    character_concept: Optional[str] = Field(None, description="Ý tưởng nhân vật mới (Tương thích cũ)")
+    core_concept: Optional[str] = Field(None, description="Ý tưởng nhân vật mới (Chuẩn mới)")
+    outfit_and_colors: Optional[str] = Field(None, description="Trang phục & màu sắc riêng của con mới")
+    weapons_and_props: Optional[str] = Field(None, description="Vũ khí & đạo cụ riêng con mới cầm")
+    stature_rule: str = Field("Bằng nhân vật gốc (Tỷ lệ chuẩn)", description="Quy tắc vóc dáng")
+    inherit_scale: bool = Field(True, description="Kế thừa tỷ lệ kích thước game")
+    inherit_style: bool = Field(True, description="Kế thừa phong cách viền & đổ bóng pixel")
+    metrics: Optional[Dict[str, Any]] = Field(None, description="Số đo pixel hình học từ Bước 1")
     target_direction: str = Field("Front / Down view", description="Góc nhìn mục tiêu cần sinh ảnh")
     api_key: Optional[str] = Field(None, description="Khóa API tùy chọn")
     provider: Optional[str] = Field(None, description="Nhà cung cấp AI tùy chọn")
@@ -133,13 +142,21 @@ async def analyze_character_tab(
 async def generate_prompt_from_profile(request: GeneratePromptFromProfileRequest):
     """
     Sinh Prompt tiếng Anh tối ưu khống chế tỷ lệ, phong cách pixel và vật liệu
-    dựa trên toàn bộ kết quả phân tích Character Profile.
+    cho Nhân vật Mới dựa trên Hồ sơ nhân vật tham chiếu.
+    Không bị gán cứng vào hiệp sĩ/kiếm/giáp của nhân vật cũ.
     """
     try:
+        concept = request.core_concept or request.character_concept or "Pixel Art Character"
         prompts = CharacterAnalysisService.generate_character_prompt_from_profile(
             profile_data=request.profile_data,
-            new_character_concept=request.character_concept,
+            new_character_concept=concept,
             target_direction=request.target_direction,
+            outfit_and_colors=request.outfit_and_colors,
+            weapons_and_props=request.weapons_and_props,
+            stature_rule=request.stature_rule,
+            inherit_scale=request.inherit_scale,
+            inherit_style=request.inherit_style,
+            metrics=request.metrics,
             api_key=request.api_key,
             provider=request.provider,
             base_url=request.base_url
