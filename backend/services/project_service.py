@@ -15,6 +15,8 @@ from sqlalchemy.orm import Session
 # ========================================================
 # ProjectRepository: Tầng truy cập dữ liệu bảng projects
 from backend.repositories.project_repository import ProjectRepository
+# CharacterPresetRepository: Tầng truy cập dữ liệu bảng project_character_presets
+from backend.repositories.character_preset_repository import CharacterPresetRepository
 
 # ========================================================
 # 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
@@ -25,12 +27,20 @@ from backend.repositories.project_repository import ProjectRepository
 class ProjectService:
     """
     Dịch vụ nghiệp vụ Quản lý Dự án (Project Service).
-    Đóng vai trò trung gian giữa Router và Repository.
+    Đóng vai trò trung gian giữa Router và Repository:
+    - Quản lý thông tin dự án (CRUD).
+    - Quản lý cấu hình API Key độc lập theo từng dự án.
+    - Quản lý lịch sử bản phân tích và Prompt nhân vật (Presets).
     """
 
-    def __init__(self, repository: Optional[ProjectRepository] = None):
+    def __init__(
+        self,
+        repository: Optional[ProjectRepository] = None,
+        preset_repository: Optional[CharacterPresetRepository] = None
+    ):
         """Khởi tạo ProjectService với Dependency Injection."""
         self.repository = repository or ProjectRepository()
+        self.preset_repository = preset_repository or CharacterPresetRepository()
 
     def get_all_projects(self, db: Session) -> List[Dict[str, Any]]:
         """Lấy toàn bộ danh sách dự án."""
@@ -59,3 +69,61 @@ class ProjectService:
     def delete_project(self, db: Session, project_id: int) -> bool:
         """Xóa dự án khỏi cơ sở dữ liệu."""
         return self.repository.delete(db, project_id)
+
+    # ========================================================
+    # NGHIỆP VỤ CẤU HÌNH API KEY THEO TỪNG DỰ ÁN
+    # ========================================================
+    def get_api_config(self, db: Session, project_id: int) -> Dict[str, Any]:
+        """Lấy thông tin cấu hình API Key của một dự án."""
+        config = self.repository.get_api_config(db, project_id)
+        if not config:
+            raise ValueError(f"Không tìm thấy dự án với ID = {project_id}")
+        return config
+
+    def update_api_config(
+        self,
+        db: Session,
+        project_id: int,
+        api_provider: str = "gemini",
+        gemini_api_key: Optional[str] = None,
+        openai_api_key: Optional[str] = None,
+        openai_base_url: Optional[str] = None
+    ) -> bool:
+        """Cập nhật cấu hình API Key của dự án trong MySQL."""
+        project = self.repository.get_by_id(db, project_id)
+        if not project:
+            raise ValueError(f"Không tìm thấy dự án với ID = {project_id}")
+
+        return self.repository.update_api_config(
+            db=db,
+            project_id=project_id,
+            api_provider=api_provider,
+            gemini_api_key=gemini_api_key,
+            openai_api_key=openai_api_key,
+            openai_base_url=openai_base_url
+        )
+
+    # ========================================================
+    # NGHIỆP VỤ LƯU TRỮ BẢN PHÂN TÍCH & PROMPT (PRESETS)
+    # ========================================================
+    def get_character_presets(self, db: Session, project_id: int) -> List[Dict[str, Any]]:
+        """Lấy danh sách các bản phân tích & prompt đã lưu của dự án."""
+        project = self.repository.get_by_id(db, project_id)
+        if not project:
+            raise ValueError(f"Không tìm thấy dự án với ID = {project_id}")
+        return self.preset_repository.get_all_by_project(db, project_id)
+
+    def get_character_preset_by_id(self, db: Session, preset_id: int, project_id: int) -> Optional[Dict[str, Any]]:
+        """Lấy chi tiết một bản ghi phân tích & prompt."""
+        return self.preset_repository.get_by_id(db, preset_id, project_id)
+
+    def create_character_preset(self, db: Session, project_id: int, **kwargs) -> Dict[str, Any]:
+        """Lưu một bản phân tích & prompt mới vào dự án."""
+        project = self.repository.get_by_id(db, project_id)
+        if not project:
+            raise ValueError(f"Không tìm thấy dự án với ID = {project_id}")
+        return self.preset_repository.create(db, project_id=project_id, **kwargs)
+
+    def delete_character_preset(self, db: Session, preset_id: int, project_id: int) -> bool:
+        """Xóa một bản ghi phân tích & prompt khỏi dự án."""
+        return self.preset_repository.delete(db, preset_id, project_id)

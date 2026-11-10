@@ -1,24 +1,43 @@
-// 1. THƯ VIỆN NỀN TẢNG REACT
-// React dựng các mục điều hướng.
+// ========================================================
+// 1. THƯ VIỆN NỀN TẢNG REACT (Quản lý component & trạng thái)
+// ========================================================
 import React from 'react';
 
-// 2. THƯ VIỆN BÊN NGOÀI
-// Bộ biểu tượng cho logo và các mục điều hướng.
-import { Folder, Settings, Bot, ScanSearch, Image } from 'lucide-react';
+// ========================================================
+// 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
+// ========================================================
+// lucide-react: Bộ biểu tượng vector SVG cho logo và các mục điều hướng Sidebar
+import { Folder, Settings, Bot, ScanSearch, Image, Bookmark, Sliders } from 'lucide-react';
 
-// 3. THÀNH PHẦN NỘI BỘ DỰ ÁN
-// Cấu hình logo và thông tin tài khoản hiển thị cuối thanh.
+// ========================================================
+// 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Components & Dữ liệu)
+// ========================================================
+// initialProjects: Cấu hình logo và thông tin tài khoản hiển thị cuối thanh
 import { CURRENT_USER, APP_CONFIG } from '../constants/initialProjects';
 
-// 4. ĐỊNH DẠNG GIAO DIỆN VÀ MÀU SẮC
+// ========================================================
+// 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
+// ========================================================
+// Kế thừa phong cách Dark UI từ theme.css
 
 /**
- * Hiển thị các mục điều hướng theo trạng thái mở dự án.
- * @param {object} props Thuộc tính của thanh điều hướng.
- * @param {string} props.activeTab Mục đang được hiển thị.
- * @param {object|null} props.currentProject Dự án đang mở, nếu có.
- * @param {Function} props.onSelectTab Hàm chuyển sang mục được chọn.
- * @returns {React.ReactElement} Thanh điều hướng bên trái.
+ * Thanh điều hướng chính bên trái (Sidebar).
+ * Hỗ trợ phân định rõ ràng giữa chế độ Tổng quan (Danh sách Dự án)
+ * và chế độ Làm việc bên trong một Dự án cụ thể:
+ * - Khi đang mở dự án:
+ *   1. Phân tích & Prompt
+ *   2. Xử lý ảnh
+ *   3. Hồ sơ đã lưu (Nằm dưới "Xử lý ảnh")
+ *   4. Cài đặt dự án (Quản lý API Key riêng của dự án)
+ * - Khi ở ngoài:
+ *   1. Dự án
+ *   2. Cài đặt chung (Đã gỡ bỏ ô nhập key theo yêu cầu)
+ * 
+ * @param {Object} props Thuộc tính truyền vào component.
+ * @param {string} props.activeTab Mục đang được kích hoạt hiển thị.
+ * @param {Object|null} props.currentProject Dự án đang được mở.
+ * @param {Function} props.onSelectTab Hàm chuyển đổi mục hiển thị.
+ * @returns {React.ReactElement} Giao diện thanh Sidebar.
  */
 export default function Sidebar({ activeTab, currentProject, onSelectTab }) {
   return (
@@ -43,6 +62,7 @@ export default function Sidebar({ activeTab, currentProject, onSelectTab }) {
         <nav className="minimal-nav">
           {currentProject ? (
             <>
+              {/* Mục 1: Phân tích & Prompt */}
               <button
                 className={`minimal-nav-item ${activeTab === 'analysis' ? 'active' : ''}`}
                 onClick={() => onSelectTab('analysis')}
@@ -50,12 +70,32 @@ export default function Sidebar({ activeTab, currentProject, onSelectTab }) {
                 <ScanSearch size={18} />
                 <span>Phân tích &amp; Prompt</span>
               </button>
+
+              {/* Mục 2: Xử lý ảnh */}
               <button
                 className={`minimal-nav-item ${activeTab === 'workspace' ? 'active' : ''}`}
                 onClick={() => onSelectTab('workspace')}
               >
                 <Image size={18} />
                 <span>Xử lý ảnh</span>
+              </button>
+
+              {/* Mục 3: Hồ sơ đã lưu (Nằm ngay dưới Xử lý ảnh, trên Cài đặt) */}
+              <button
+                className={`minimal-nav-item ${activeTab === 'saved_presets' ? 'active' : ''}`}
+                onClick={() => onSelectTab('saved_presets')}
+              >
+                <Bookmark size={18} />
+                <span>Hồ sơ đã lưu</span>
+              </button>
+
+              {/* Mục 4: Cài đặt dự án (Cấu hình API Key riêng cho dự án này) */}
+              <button
+                className={`minimal-nav-item ${activeTab === 'project_settings' ? 'active' : ''}`}
+                onClick={() => onSelectTab('project_settings')}
+              >
+                <Sliders size={18} />
+                <span>Cài đặt dự án</span>
               </button>
             </>
           ) : (
@@ -68,18 +108,21 @@ export default function Sidebar({ activeTab, currentProject, onSelectTab }) {
             </button>
           )}
 
-          <button
-            className={`minimal-nav-item ${activeTab === 'settings' ? 'active' : ''}`}
-            onClick={() => onSelectTab('settings')}
-          >
-            <Settings size={18} />
-            <span>Cài đặt</span>
-          </button>
+          {/* Mục Cài đặt chung khi ở ngoài danh sách dự án */}
+          {!currentProject && (
+            <button
+              className={`minimal-nav-item ${activeTab === 'settings' ? 'active' : ''}`}
+              onClick={() => onSelectTab('settings')}
+            >
+              <Settings size={18} />
+              <span>Cài đặt</span>
+            </button>
+          )}
         </nav>
-      </div >
+      </div>
 
       {/* 3. Phần Đáy: Divider & Card Tài Khoản */}
-      < div className="minimal-sidebar-bottom" >
+      <div className="minimal-sidebar-bottom">
         <div className="sidebar-divider" />
         <div
           className="minimal-user-card"
@@ -100,11 +143,11 @@ export default function Sidebar({ activeTab, currentProject, onSelectTab }) {
             )}
           </div>
           <div className="minimal-user-info">
-            <span className="user-title">{CURRENT_USER.name}</span>
-            <span className="user-subtitle">{CURRENT_USER.subtitle}</span>
+            <span className="minimal-user-name">{CURRENT_USER.name}</span>
+            <span className="minimal-user-email">{CURRENT_USER.email}</span>
           </div>
         </div>
-      </div >
-    </aside >
+      </div>
+    </aside>
   );
 }

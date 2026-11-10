@@ -16,7 +16,8 @@ import {
   Dna,
   Wand2,
   Ruler,
-  Zap
+  Zap,
+  Bookmark
 } from 'lucide-react';
 
 // ========================================================
@@ -42,13 +43,15 @@ import TabConstraintsPromptView from '../components/character-profile/TabConstra
  * Màn hình Studio Chuẩn Hóa & Thiết Kế Sprite AI (Project Analysis & Generation Studio).
  * Thiết kế tinh gọn theo chuẩn Modern Creative Workspace:
  * - 1 Luồng làm việc duy nhất: [Nạp Sprite] ➔ [1-Click Phân tích Toàn diện] ➔ [Nhập Ý Tưởng & Sinh Prompt].
- * - Khung Viewport nền caro Checkerboard sắc nét (pixelated).
- * - Thẻ chỉ số giải phẫu học hình học tự động bóc tách (Quick Metrics Card).
- * - Phòng tạo Nhân vật Mới (Prompt Studio) làm trung tâm, kèm thẻ tra cứu DNA 3 phân hệ.
+ * - Tự động đọc và lưu trữ thông số theo dự án (currentProject.id) trong MySQL.
+ * - Hỗ trợ lưu trữ bản phân tích và Prompt vào Thư viện Presets của dự án.
  * 
+ * @param {Object} props Thuộc tính truyền vào component.
+ * @param {Object} props.currentProject Dự án hiện tại đang mở (chứa id, name).
+ * @param {Object|null} props.loadedPresetData Bản ghi preset được nạp từ trang Thư viện Presets.
  * @returns {React.ReactElement} Giao diện Creative Workspace hoàn chỉnh.
  */
-export default function ProjectAnalysis() {
+export default function ProjectAnalysis({ currentProject, loadedPresetData }) {
   // ========================================================
   // TRẠNG THÁI ẢNH THAM CHIẾU & LỚP PHỦ GIẢI PHẪU
   // ========================================================
@@ -87,10 +90,13 @@ export default function ProjectAnalysis() {
   const [profileError, setProfileError] = useState('');
 
   // ========================================================
-  // TRẠNG THÁI BỘ MÁY SINH PROMPT NHÂN VẬT MỚI
+  // TRẠNG THÁI BỘ MÁY SINH PROMPT & LƯU PRESET VÀO MYSQL
   // ========================================================
   const [generatedProfilePrompt, setGeneratedProfilePrompt] = useState(null);
   const [generatingProfilePrompt, setGeneratingProfilePrompt] = useState(false);
+  const [savingPreset, setSavingPreset] = useState(false);
+  const [saveSuccessMsg, setSaveSuccessMsg] = useState('');
+  const [loadedPresetConfig, setLoadedPresetConfig] = useState(null);
 
   // Dọn dẹp bộ nhớ URL tạm khi đổi ảnh
   useEffect(() => {
@@ -99,6 +105,33 @@ export default function ProjectAnalysis() {
       URL.revokeObjectURL(reference.url);
     };
   }, [reference]);
+
+  // Nạp dữ liệu khi người dùng bấm "Mở lại trong Studio" từ trang Hồ sơ đã lưu
+  useEffect(() => {
+    if (loadedPresetData) {
+      if (loadedPresetData.metrics_data) {
+        setMetrics(loadedPresetData.metrics_data);
+      }
+      if (loadedPresetData.profile_data) {
+        setProfileData(loadedPresetData.profile_data);
+      }
+      if (loadedPresetData.positive_prompt) {
+        setGeneratedProfilePrompt({
+          positive_prompt: loadedPresetData.positive_prompt,
+          negative_prompt: loadedPresetData.negative_prompt,
+          technical_notes: loadedPresetData.technical_notes,
+        });
+      }
+      setLoadedPresetConfig({
+        new_character_concept: loadedPresetData.new_character_concept,
+        outfit_and_colors: loadedPresetData.outfit_and_colors,
+        weapons_and_props: loadedPresetData.weapons_and_props,
+        stature_rule: loadedPresetData.stature_rule,
+        target_direction: loadedPresetData.target_direction,
+      });
+      setWorkspaceMode('prompt_studio');
+    }
+  }, [loadedPresetData]);
 
   /**
    * Xử lý nạp ảnh nhân vật mẫu từ máy tính của người dùng.
@@ -116,7 +149,6 @@ export default function ProjectAnalysis() {
       setAnnotatedUrl(null);
       setMetrics(null);
       setAnalysisError('');
-      // Đặt lại dữ liệu hồ sơ nhân vật khi đổi ảnh mới
       setProfileData({
         global_analysis: null,
         direction_analysis: null,
@@ -126,15 +158,14 @@ export default function ProjectAnalysis() {
       });
       setGeneratedProfilePrompt(null);
       setProfileError('');
+      setSaveSuccessMsg('');
     }
     event.target.value = '';
   };
 
   /**
    * [1-CLICK MASTER SCAN]: Quét phân tích toàn diện Sprite mẫu chỉ với 1 cú click duy nhất:
-   * 1. Đo lường kích thước pixel, hộp sọ, tỷ lệ dáng người (Geometry & Anatomy qua /api/analyze).
-   * 2. Bóc tách toàn bộ hồ sơ phong cách pixel, 3 hướng nhìn và hoạt họa (Character DNA qua /api/character-profile/analyze-tab).
-   * Loại bỏ hoàn toàn sự rườm rà của việc bấm nhiều nút quét rời rạc.
+   * Tự động truyền project_id để Backend đọc API Key từ CSDL MySQL của dự án này.
    */
   const handleAnalyzeMaster = async () => {
     if (!reference || isMasterAnalyzing) return;
@@ -142,6 +173,7 @@ export default function ProjectAnalysis() {
     setIsMasterAnalyzing(true);
     setAnalysisError('');
     setProfileError('');
+    setSaveSuccessMsg('');
 
     try {
       // 1. Quét giải phẫu pixel (Bounding box, đầu, thân, chân, tỷ lệ heads_tall)
@@ -149,6 +181,9 @@ export default function ProjectAnalysis() {
       formDataAnatomy.append('file', reference.file);
       formDataAnatomy.append('auto_remove_bg', 'true');
       formDataAnatomy.append('use_ai', 'true');
+      if (currentProject?.id) {
+        formDataAnatomy.append('project_id', currentProject.id);
+      }
 
       const resAnatomy = await fetch('/api/analyze', {
         method: 'POST',
@@ -169,6 +204,9 @@ export default function ProjectAnalysis() {
       const formDataProfile = new FormData();
       formDataProfile.append('file', reference.file);
       formDataProfile.append('tab_name', 'all');
+      if (currentProject?.id) {
+        formDataProfile.append('project_id', currentProject.id);
+      }
 
       const resProfile = await fetch('/api/character-profile/analyze-tab', {
         method: 'POST',
@@ -211,6 +249,9 @@ export default function ProjectAnalysis() {
     formData.append('file', reference.file);
     formData.append('tab_name', tabName);
     formData.append('current_profile_json', JSON.stringify(profileData));
+    if (currentProject?.id) {
+      formData.append('project_id', currentProject.id);
+    }
 
     try {
       const response = await fetch('/api/character-profile/analyze-tab', {
@@ -245,7 +286,7 @@ export default function ProjectAnalysis() {
 
   /**
    * Sinh Prompt AI tiếng Anh tối ưu hóa cho Nhân vật Mới (Tự do sáng tạo).
-   * Kế thừa quy chuẩn kỹ thuật (kích thước khung game, tỷ lệ, nét vẽ, bóng) từ nhân vật tham chiếu.
+   * Tự động truyền project_id để Backend đọc API Key từ MySQL của dự án.
    * 
    * @param {Object} newCharConfig Thông số cấu hình nhân vật mới do người dùng nhập.
    */
@@ -253,12 +294,14 @@ export default function ProjectAnalysis() {
     if (generatingProfilePrompt) return;
 
     setGeneratingProfilePrompt(true);
+    setSaveSuccessMsg('');
 
     try {
       const response = await fetch('/api/character-profile/generate-prompt', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          project_id: currentProject?.id || null,
           profile_data: profileData,
           metrics: metrics,
           core_concept: newCharConfig.core_concept || 'Pixel Art Character',
@@ -285,6 +328,53 @@ export default function ProjectAnalysis() {
     }
   };
 
+  /**
+   * Lưu Bản Phân Tích & Prompt hiện tại vào cơ sở dữ liệu MySQL của dự án.
+   * 
+   * @param {Object} newCharData Cấu hình nhân vật mới do người dùng nhập.
+   */
+  const handleSavePreset = async (newCharData) => {
+    if (!currentProject?.id || !generatedProfilePrompt || savingPreset) return;
+
+    setSavingPreset(true);
+    setSaveSuccessMsg('');
+
+    const payload = {
+      name: newCharData.name || `${newCharData.new_character_concept} (Bản lưu Studio)`,
+      sprite_name: reference?.name || 'sprite_sample.png',
+      metrics_data: metrics,
+      profile_data: profileData,
+      new_character_concept: newCharData.new_character_concept,
+      outfit_and_colors: newCharData.outfit_and_colors,
+      weapons_and_props: newCharData.weapons_and_props,
+      stature_rule: newCharData.stature_rule,
+      target_direction: newCharData.target_direction,
+      positive_prompt: generatedProfilePrompt.positive_prompt,
+      negative_prompt: generatedProfilePrompt.negative_prompt,
+      technical_notes: generatedProfilePrompt.technical_notes,
+    };
+
+    try {
+      const response = await fetch(`/api/projects/${currentProject.id}/character-presets`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.detail || 'Không thể lưu bản ghi vào MySQL.');
+      }
+
+      setSaveSuccessMsg('Đã lưu thành công vào Hồ sơ Dự án trong MySQL!');
+      setTimeout(() => setSaveSuccessMsg(''), 4000);
+    } catch (err) {
+      alert(err.message || 'Lỗi khi lưu hồ sơ vào dự án.');
+    } finally {
+      setSavingPreset(false);
+    }
+  };
+
   // Trạng thái đã có dữ liệu của 3 phân hệ tra cứu
   const tabStatuses = {
     global: Boolean(profileData.global_analysis),
@@ -308,10 +398,15 @@ export default function ProjectAnalysis() {
         <div className="studio-title-group">
           <h1>
             <Sparkles size={22} color="var(--accent-purple)" />
-            Studio Chuẩn Hóa & Thiết Kế Sprite AI
+            Studio Chuẩn Hóa &amp; Thiết Kế Sprite AI
           </h1>
           <p>
             Phân tích giải phẫu học, bóc tách quy chuẩn DNA Pixel Art và sinh Prompt đồng bộ tỷ lệ cho Game 2D.
+            {currentProject && (
+              <span style={{ marginLeft: '6px', color: 'var(--accent-purple)', fontWeight: 600 }}>
+                • Dự án: {currentProject.name}
+              </span>
+            )}
           </p>
         </div>
 
@@ -490,7 +585,7 @@ export default function ProjectAnalysis() {
                 lineHeight: '1.4'
               }}>
                 🛡️ <strong>Đã tự động bóc tách:</strong> Chiều cao thân chuẩn là{' '}
-                <strong>{metrics.anatomical_height || metrics.visible_height}px</strong> (đã lọc riêng vũ khí & bóng sàn).
+                <strong>{metrics.anatomical_height || metrics.visible_height}px</strong> (đã lọc riêng vũ khí &amp; bóng sàn).
               </div>
             )}
           </div>
@@ -508,7 +603,7 @@ export default function ProjectAnalysis() {
               onClick={() => setWorkspaceMode('prompt_studio')}
             >
               <Wand2 size={16} />
-              <span>Phòng Tạo Nhân Vật Mới & Sinh Prompt</span>
+              <span>Phòng Tạo Nhân Vật Mới &amp; Sinh Prompt</span>
               <span className="badge-pill">Chính</span>
             </button>
 
@@ -534,6 +629,10 @@ export default function ProjectAnalysis() {
               onGeneratePrompt={handleGeneratePromptFromProfile}
               generatingPrompt={generatingProfilePrompt}
               generatedPromptResult={generatedProfilePrompt}
+              onSavePreset={handleSavePreset}
+              savingPreset={savingPreset}
+              saveSuccessMsg={saveSuccessMsg}
+              initialConfig={loadedPresetConfig}
             />
           )}
 

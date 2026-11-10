@@ -16,6 +16,8 @@ from sqlalchemy.orm import Session
 # ========================================================
 # BaseRepository: Lớp cơ sở trừu tượng
 from .base import BaseRepository
+# ensure_project_columns: Tự động bổ sung cột cấu hình API nếu bảng projects bị thiếu
+from backend.db import ensure_project_columns
 
 # ========================================================
 # 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
@@ -103,3 +105,112 @@ class ProjectRepository(BaseRepository):
         )
         db.commit()
         return result.rowcount > 0
+
+    def get_api_config(self, db: Session, project_id: int) -> Optional[Dict[str, Any]]:
+        """
+        Lấy cấu hình chìa khóa API riêng của một dự án từ CSDL MySQL.
+
+        @param {Session} db Phiên làm việc cơ sở dữ liệu.
+        @param {int} project_id ID dự án.
+        @returns {Optional[Dict[str, Any]]} Cấu hình API của dự án.
+        """
+        try:
+            row = db.execute(
+                text("""
+                    SELECT id, name, api_provider, gemini_api_key, openai_api_key, openai_base_url
+                    FROM projects WHERE id = :id
+                """),
+                {"id": project_id}
+            ).mappings().first()
+        except Exception:
+            # Tự động khắc phục nếu cột chưa được tạo trong CSDL MySQL
+            db.rollback()
+            ensure_project_columns(db)
+            db.commit()
+            row = db.execute(
+                text("""
+                    SELECT id, name, api_provider, gemini_api_key, openai_api_key, openai_base_url
+                    FROM projects WHERE id = :id
+                """),
+                {"id": project_id}
+            ).mappings().first()
+
+        if not row:
+            return None
+
+        data = dict(row)
+        gemini_key = data.get("gemini_api_key") or ""
+        openai_key = data.get("openai_api_key") or ""
+
+        # Tạo chuỗi masked hiển thị an toàn
+        def _mask(key):
+            if not key or len(key) < 8:
+                return ""
+            return key[:6] + "..." + key[-4:]
+
+        return {
+            "project_id": project_id,
+            "project_name": data.get("name"),
+            "api_provider": data.get("api_provider") or "gemini",
+            "gemini_has_key": bool(gemini_key),
+            "gemini_masked_key": _mask(gemini_key),
+            "openai_has_key": bool(openai_key),
+            "openai_masked_key": _mask(openai_key),
+            "openai_base_url": data.get("openai_base_url") or "https://api.openai.com/v1",
+            # Trả về key thực tế cho tầng backend gọi AI
+            "_gemini_raw_key": gemini_key,
+            "_openai_raw_key": openai_key
+        }
+
+    def update_api_config(
+        self,
+        db: Session,
+        project_id: int,
+        api_provider: str = "gemini",
+        gemini_api_key: Optional[str] = None,
+        openai_api_key: Optional[str] = None,
+        openai_base_url: Optional[str] = None
+    ) -> bool:
+        """
+        Cập nhật cấu hình API Key và nhà cung cấp AI cho dự án trong MySQL.
+
+        @param {Session} db Phiên làm việc cơ sở dữ liệu.
+        @param {int} project_id ID dự án.
+        @param {str} api_provider Nhà cung cấp ('gemini' | 'openai').
+        @param {Optional[str]} gemini_api_key Khóa Google Gemini mới nếu có.
+        @param {Optional[str]} openai_api_key Khóa OpenAI mới nếu có.
+        @param {Optional[str]} openai_base_url Địa chỉ proxy nếu có.
+        @returns {bool} True nếu cập nhật thành công.
+        """
+        updates = ["api_provider = :api_provider"]
+        params = {
+            "id": project_id,
+            "api_provider": api_provider or "gemini",
+        }
+
+        if gemini_api_key is not None:
+            updates.append("gemini_api_key = :gemini_api_key")
+            params["gemini_api_key"] = gemini_api_key.strip() if gemini_api_key.strip() else None
+
+        if openai_api_key is not None:
+            updates.append("openai_api_key = :openai_api_key")
+            params["openai_api_key"] = openai_api_key.strip() if openai_api_key.strip() else None
+
+        if openai_base_url is not None:
+            updates.append("openai_base_url = :openai_base_url")
+            params["openai_base_url"] = openai_base_url.strip() or "https://api.openai.com/v1"
+
+        query_str = f"UPDATE projects SET {', '.join(updates)} WHERE id = :id"
+
+        try:
+            result = db.execute(text(query_str), params)
+            db.commit()
+            return result.rowcount > 0
+        except Exception:
+            # Tự phục hồi: nếu thiếu cột trong MySQL, tự động tạo cột rồi thử lại
+            db.rollback()
+            ensure_project_columns(db)
+            db.commit()
+            result = db.execute(text(query_str), params)
+            db.commit()
+            return result.rowcount > 0

@@ -12,10 +12,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 # ========================================================
-# 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (API Routers)
+# 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (API Routers & CSDL)
 # ========================================================
 # api_router: Bộ định tuyến chính gom các sub-router v1
 from backend.api import api_router
+# init_db: Hàm tự động khởi tạo và cập nhật bảng CSDL MySQL
+from backend.db import init_db
 
 # ========================================================
 # 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
@@ -27,6 +29,12 @@ app = FastAPI(
     description="Backend FastAPI hỗ trợ chuẩn hóa Sprite cho Bài Tập Lớn Trí Tuệ Nhân Tạo (UET)",
     version="2.0.0"
 )
+
+# Tự động cập nhật bảng CSDL MySQL khi máy chủ khởi động
+@app.on_event("startup")
+def on_startup():
+    """Khởi động và cập nhật cấu trúc cơ sở dữ liệu."""
+    init_db()
 
 # Cấu hình CORS để frontend React kết nối thuận tiện
 app.add_middleware(

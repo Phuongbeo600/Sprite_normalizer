@@ -1,13 +1,13 @@
 // ========================================================
 // 1. THƯ VIỆN NỀN TẢNG REACT (Quản lý component & trạng thái)
 // ========================================================
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 // ========================================================
 // 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
 // ========================================================
-// lucide-react: Bộ icon minh họa bảo vệ ràng buộc, sao chép prompt và cảnh báo lỗi
-import { ShieldCheck, ShieldAlert, Sparkles, Copy, Check, Info, Sliders, Wand2 } from 'lucide-react';
+// lucide-react: Bộ icon minh họa bảo vệ ràng buộc, sao chép prompt, lưu và cảnh báo lỗi
+import { ShieldCheck, ShieldAlert, Sparkles, Copy, Check, Info, Sliders, Wand2, Bookmark, Save } from 'lucide-react';
 
 // ========================================================
 // 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Components & Dữ liệu)
@@ -41,14 +41,29 @@ export default function TabConstraintsPromptView({
   fullProfile,
   onGeneratePrompt,
   generatingPrompt,
-  generatedPromptResult
+  generatedPromptResult,
+  onSavePreset,
+  savingPreset,
+  saveSuccessMsg,
+  initialConfig
 }) {
   // Trạng thái các trường thông tin của NHÂN VẬT MỚI (Tự do sáng tạo)
-  const [concept, setConcept] = useState('Nữ pháp sư bóng đêm bí ẩn');
-  const [outfitAndColors, setOutfitAndColors] = useState('Áo choàng nhung tím đen viền chỉ vàng kim');
-  const [weaponsAndProps, setWeaponsAndProps] = useState('Tay phải cầm trượng phép đính ngọc xanh');
-  const [statureRule, setStatureRule] = useState('Bằng nhân vật gốc (Tỷ lệ chuẩn)');
-  const [targetDir, setTargetDir] = useState('Front / Down view');
+  const [concept, setConcept] = useState(initialConfig?.new_character_concept || 'Nữ pháp sư bóng đêm bí ẩn');
+  const [outfitAndColors, setOutfitAndColors] = useState(initialConfig?.outfit_and_colors || 'Áo choàng nhung tím đen viền chỉ vàng kim');
+  const [weaponsAndProps, setWeaponsAndProps] = useState(initialConfig?.weapons_and_props || 'Tay phải cầm trượng phép đính ngọc xanh');
+  const [statureRule, setStatureRule] = useState(initialConfig?.stature_rule || 'Bằng nhân vật gốc (Tỷ lệ chuẩn)');
+  const [targetDir, setTargetDir] = useState(initialConfig?.target_direction || 'Front / Down view');
+
+  // Cập nhật khi có initialConfig mới truyền vào từ bên ngoài (Tải lại từ thư viện)
+  useEffect(() => {
+    if (initialConfig) {
+      if (initialConfig.new_character_concept) setConcept(initialConfig.new_character_concept);
+      if (initialConfig.outfit_and_colors) setOutfitAndColors(initialConfig.outfit_and_colors);
+      if (initialConfig.weapons_and_props) setWeaponsAndProps(initialConfig.weapons_and_props);
+      if (initialConfig.stature_rule) setStatureRule(initialConfig.stature_rule);
+      if (initialConfig.target_direction) setTargetDir(initialConfig.target_direction);
+    }
+  }, [initialConfig]);
 
   // Các tùy chọn kế thừa quy chuẩn kỹ thuật từ nhân vật cũ
   const [inheritScale, setInheritScale] = useState(true);
@@ -257,6 +272,48 @@ export default function TabConstraintsPromptView({
                 <Info size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '5px' }} />
                 <strong>Ghi chú kỹ thuật: </strong>
                 {generatedPromptResult.technical_notes}
+              </div>
+            )}
+
+            {/* Thanh tác vụ: Nút Lưu bản ghi vào MySQL của Dự án */}
+            {onSavePreset && (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '12px 14px',
+                background: 'rgba(139, 92, 246, 0.08)',
+                border: '1px solid var(--accent-purple-glow)',
+                borderRadius: '8px',
+                marginTop: '6px'
+              }}>
+                <div style={{ fontSize: '0.775rem', color: 'var(--text-muted)' }}>
+                  {saveSuccessMsg ? (
+                    <span style={{ color: '#10b981', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                      <Check size={14} /> {saveSuccessMsg}
+                    </span>
+                  ) : (
+                    <span>Lưu bản phân tích và Prompt này vào Hồ sơ Dự án trong MySQL để xem lại bất cứ lúc nào.</span>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  className="btn-primary-studio"
+                  disabled={savingPreset}
+                  onClick={() => onSavePreset({
+                    name: `${concept} (Tỷ lệ ${statureRule})`,
+                    new_character_concept: concept,
+                    outfit_and_colors: outfitAndColors,
+                    weapons_and_props: weaponsAndProps,
+                    stature_rule: statureRule,
+                    target_direction: targetDir,
+                  })}
+                  style={{ minHeight: '32px', fontSize: '0.775rem', padding: '6px 14px', gap: '6px', whiteSpace: 'nowrap' }}
+                >
+                  <Bookmark size={14} className={savingPreset ? 'spin' : ''} />
+                  {savingPreset ? 'Đang lưu vào MySQL…' : 'Lưu vào Dự án'}
+                </button>
               </div>
             )}
           </div>
