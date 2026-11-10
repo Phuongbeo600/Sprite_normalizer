@@ -423,6 +423,12 @@ export default function ProjectSavedPresets({ currentProject, onLoadPresetToStud
                   <strong>Góc nhìn mục tiêu</strong>
                   <span>{selectedPreset.target_direction}</span>
                 </div>
+                {selectedPreset.frame_actions_data && (
+                  <div className="profile-field-item">
+                    <strong>Đặc tả chuyển động</strong>
+                    <span style={{ color: '#a78bfa', fontWeight: 600 }}>Ma trận 15 Frame (Lưới 3x5 đầy đủ Chân &amp; Tay)</span>
+                  </div>
+                )}
                 {selectedPreset.outfit_and_colors && (
                   <div className="profile-field-item">
                     <strong>Trang phục &amp; Màu sắc</strong>

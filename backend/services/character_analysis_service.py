@@ -48,6 +48,10 @@ from backend.schemas.character import (
 )
 # AiProviderFactory: Khởi tạo Provider đa hình (Gemini / OpenAI)
 from backend.providers.factory import AiProviderFactory
+# HeuristicPaletteAnalyzer: Bộ phân tích 6 tiêu chí hệ màu sắc Pixel Art bằng thuật toán toán học NumPy
+from backend.core.palette_analyzer import HeuristicPaletteAnalyzer
+# PaletteMetrics: Schema kết quả đo lường và phân tích hệ màu sắc
+from backend.schemas.character.palette import PaletteMetrics
 
 # ========================================================
 # 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
@@ -94,14 +98,22 @@ CRITICAL INSTRUCTIONS:
 
 Return ONLY the raw JSON object adhering to the schema, without markdown formatting.
 """
+        # Đo đạc 100% chính xác 6 tiêu chuẩn kỹ thuật màu sắc của ảnh Sprite bằng thuật toán Python NumPy
+        palette_analyzer = HeuristicPaletteAnalyzer()
+        palette_metrics = palette_analyzer.analyze_palette(image)
+
         if effective_key:
             ai_provider = AiProviderFactory.get_provider(effective_provider)
             raw_data = ai_provider.analyze_vision(image, effective_key, prompt, base_url=clean_base)
+            if isinstance(raw_data, dict):
+                raw_data["palette_metrics"] = palette_metrics.model_dump()
             # Validate qua Pydantic schema
             validated = GlobalAnalysis.model_validate(raw_data)
             return validated.model_dump()
         else:
-            return cls._get_offline_fallback_global()
+            fallback = cls._get_offline_fallback_global()
+            fallback["palette_metrics"] = palette_metrics.model_dump()
+            return fallback
 
     @classmethod
     def analyze_tab_directions(

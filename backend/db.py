@@ -66,11 +66,24 @@ def ensure_project_columns(conn_or_session):
             pass
 
 
+def ensure_preset_columns(conn_or_session):
+    """
+    Đảm bảo các cột mở rộng tồn tại trong bảng 'project_character_presets'.
+    Bổ sung cột frame_actions_data lưu ma trận chi tiết 15 frames hoạt họa.
+
+    @param conn_or_session Kết nối hoặc phiên làm việc CSDL MySQL.
+    """
+    try:
+        conn_or_session.execute(text("ALTER TABLE project_character_presets ADD COLUMN frame_actions_data JSON NULL;"))
+    except Exception:
+        pass
+
+
 def init_db():
     """
     Khởi tạo và tự động cập nhật cấu trúc các bảng trong cơ sở dữ liệu MySQL:
     1. Bảng projects: Mở rộng các cột lưu API Key và cấu hình AI độc lập cho từng dự án.
-    2. Bảng project_character_presets: Lưu trữ lịch sử chỉ số giải phẫu pixel và prompt theo từng dự án.
+    2. Bảng project_character_presets: Lưu trữ lịch sử chỉ số giải phẫu pixel, prompt và ma trận 15 frame.
     """
     try:
         with engine.begin() as conn:
@@ -99,6 +112,7 @@ def init_db():
                     sprite_name VARCHAR(255) NULL,
                     metrics_data JSON NULL,
                     profile_data JSON NULL,
+                    frame_actions_data JSON NULL,
                     new_character_concept VARCHAR(255) NOT NULL,
                     outfit_and_colors TEXT NULL,
                     weapons_and_props TEXT NULL,
@@ -111,6 +125,9 @@ def init_db():
                     CONSTRAINT fk_preset_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
             """))
+
+            # 4. Tự động kiểm tra và thêm cột frame_actions_data nếu bảng preset đã tạo trước đó
+            ensure_preset_columns(conn)
     except Exception as e:
         # Ghi log cảnh báo an toàn tránh lỗi Unicode trên console Windows
         try:

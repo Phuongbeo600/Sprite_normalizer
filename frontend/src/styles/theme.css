@@ -1024,3 +1024,138 @@
 .studio-prompt-textarea:focus {
   background: #0d1424;
 }
+
+/* ========================================================
+   10. GIAO DIỆN PHÂN TÍCH HỆ MÀU SẮC PYTHON (PALETTE ANALYZER)
+   ======================================================== */
+
+/* Lưới hiển thị các ô vuông màu chủ đạo (Color Swatches) */
+.palette-swatches-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+
+/* Từng thẻ màu Swatch */
+.palette-swatch-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.palette-swatch-item:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent-purple);
+  background: rgba(139, 92, 246, 0.08);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* Ô màu vuông đại diện */
+.palette-swatch-color {
+  width: 100%;
+  height: 42px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: inset 0 0 4px rgba(0, 0, 0, 0.4);
+  margin-bottom: 6px;
+}
+
+/* Nhãn mã HEX */
+.palette-swatch-hex {
+  font-family: 'Fira Code', Consolas, monospace;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-white);
+  letter-spacing: 0.5px;
+}
+
+/* Thông tin tỷ lệ và vai trò */
+.palette-swatch-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin-top: 4px;
+  font-size: 0.675rem;
+  color: var(--text-dim);
+}
+
+.palette-swatch-role {
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.06);
+  font-weight: 600;
+  color: #a5b4fc;
+}
+
+/* Lưới hiển thị 6 thẻ tiêu chuẩn kỹ thuật */
+.palette-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+  margin-top: 10px;
+}
+
+/* Từng thẻ tiêu chuẩn kỹ thuật */
+.palette-metric-card {
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.palette-metric-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.palette-metric-title {
+  font-size: 0.775rem;
+  font-weight: 600;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.palette-metric-value {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-white);
+}
+
+.palette-metric-desc {
+  font-size: 0.75rem;
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+
+/* Khung hiển thị Master Color Prompt */
+.palette-prompt-box {
+  background: #080c16;
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  font-family: 'Fira Code', Consolas, monospace;
+  font-size: 0.75rem;
+  color: #38bdf8;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 160px;
+  overflow-y: auto;
+}

@@ -45,6 +45,7 @@ class SaveCharacterPresetRequest(BaseModel):
     sprite_name: Optional[str] = Field(None, description="Tên file sprite mẫu")
     metrics_data: Optional[Dict[str, Any]] = Field(None, description="Số đo pixel hình học từ OpenCV")
     profile_data: Optional[Dict[str, Any]] = Field(None, description="Hồ sơ phong cách DNA từ AI")
+    frame_actions_data: Optional[Dict[str, Any]] = Field(None, description="Ma trận chi tiết 15 frames hoạt họa chân tay đối nghịch")
     new_character_concept: str = Field(..., description="Ý tưởng nhân vật mới đã tạo")
     outfit_and_colors: Optional[str] = Field(None, description="Trang phục & màu sắc riêng")
     weapons_and_props: Optional[str] = Field(None, description="Vũ khí & đạo cụ riêng")
@@ -214,6 +215,7 @@ def create_character_preset(
             sprite_name=req.sprite_name,
             metrics_data=req.metrics_data,
             profile_data=req.profile_data,
+            frame_actions_data=req.frame_actions_data,
             new_character_concept=req.new_character_concept,
             outfit_and_colors=req.outfit_and_colors,
             weapons_and_props=req.weapons_and_props,

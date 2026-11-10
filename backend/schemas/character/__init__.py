@@ -65,6 +65,11 @@ from .ai_analysis import (
     NegativeConstraints,
     AIAnalysis
 )
+# Nhóm 8: Đo đạc Hệ Màu Sắc bằng Python
+from .palette import (
+    DominantColorItem,
+    PaletteMetrics
+)
 
 # ========================================================
 # 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
@@ -86,6 +91,8 @@ __all__ = [
     "ConsistencyAnalysis",
     "NegativeConstraints",
     "AIAnalysis",
+    "DominantColorItem",
+    "PaletteMetrics",
     
     # Controlled Vocabulary Enums
     "GenderPresentation",

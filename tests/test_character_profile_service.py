@@ -4,6 +4,8 @@
 import unittest
 # io: Xử lý bộ nhớ luồng ảnh giả lập
 import io
+# os: Quản lý biến môi trường trong kiểm thử ngoại tuyến
+import os
 
 # ========================================================
 # 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
@@ -34,20 +36,31 @@ class TestCharacterProfileService(unittest.TestCase):
     """
 
     def setUp(self):
-        """Khởi tạo ảnh RGBA mẫu 32x48 pixel làm sprite tham chiếu kiểm thử."""
+        """Khởi tạo ảnh RGBA mẫu 32x48 pixel làm sprite tham chiếu kiểm thử và thiết lập chế độ ngoại tuyến."""
+        self.old_gemini_key = os.environ.pop("GEMINI_API_KEY", None)
+        self.old_openai_key = os.environ.pop("OPENAI_API_KEY", None)
         self.sample_image = Image.new("RGBA", (32, 48), color=(0, 0, 0, 0))
         # Vẽ một vài pixel giả lập nhân vật
         for y in range(10, 40):
             for x in range(8, 24):
                 self.sample_image.putpixel((x, y), (255, 100, 50, 255))
 
+    def tearDown(self):
+        """Khôi phục biến môi trường sau khi chạy kiểm thử."""
+        if self.old_gemini_key is not None:
+            os.environ["GEMINI_API_KEY"] = self.old_gemini_key
+        if self.old_openai_key is not None:
+            os.environ["OPENAI_API_KEY"] = self.old_openai_key
+
     def test_analyze_tab_global(self):
-        """Kiểm tra phân tích Tab 1 (Toàn cục & Vật liệu)."""
+        """Kiểm tra phân tích Tab 1 (Toàn cục & Vật liệu kèm 6 tiêu chuẩn hệ màu sắc)."""
         result = CharacterAnalysisService.analyze_tab_global(self.sample_image)
         self.assertIn("identity", result)
         self.assertIn("anatomy", result)
         self.assertIn("pixel_style", result)
         self.assertIn("materials", result)
+        self.assertIn("palette_metrics", result)
+        self.assertGreater(result["palette_metrics"]["total_colors"], 0)
         self.assertTrue(len(result["materials"]) > 0)
         self.assertIn("Pixel Art", result["identity"]["character_type"])
 

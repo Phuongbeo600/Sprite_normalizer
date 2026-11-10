@@ -23,6 +23,8 @@ from PIL import Image
 # ========================================================
 # CharacterAnalysisService: Dịch vụ phân tích nhân vật theo phân hệ Tab
 from backend.services.character_analysis_service import CharacterAnalysisService
+# PromptBuilderService: Dịch vụ xây dựng ma trận 15 frame hoạt họa chân tay đối nghịch
+from backend.services.prompt_builder_service import PromptBuilderService
 # NewCharacterPromptRequest: Schema yêu cầu tạo nhân vật mới không bị gán cứng
 from backend.schemas.prompt import NewCharacterPromptRequest
 # SessionLocal: Tạo phiên làm việc CSDL MySQL để truy xuất key của dự án
@@ -50,7 +52,10 @@ class GeneratePromptFromProfileRequest(BaseModel):
     inherit_scale: bool = Field(True, description="Kế thừa tỷ lệ kích thước game")
     inherit_style: bool = Field(True, description="Kế thừa phong cách viền & đổ bóng pixel")
     metrics: Optional[Dict[str, Any]] = Field(None, description="Số đo pixel hình học từ Bước 1")
-    target_direction: str = Field("Front / Down view", description="Góc nhìn mục tiêu cần sinh ảnh")
+    target_direction: str = Field("Sprite Sheet 3x5 (15 frames)", description="Góc nhìn mục tiêu cần sinh ảnh")
+    frame_actions: Optional[Dict[str, Any]] = Field(None, description="Ma trận chi tiết 15 frame hoạt họa chân tay đối nghịch")
+    compiled_positive_prompt: Optional[str] = Field(None, description="Câu positive prompt đã biên dịch")
+    compiled_negative_prompt: Optional[str] = Field(None, description="Câu negative prompt đã biên dịch")
     api_key: Optional[str] = Field(None, description="Khóa API tùy chọn")
     provider: Optional[str] = Field(None, description="Nhà cung cấp AI tùy chọn")
     base_url: Optional[str] = Field(None, description="Địa chỉ máy chủ proxy tùy chọn")
@@ -158,8 +163,11 @@ async def analyze_character_tab(
                 "direction_analysis": d_res,
                 "animation_analysis": a_res,
                 "consistency_analysis": c_res.get("consistency_analysis", {}),
-                "negative_constraints": c_res.get("negative_constraints", {})
+                "negative_constraints": c_res.get("negative_constraints", {}),
+                "palette_metrics": g_res.get("palette_metrics")
             }
+            # Tự động ánh xạ dữ liệu 7 Schemas sang ma trận 15 frame hoạt họa có chân tay đối nghịch
+            full_ai_analysis["frame_actions_data"] = PromptBuilderService.build_default_frame_actions(full_ai_analysis)
             return {"status": "success", "tab": "all", "data": full_ai_analysis}
 
         else:
@@ -176,30 +184,87 @@ async def generate_prompt_from_profile(request: GeneratePromptFromProfileRequest
     """
     Sinh Prompt tiếng Anh tối ưu khống chế tỷ lệ, phong cách pixel và vật liệu
     cho Nhân vật Mới dựa trên Hồ sơ nhân vật tham chiếu.
-    Không bị gán cứng vào hiệp sĩ/kiếm/giáp của nhân vật cũ.
+    Hỗ trợ đầy đủ ma trận 15 frames hoạt họa Sprite Sheet (3 Hướng × 5 Frames có cả Chân và Tay).
     """
     try:
         concept = request.core_concept or request.character_concept or "Pixel Art Character"
         eff_key, eff_prov, eff_base = _resolve_project_api_key(
             request.project_id, request.api_key, request.provider, request.base_url
         )
-        prompts = CharacterAnalysisService.generate_character_prompt_from_profile(
+
+        # Sử dụng PromptBuilderService để biên dịch ma trận 15 frame hoạt họa
+        compiled = PromptBuilderService.compile_sprite_sheet_prompt(
+            character_concept=concept,
             profile_data=request.profile_data,
-            new_character_concept=concept,
-            target_direction=request.target_direction,
+            frame_actions=request.frame_actions,
             outfit_and_colors=request.outfit_and_colors,
             weapons_and_props=request.weapons_and_props,
-            stature_rule=request.stature_rule,
-            inherit_scale=request.inherit_scale,
-            inherit_style=request.inherit_style,
-            metrics=request.metrics,
-            api_key=eff_key,
-            provider=eff_prov,
-            base_url=eff_base
+            custom_instructions=f"Vóc dáng: {request.stature_rule}"
         )
+
+        final_pos = request.compiled_positive_prompt or compiled["positive_prompt"]
+        final_neg = request.compiled_negative_prompt or compiled["negative_prompt"]
+
         return {
             "status": "success",
-            "data": prompts
+            "data": {
+                "positive_prompt": final_pos,
+                "negative_prompt": final_neg,
+                "frame_actions_data": compiled["frame_actions_data"],
+                "technical_notes": (
+                    f"Prompt tối ưu hóa ma trận 15 frame (3 hướng × 5 frame) cho nhân vật mới '{concept}'. "
+                    f"Tích hợp chuẩn chuyển động Chân & Tay đối nghịch tự nhiên và kế thừa tỷ lệ kích thước từ Schemas."
+                )
+            }
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lỗi sinh Prompt từ hồ sơ nhân vật: {str(e)}")
+
+
+class CompileSpriteSheetPromptRequest(BaseModel):
+    """Schema yêu cầu biên dịch câu Prompt 3 Tầng hoàn chỉnh từ ma trận 15 frames."""
+    character_concept: str = Field(..., description="Ý tưởng nhân vật mới")
+    profile_data: Optional[Dict[str, Any]] = Field(default_factory=dict, description="Dữ liệu phân tích 7 Schemas")
+    frame_actions: Optional[Dict[str, Any]] = Field(None, description="Ma trận 15 frame đã chỉnh sửa từ người dùng")
+    outfit_and_colors: Optional[str] = Field(None, description="Trang phục & màu sắc")
+    weapons_and_props: Optional[str] = Field(None, description="Vũ khí & phụ kiện")
+    custom_instructions: Optional[str] = Field(None, description="Ghi chú đạo diễn bổ sung")
+
+
+@character_analysis_router.post("/frame-matrix/defaults")
+def get_default_frame_matrix(profile_data: Optional[Dict[str, Any]] = None):
+    """
+    Trích xuất toàn bộ dữ liệu từ 7 Schemas để khởi tạo ma trận 15 frames hoạt họa
+    có chuyển động chân và tay đối nghịch tự nhiên cho 3 hướng (Down, Side, Up).
+    """
+    try:
+        matrix = PromptBuilderService.build_default_frame_actions(profile_data)
+        return {
+            "status": "success",
+            "data": matrix
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Lỗi khởi tạo ma trận frame: {str(e)}")
+
+
+@character_analysis_router.post("/frame-matrix/compile")
+def compile_sprite_sheet_prompt(request: CompileSpriteSheetPromptRequest):
+    """
+    Biên dịch toàn bộ ma trận 15 frames cùng các chỉ số giải phẫu thành câu Prompt
+    Sprite Sheet 3 Tầng hoàn chỉnh sẵn sàng cho AI vẽ lưới 3x5.
+    """
+    try:
+        compiled = PromptBuilderService.compile_sprite_sheet_prompt(
+            character_concept=request.character_concept,
+            profile_data=request.profile_data,
+            frame_actions=request.frame_actions,
+            outfit_and_colors=request.outfit_and_colors,
+            weapons_and_props=request.weapons_and_props,
+            custom_instructions=request.custom_instructions
+        )
+        return {
+            "status": "success",
+            "data": compiled
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Lỗi biên dịch Prompt ma trận frame: {str(e)}")

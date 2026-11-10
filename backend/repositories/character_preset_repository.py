@@ -18,6 +18,8 @@ from sqlalchemy.orm import Session
 # ========================================================
 # BaseRepository: Lớp cơ sở trừu tượng cho các kho lưu trữ
 from .base import BaseRepository
+# ensure_preset_columns: Tự động bổ sung cột frame_actions_data nếu thiếu
+from backend.db import ensure_preset_columns
 
 # ========================================================
 # 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
@@ -103,7 +105,7 @@ class CharacterPresetRepository(BaseRepository):
         if project_id is not None:
             sql = """
                 SELECT id, project_id, name, sprite_name, metrics_data, profile_data,
-                       new_character_concept, outfit_and_colors, weapons_and_props,
+                       frame_actions_data, new_character_concept, outfit_and_colors, weapons_and_props,
                        stature_rule, target_direction, positive_prompt, negative_prompt,
                        technical_notes, created_at
                 FROM project_character_presets
@@ -113,7 +115,7 @@ class CharacterPresetRepository(BaseRepository):
         else:
             sql = """
                 SELECT id, project_id, name, sprite_name, metrics_data, profile_data,
-                       new_character_concept, outfit_and_colors, weapons_and_props,
+                       frame_actions_data, new_character_concept, outfit_and_colors, weapons_and_props,
                        stature_rule, target_direction, positive_prompt, negative_prompt,
                        technical_notes, created_at
                 FROM project_character_presets
@@ -121,14 +123,20 @@ class CharacterPresetRepository(BaseRepository):
             """
             params = {"preset_id": entity_id}
 
-        row = db.execute(text(sql), params).mappings().first()
+        try:
+            row = db.execute(text(sql), params).mappings().first()
+        except Exception:
+            db.rollback()
+            ensure_preset_columns(db)
+            db.commit()
+            row = db.execute(text(sql), params).mappings().first()
 
         if not row:
             return None
 
         data = dict(row)
         # Chuyển đổi JSON sang Python Dict nếu cần
-        for key in ["metrics_data", "profile_data"]:
+        for key in ["metrics_data", "profile_data", "frame_actions_data"]:
             if isinstance(data.get(key), str):
                 try:
                     data[key] = json.loads(data[key])
@@ -149,6 +157,7 @@ class CharacterPresetRepository(BaseRepository):
         sprite_name = kwargs.get("sprite_name")
         metrics_data = kwargs.get("metrics_data")
         profile_data = kwargs.get("profile_data")
+        frame_actions_data = kwargs.get("frame_actions_data")
         new_concept = kwargs.get("new_character_concept", "").strip()
         outfit = kwargs.get("outfit_and_colors")
         weapons = kwargs.get("weapons_and_props")
@@ -161,38 +170,49 @@ class CharacterPresetRepository(BaseRepository):
         # Tuần tự hóa JSON nếu là dict
         metrics_json = json.dumps(metrics_data, ensure_ascii=False) if metrics_data and not isinstance(metrics_data, str) else metrics_data
         profile_json = json.dumps(profile_data, ensure_ascii=False) if profile_data and not isinstance(profile_data, str) else profile_data
+        frame_actions_json = json.dumps(frame_actions_data, ensure_ascii=False) if frame_actions_data and not isinstance(frame_actions_data, str) else frame_actions_data
 
-        result = db.execute(
-            text("""
-                INSERT INTO project_character_presets (
-                    project_id, name, sprite_name, metrics_data, profile_data,
-                    new_character_concept, outfit_and_colors, weapons_and_props,
-                    stature_rule, target_direction, positive_prompt, negative_prompt,
-                    technical_notes
-                ) VALUES (
-                    :project_id, :name, :sprite_name, :metrics_data, :profile_data,
-                    :new_character_concept, :outfit_and_colors, :weapons_and_props,
-                    :stature_rule, :target_direction, :positive_prompt, :negative_prompt,
-                    :technical_notes
-                )
-            """),
-            {
-                "project_id": project_id,
-                "name": name,
-                "sprite_name": sprite_name,
-                "metrics_data": metrics_json,
-                "profile_data": profile_json,
-                "new_character_concept": new_concept,
-                "outfit_and_colors": outfit,
-                "weapons_and_props": weapons,
-                "stature_rule": stature,
-                "target_direction": direction,
-                "positive_prompt": positive,
-                "negative_prompt": negative,
-                "technical_notes": notes,
-            }
-        )
-        db.commit()
+        sql_insert = """
+            INSERT INTO project_character_presets (
+                project_id, name, sprite_name, metrics_data, profile_data,
+                frame_actions_data, new_character_concept, outfit_and_colors, weapons_and_props,
+                stature_rule, target_direction, positive_prompt, negative_prompt,
+                technical_notes
+            ) VALUES (
+                :project_id, :name, :sprite_name, :metrics_data, :profile_data,
+                :frame_actions_data, :new_character_concept, :outfit_and_colors, :weapons_and_props,
+                :stature_rule, :target_direction, :positive_prompt, :negative_prompt,
+                :technical_notes
+            )
+        """
+        insert_params = {
+            "project_id": project_id,
+            "name": name,
+            "sprite_name": sprite_name,
+            "metrics_data": metrics_json,
+            "profile_data": profile_json,
+            "frame_actions_data": frame_actions_json,
+            "new_character_concept": new_concept,
+            "outfit_and_colors": outfit,
+            "weapons_and_props": weapons,
+            "stature_rule": stature,
+            "target_direction": direction,
+            "positive_prompt": positive,
+            "negative_prompt": negative,
+            "technical_notes": notes,
+        }
+
+        try:
+            result = db.execute(text(sql_insert), insert_params)
+            db.commit()
+        except Exception:
+            # Tự phục hồi: bổ sung cột nếu bảng chưa có cột frame_actions_data
+            db.rollback()
+            ensure_preset_columns(db)
+            db.commit()
+            result = db.execute(text(sql_insert), insert_params)
+            db.commit()
+
         return {"id": int(result.lastrowid), "project_id": project_id, "name": name}
 
     def delete(self, db: Session, entity_id: int, project_id: Optional[int] = None) -> bool:

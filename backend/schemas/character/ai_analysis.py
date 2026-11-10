@@ -1,8 +1,8 @@
 # ========================================================
 # 1. THƯ VIỆN NỀN TẢNG PYTHON (Cấu trúc & Kiểu dữ liệu)
 # ========================================================
-# typing: Khai báo kiểu danh sách
-from typing import List
+# typing: Khai báo kiểu danh sách và giá trị tùy chọn
+from typing import List, Optional
 
 # ========================================================
 # 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
@@ -25,6 +25,8 @@ from .material import MaterialAnalysis
 from .direction import DirectionAnalysis
 # AnimationAnalysis: Phân tích chuyển động Idle và Walk theo 3 hướng
 from .animation import AnimationAnalysis
+# PaletteMetrics: Kết quả đo đạc 6 tiêu chí kỹ thuật màu sắc của ảnh mẫu bằng Python
+from .palette import PaletteMetrics
 
 # ========================================================
 # 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
@@ -57,6 +59,11 @@ class GlobalAnalysis(BaseModel):
     materials: List[MaterialAnalysis] = Field(
         default_factory=list,
         description="Danh sách phân tích chất liệu theo từng vùng cơ thể và trang phục trên nhân vật"
+    )
+
+    palette_metrics: Optional[PaletteMetrics] = Field(
+        default=None,
+        description="Kết quả đo đạc chính xác 100% 6 tiêu chí kỹ thuật màu sắc của Sprite bằng thuật toán Python"
     )
 
 

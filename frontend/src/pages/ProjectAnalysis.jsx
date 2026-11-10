@@ -222,6 +222,8 @@ export default function ProjectAnalysis({ currentProject, loadedPresetData }) {
           animation_analysis: fullAnalysis.animation_analysis || null,
           consistency_analysis: fullAnalysis.consistency_analysis || null,
           negative_constraints: fullAnalysis.negative_constraints || null,
+          frame_actions_data: fullAnalysis.frame_actions_data || null,
+          palette_metrics: fullAnalysis.palette_metrics || fullAnalysis.global_analysis?.palette_metrics || null,
         });
       } else {
         const errJson = await resProfile.json();
@@ -269,7 +271,11 @@ export default function ProjectAnalysis({ currentProject, loadedPresetData }) {
 
       setProfileData((prev) => {
         if (tabName === 'global') {
-          return { ...prev, global_analysis: tabData };
+          return {
+            ...prev,
+            global_analysis: tabData,
+            palette_metrics: tabData?.palette_metrics || prev?.palette_metrics || null
+          };
         } else if (tabName === 'directions') {
           return { ...prev, direction_analysis: tabData };
         } else if (tabName === 'animations') {
@@ -308,9 +314,12 @@ export default function ProjectAnalysis({ currentProject, loadedPresetData }) {
           outfit_and_colors: newCharConfig.outfit_and_colors || null,
           weapons_and_props: newCharConfig.weapons_and_props || null,
           stature_rule: newCharConfig.stature_rule || 'Bằng nhân vật gốc (Tỷ lệ chuẩn)',
-          target_direction: newCharConfig.target_direction || 'Front / Down view',
+          target_direction: newCharConfig.target_direction || 'Sprite Sheet 3x5 (15 frames)',
           inherit_scale: newCharConfig.inherit_scale ?? true,
           inherit_style: newCharConfig.inherit_style ?? true,
+          frame_actions: newCharConfig.frame_actions || null,
+          compiled_positive_prompt: newCharConfig.compiled_positive_prompt || null,
+          compiled_negative_prompt: newCharConfig.compiled_negative_prompt || null,
         }),
       });
 
@@ -334,7 +343,15 @@ export default function ProjectAnalysis({ currentProject, loadedPresetData }) {
    * @param {Object} newCharData Cấu hình nhân vật mới do người dùng nhập.
    */
   const handleSavePreset = async (newCharData) => {
-    if (!currentProject?.id || !generatedProfilePrompt || savingPreset) return;
+    if (!currentProject?.id || savingPreset) return;
+
+    const posPrompt = newCharData.positive_prompt || generatedProfilePrompt?.positive_prompt;
+    const negPrompt = newCharData.negative_prompt || generatedProfilePrompt?.negative_prompt;
+
+    if (!posPrompt) {
+      alert('Chưa có câu Prompt để lưu. Vui lòng kiểm tra lại cấu hình nhân vật.');
+      return;
+    }
 
     setSavingPreset(true);
     setSaveSuccessMsg('');
@@ -344,14 +361,15 @@ export default function ProjectAnalysis({ currentProject, loadedPresetData }) {
       sprite_name: reference?.name || 'sprite_sample.png',
       metrics_data: metrics,
       profile_data: profileData,
+      frame_actions_data: newCharData.frame_actions_data || profileData?.frame_actions_data || null,
       new_character_concept: newCharData.new_character_concept,
       outfit_and_colors: newCharData.outfit_and_colors,
       weapons_and_props: newCharData.weapons_and_props,
       stature_rule: newCharData.stature_rule,
       target_direction: newCharData.target_direction,
-      positive_prompt: generatedProfilePrompt.positive_prompt,
-      negative_prompt: generatedProfilePrompt.negative_prompt,
-      technical_notes: generatedProfilePrompt.technical_notes,
+      positive_prompt: posPrompt,
+      negative_prompt: negPrompt || '',
+      technical_notes: generatedProfilePrompt?.technical_notes || 'Bản lưu ma trận 15 frame Sprite Sheet 3x5',
     };
 
     try {

@@ -1,13 +1,25 @@
 // ========================================================
 // 1. THƯ VIỆN NỀN TẢNG REACT (Quản lý component & trạng thái)
 // ========================================================
-import React from 'react';
+import React, { useState } from 'react';
 
 // ========================================================
 // 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
 // ========================================================
-// lucide-react: Bộ icon minh họa thông tin nhân vật, giải phẫu, phong cách và vật liệu
-import { UserCheck, Bone, Palette, Layers, Sparkles } from 'lucide-react';
+// lucide-react: Bộ icon minh họa thông tin nhân vật, giải phẫu, bảng màu và chất liệu
+import {
+  UserCheck,
+  Bone,
+  Palette,
+  Layers,
+  Sparkles,
+  Check,
+  Copy,
+  Droplets,
+  Sun,
+  Shield,
+  Sliders
+} from 'lucide-react';
 
 // ========================================================
 // 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Components & Dữ liệu)
@@ -19,9 +31,11 @@ import { UserCheck, Bone, Palette, Layers, Sparkles } from 'lucide-react';
 // ========================================================
 // Kế thừa các lớp CSS từ theme.css
 
+
 /**
- * Phân hệ 1: Phong cách & Vật liệu Toàn cục (GlobalAnalysis).
- * Trình bày chi tiết 4 nhóm dữ liệu:
+ * Phân hệ 1: Phong cách mỹ thuật, Bảng màu và Bảng vật liệu toàn cục (GlobalAnalysis).
+ * Trình bày chi tiết 5 nhóm dữ liệu:
+ * - 0. Hồ sơ Bảng Màu Chuẩn & 6 Tiêu Chí Kỹ Thuật Pixel Art (Python Heuristic Engine)
  * - 1. Nhận diện & Danh tính (IdentityAnalysis)
  * - 2. Cấu trúc Giải phẫu học (AnatomyAnalysis)
  * - 3. Phong cách Pixel Art (PixelStyleAnalysis)
@@ -32,6 +46,10 @@ import { UserCheck, Bone, Palette, Layers, Sparkles } from 'lucide-react';
  * @returns {React.ReactElement} Giao diện hiển thị chi tiết.
  */
 export default function TabGlobalView({ data }) {
+  // Trạng thái sao chép mã HEX và sao chép Prompt màu sắc
+  const [copiedHex, setCopiedHex] = useState(null);
+  const [copiedPrompt, setCopiedPrompt] = useState(false);
+
   if (!data) {
     return (
       <div className="analysis-result" style={{ textAlign: 'center', padding: '24px 16px' }}>
@@ -42,10 +60,197 @@ export default function TabGlobalView({ data }) {
     );
   }
 
-  const { identity, anatomy, pixel_style, materials } = data;
+  const { identity, anatomy, pixel_style, materials, palette_metrics } = data;
+
+  /**
+   * Sao chép mã HEX của một ô màu vào bộ nhớ đệm
+   * 
+   * @param {string} hexCode Mã HEX cần sao chép (ví dụ: #8b5cf6)
+   */
+  const handleCopyHex = (hexCode) => {
+    if (!hexCode) return;
+    navigator.clipboard.writeText(hexCode);
+    setCopiedHex(hexCode);
+    setTimeout(() => setCopiedHex(null), 2000);
+  };
+
+  /**
+   * Sao chép toàn bộ Prompt quy chuẩn màu sắc chung
+   */
+  const handleCopyPrompt = () => {
+    if (!palette_metrics?.master_color_prompt) return;
+    navigator.clipboard.writeText(palette_metrics.master_color_prompt);
+    setCopiedPrompt(true);
+    setTimeout(() => setCopiedPrompt(false), 2000);
+  };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      {/* ========================================================
+          0. HỒ SƠ ĐO LƯỜNG HỆ MÀU SẮC CHUẨN (PYTHON PALETTE ENGINE)
+          Đo đạc 100% chính xác 6 tiêu chí kỹ thuật màu sắc của Sprite bằng Python
+          ======================================================== */}
+      {palette_metrics && (
+        <section className="profile-section-card" style={{ border: '1px solid var(--accent-purple)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+            <h4 style={{ margin: 0 }}>
+              <Palette size={16} color="var(--accent-purple)" />
+              0. Bảng Màu Chuẩn & 6 Tiêu Chí Kỹ Thuật (Python Palette Engine)
+            </h4>
+            <span className="profile-tag success" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+              <Sparkles size={12} />
+              Đo đạc chính xác 100% (NumPy)
+            </span>
+          </div>
+
+          {/* Dải ô vuông màu chủ đạo (Color Swatches) */}
+          {palette_metrics.dominant_colors && palette_metrics.dominant_colors.length > 0 && (
+            <div style={{ marginTop: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                <strong style={{ fontSize: '0.75rem', color: 'var(--text-dim)', textTransform: 'uppercase' }}>
+                  Bảng mã màu chủ đạo theo tỷ lệ bao phủ (Bấm ô để sao chép mã HEX):
+                </strong>
+                {copiedHex && (
+                  <span style={{ fontSize: '0.7rem', color: '#10b981', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    <Check size={12} /> Đã chép mã {copiedHex}!
+                  </span>
+                )}
+              </div>
+              <div className="palette-swatches-grid">
+                {palette_metrics.dominant_colors.slice(0, 16).map((item, idx) => (
+                  <div
+                    key={idx}
+                    className="palette-swatch-item"
+                    onClick={() => handleCopyHex(item.hex_code)}
+                    title={`Mã: ${item.hex_code} | Tỷ lệ: ${item.percentage}% | Bấm để copy`}
+                  >
+                    <div className="palette-swatch-color" style={{ backgroundColor: item.hex_code }} />
+                    <span className="palette-swatch-hex">{item.hex_code}</span>
+                    <div className="palette-swatch-meta">
+                      <span>{item.percentage}%</span>
+                      <span className="palette-swatch-role">{item.role}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Lưới 6 Thẻ Tiêu Chuẩn Kỹ Thuật Pixel Art */}
+          <div className="palette-metrics-grid">
+            {/* Tiêu chí 1: Tổng số màu */}
+            <div className="palette-metric-card">
+              <div className="palette-metric-header">
+                <span className="palette-metric-title">
+                  <Droplets size={14} color="#8b5cf6" /> 1. Ngân sách màu (Color Budget)
+                </span>
+                <span className="profile-tag">{palette_metrics.total_colors} màu</span>
+              </div>
+              <div className="palette-metric-value">{palette_metrics.palette_era}</div>
+              <div className="palette-metric-desc">Đo chính xác số lượng mã màu độc nhất sử dụng trong nhân vật mẫu.</div>
+            </div>
+
+            {/* Tiêu chí 2: Mã màu neo chủ đạo */}
+            <div className="palette-metric-card">
+              <div className="palette-metric-header">
+                <span className="palette-metric-title">
+                  <Palette size={14} color="#3b82f6" /> 2. Bảng mã màu neo
+                </span>
+                <span className="profile-tag">{palette_metrics.top_hex_list?.length || 0} màu chủ đạo</span>
+              </div>
+              <div className="palette-metric-value" style={{ fontSize: '0.8rem', fontFamily: 'monospace', color: '#67e8f9' }}>
+                {palette_metrics.top_hex_list?.slice(0, 5).join(' ') || 'N/A'}
+              </div>
+              <div className="palette-metric-desc">Các màu neo chính tạo nên bản sắc và chiếm diện tích lớn nhất trên nhân vật.</div>
+            </div>
+
+            {/* Tiêu chí 3: Số bậc đổ bóng */}
+            <div className="palette-metric-card">
+              <div className="palette-metric-header">
+                <span className="palette-metric-title">
+                  <Layers size={14} color="#ec4899" /> 3. Bậc đổ bóng (Shading)
+                </span>
+                <span className="profile-tag success">{palette_metrics.shading_steps} nấc sáng</span>
+              </div>
+              <div className="palette-metric-value">{palette_metrics.shading_style_detected}</div>
+              <div className="palette-metric-desc">Không dùng cọ mềm mịn (Airbrush), đổ bóng phân mảng dứt khoát chuẩn Cel-shading.</div>
+            </div>
+
+            {/* Tiêu chí 4: Dịch chuyển sắc độ (Hue-Shifting) */}
+            <div className="palette-metric-card">
+              <div className="palette-metric-header">
+                <span className="palette-metric-title">
+                  <Sliders size={14} color="#f59e0b" /> 4. Kỹ thuật dịch sắc độ bóng
+                </span>
+                <span className={`profile-tag ${palette_metrics.hue_shifting_detected ? 'success' : ''}`}>
+                  {palette_metrics.hue_shifting_detected ? 'Active Hue-Shift' : 'Straight'}
+                </span>
+              </div>
+              <div className="palette-metric-value" style={{ fontSize: '0.85rem' }}>{palette_metrics.hue_shift_description}</div>
+              <div className="palette-metric-desc">Bóng tối dịch sang gam lạnh, vùng sáng dịch sang gam ấm tạo chiều sâu 3D tự nhiên.</div>
+            </div>
+
+            {/* Tiêu chí 5: Quy chuẩn màu đường viền */}
+            <div className="palette-metric-card">
+              <div className="palette-metric-header">
+                <span className="palette-metric-title">
+                  <Shield size={14} color="#10b981" /> 5. Quy chuẩn màu đường viền
+                </span>
+              </div>
+              <div className="palette-metric-value" style={{ fontSize: '0.85rem' }}>{palette_metrics.outline_style_detected}</div>
+              <div className="palette-metric-desc">Quy tắc viền đen thuần hoặc viền đổi màu chọn lọc (Selout) bao bọc thân nhân vật.</div>
+            </div>
+
+            {/* Tiêu chí 6: Độ bão hòa & Độ tương phản */}
+            <div className="palette-metric-card">
+              <div className="palette-metric-header">
+                <span className="palette-metric-title">
+                  <Sun size={14} color="#eab308" /> 6. Độ bão hòa & Tương phản
+                </span>
+                <span className="profile-tag">{palette_metrics.contrast_ratio}:1</span>
+              </div>
+              <div className="palette-metric-value" style={{ fontSize: '0.85rem' }}>
+                {palette_metrics.saturation_type} ({palette_metrics.average_saturation})
+              </div>
+              <div className="palette-metric-desc">{palette_metrics.contrast_type} - Đảm bảo nhân vật nổi bật rõ trên nền game.</div>
+            </div>
+          </div>
+
+          {/* Khung xem trước & Sao chép Master Color Prompt */}
+          {palette_metrics.master_color_prompt && (
+            <div style={{ marginTop: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                <strong style={{ fontSize: '0.75rem', color: 'var(--text-dim)', textTransform: 'uppercase' }}>
+                  Prompt Quy Chuẩn Màu Sắc Chung (Tự động tiêm vào Khung To Nhất của Prompt):
+                </strong>
+                <button
+                  type="button"
+                  onClick={handleCopyPrompt}
+                  style={{
+                    fontSize: '0.725rem',
+                    padding: '4px 8px',
+                    background: copiedPrompt ? 'rgba(16, 185, 129, 0.2)' : 'var(--accent-secondary-btn)',
+                    color: copiedPrompt ? '#10b981' : 'var(--text-highlight)',
+                    border: '1px solid ' + (copiedPrompt ? '#10b981' : 'var(--accent-purple-glow)'),
+                    borderRadius: '4px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {copiedPrompt ? <Check size={12} /> : <Copy size={12} />}
+                  <span>{copiedPrompt ? 'Đã sao chép prompt màu!' : 'Sao chép Prompt Màu Sắc Này'}</span>
+                </button>
+              </div>
+              <div className="palette-prompt-box">
+                {palette_metrics.master_color_prompt}
+              </div>
+            </div>
+          )}
+        </section>
+      )}
+
       {/* ========================================================
           1. ĐẶC ĐIỂM NHẬN DIỆN VÀ DANH TÍNH (IDENTITY)
           ======================================================== */}
