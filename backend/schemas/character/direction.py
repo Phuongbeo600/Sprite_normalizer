@@ -4,13 +4,13 @@
 # enum: Định nghĩa kiểu liệt kê góc nhìn chuỗi chuẩn (String Enum)
 from enum import Enum
 # typing: Định nghĩa các kiểu danh sách, chuỗi và tùy chọn
-from typing import List, Optional
+from typing import List, Optional, Union
 
 # ========================================================
 # 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
 # ========================================================
-# pydantic: Định nghĩa Schema kiểm tra tính hợp lệ dữ liệu hướng nhìn
-from pydantic import BaseModel, Field
+# pydantic: Định nghĩa Schema kiểm tra tính hợp lệ dữ liệu hướng nhìn và validator
+from pydantic import BaseModel, Field, field_validator
 
 # ========================================================
 # 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Internal modules)
@@ -35,6 +35,18 @@ class ViewType(str, Enum):
     THREE_QUARTER = "Three Quarter"
 
 
+class OrientationAngle(str, Enum):
+    """
+    Quy chuẩn góc độ xoay của cơ thể và đầu trong không gian 2D.
+    """
+    FRONT_FACING = "Front Facing (0 degrees)"
+    RIGHT_PROFILE = "Right Profile (90 degrees)"
+    LEFT_PROFILE = "Left Profile (-90 degrees)"
+    BACK_FACING = "Back Facing (180 degrees)"
+    THREE_QUARTER_FRONT = "Three-Quarter Front (45 degrees)"
+    THREE_QUARTER_BACK = "Three-Quarter Back (135 degrees)"
+
+
 class DirectionProfile(BaseModel):
     """
     Hồ sơ giải phẫu học và thị giác cho một góc nhìn cụ thể (Direction Profile).
@@ -46,14 +58,14 @@ class DirectionProfile(BaseModel):
         description="Góc nhìn thị giác của nhân vật: Front, Back, Left Profile, Right Profile hoặc Three Quarter"
     )
 
-    body_orientation: str = Field(
-        ...,
-        description="Mô tả hướng xoay của thân mình nhân vật (ví dụ: Quay trực diện 100% về phía người quan sát, Xoay ngang 90 độ sang phải, Xoay lưng hoàn toàn)"
+    body_orientation: Union[OrientationAngle, str] = Field(
+        default=OrientationAngle.FRONT_FACING,
+        description="Mô tả hướng xoay của thân mình: Front Facing (0 degrees), Right Profile (90 degrees), Left Profile (-90 degrees), Back Facing (180 degrees), Three-Quarter Front (45 degrees)"
     )
 
-    head_orientation: str = Field(
-        ...,
-        description="Mô tả hướng xoay và tầm nhìn của vùng đầu (ví dụ: Nhìn thẳng phía trước, Hơi cúi xuống, Ngoảnh mặt nhìn theo góc nghiêng)"
+    head_orientation: Union[OrientationAngle, str] = Field(
+        default=OrientationAngle.FRONT_FACING,
+        description="Mô tả hướng xoay và tầm nhìn của vùng đầu: Front Facing, Right Profile, Left Profile, Back Facing"
     )
 
     visible_body_parts: List[str] = Field(
@@ -90,6 +102,27 @@ class DirectionProfile(BaseModel):
         default_factory=list,
         description="Quy tắc các lớp đè chồng lên nhau (Z-ordering / Occlusion rules) giữa các bộ phận ở góc nhìn này (ví dụ: Cánh tay phải nằm trước thân mình; Áo choàng phủ đè lên phía sau chân)"
     )
+
+    # ========================================================
+    # BỘ CHUẨN HÓA DỮ LIỆU TỰ ĐỘNG (Field Validators)
+    # ========================================================
+    @field_validator("body_orientation", "head_orientation", mode="before")
+    @classmethod
+    def normalize_orientation(cls, v):
+        """Tự động ánh xạ chuỗi hướng xoay sang Enum OrientationAngle chuẩn."""
+        if isinstance(v, str):
+            clean = v.lower()
+            if "back" in clean or "lưng" in clean or "sau" in clean or "180" in clean:
+                return OrientationAngle.BACK_FACING
+            if "right" in clean or "phải" in clean or "90" in clean:
+                return OrientationAngle.RIGHT_PROFILE
+            if "left" in clean or "trái" in clean or "-90" in clean:
+                return OrientationAngle.LEFT_PROFILE
+            if "three" in clean or "3/4" in clean or "45" in clean:
+                return OrientationAngle.THREE_QUARTER_FRONT
+            if "front" in clean or "thẳng" in clean or "trực diện" in clean or "0" in clean:
+                return OrientationAngle.FRONT_FACING
+        return v
 
 
 class DirectionAnalysis(BaseModel):

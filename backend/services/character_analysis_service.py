@@ -15,16 +15,36 @@ from typing import Dict, Any, Optional, List, Tuple
 from PIL import Image
 
 # ========================================================
-# 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Schemas & Providers)
+# 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Schemas, Enums & Providers)
 # ========================================================
-# Schemas phân tích nhân vật theo từng phân hệ Tab
+# Schemas và Controlled Vocabulary Enums phân tích nhân vật theo từng phân hệ Tab
 from backend.schemas.character import (
     GlobalAnalysis,
     DirectionAnalysis,
     AnimationAnalysis,
     ConsistencyAnalysis,
     NegativeConstraints,
-    AIAnalysis
+    AIAnalysis,
+    PixelArtEra,
+    OutlineStyle,
+    ShadingStyle,
+    DitheringStyle,
+    PixelClusterStyle,
+    DetailDensity,
+    PixelCleanliness,
+    LightingDirection,
+    GenderPresentation,
+    BodyType,
+    ShapeLanguage,
+    BodyStructure,
+    LimbPlacement,
+    MaterialType,
+    Reflectivity,
+    PixelTexture,
+    ViewType,
+    OrientationAngle,
+    AnimationType,
+    LoopCharacteristics
 )
 # AiProviderFactory: Khởi tạo Provider đa hình (Gemini / OpenAI)
 from backend.providers.factory import AiProviderFactory
@@ -423,60 +443,61 @@ Return ONLY a valid JSON object:
     # ========================================================
     @staticmethod
     def _get_offline_fallback_global() -> Dict[str, Any]:
+        """Tạo dữ liệu phân tích toàn cục dự phòng ngoại tuyến chuẩn theo Controlled Vocabulary Enums."""
         return {
             "identity": {
                 "character_type": "Nhân vật Sprite Pixel Art (Chế độ Ngoại tuyến)",
-                "gender_presentation": "Không xác định",
-                "body_type": "Chibi / Retro RPG",
+                "gender_presentation": GenderPresentation.UNSPECIFIED.value,
+                "body_type": BodyType.CHIBI.value,
                 "distinctive_features": ["Thiết kế chuẩn game 2D"],
                 "silhouette": "Hình khối cân đối",
-                "shape_language": ["Balanced", "Compact"],
+                "shape_language": [ShapeLanguage.ROUNDED.value, ShapeLanguage.HEAVY_BLOCK.value],
                 "facial_features": "Khuôn mặt pixel art tối giản",
                 "costume_description": "Trang phục phiêu lưu phong cách cổ điển",
                 "accessories": ["Trang bị cơ bản"]
             },
             "anatomy": {
-                "body_structure": "Humanoid Chibi 2.5 - 3.0 đầu",
+                "body_structure": BodyStructure.CHIBI_HUMANOID.value,
                 "head_description": "Đầu to rõ nét, chiếm 30-35% chiều cao",
                 "torso_description": "Thân trên khối hộp gọn gàng",
                 "arm_structure": "Hai tay buông xuôi linh hoạt",
                 "leg_structure": "Hai chân ngắn vững chãi",
                 "unusual_body_parts": [],
                 "identifiable_landmarks": ["Đường cổ", "Thắt lưng", "Gót chân"],
-                "relative_limb_placement": "Các chi gắn đối xứng quanh trục thân",
+                "relative_limb_placement": LimbPlacement.GROUNDED_NEUTRAL.value,
                 "anatomical_ambiguities": []
             },
             "pixel_style": {
-                "art_style": "16-bit SNES / GBA Classic Pixel Art",
-                "outline_style": "Selective outline (Selout) viền sẫm",
-                "shading_style": "Cel-shading 3 tông sáng tối",
+                "art_style": PixelArtEra.CLASSIC_16BIT.value,
+                "outline_style": OutlineStyle.SELECTIVE_OUTLINE.value,
+                "shading_style": ShadingStyle.CEL_SHADING.value,
                 "shading_levels": 3,
-                "dithering_style": None,
-                "pixel_cluster_style": "Chunky readable clusters",
-                "detail_density": "Moderate",
-                "pixel_cleanliness": "Clean pixel placement",
-                "lighting_direction": "Top-left",
+                "dithering_style": DitheringStyle.NONE.value,
+                "pixel_cluster_style": PixelClusterStyle.CHUNKY_CLUSTERS.value,
+                "detail_density": DetailDensity.MODERATE.value,
+                "pixel_cleanliness": PixelCleanliness.VERY_CLEAN.value,
+                "lighting_direction": LightingDirection.TOP_LEFT.value,
                 "visual_artifacts": []
             },
             "materials": [
                 {
                     "region_name": "Vùng da mặt",
-                    "material_type": "Skin",
+                    "material_type": MaterialType.SKIN.value,
                     "color_description": "Tone da tự nhiên",
                     "shadow_description": "Bóng ngả cam ấm",
                     "highlight_description": None,
-                    "reflectivity": "Matte",
-                    "pixel_texture": "Smooth",
+                    "reflectivity": Reflectivity.MATTE.value,
+                    "pixel_texture": PixelTexture.SMOOTH.value,
                     "shading_description": "Phân mảng phẳng mềm"
                 },
                 {
                     "region_name": "Trang phục",
-                    "material_type": "Cloth",
+                    "material_type": MaterialType.CLOTH.value,
                     "color_description": "Màu sắc chủ đạo theo sprite",
                     "shadow_description": "Bóng đậm tạo nếp gấp",
                     "highlight_description": None,
-                    "reflectivity": "Matte",
-                    "pixel_texture": "Fabric",
+                    "reflectivity": Reflectivity.MATTE.value,
+                    "pixel_texture": PixelTexture.FIBROUS.value,
                     "shading_description": "Đổ bóng mảng 2 cấp độ"
                 }
             ]
@@ -484,44 +505,46 @@ Return ONLY a valid JSON object:
 
     @staticmethod
     def _get_offline_fallback_directions() -> Dict[str, Any]:
+        """Tạo dữ liệu 3 hướng nhìn dự phòng ngoại tuyến chuẩn theo ViewType và OrientationAngle Enums."""
         def _make_dir(view, orient):
             return {
-                "view_type": view,
-                "body_orientation": orient,
-                "head_orientation": orient,
+                "view_type": view.value,
+                "body_orientation": orient.value,
+                "head_orientation": orient.value,
                 "visible_body_parts": ["Đầu", "Thân", "Chi nhìn thấy"],
                 "occluded_body_parts": ["Bộ phận phía sau"],
                 "visible_accessories": ["Phụ kiện trước"],
                 "accessory_placement": "Theo trục cơ thể",
-                "silhouette_description": f"Hình dáng đặc trưng góc nhìn {view}",
-                "view_specific_features": [f"Chi tiết nổi bật góc {view}"],
+                "silhouette_description": f"Hình dáng đặc trưng góc nhìn {view.value}",
+                "view_specific_features": [f"Chi tiết nổi bật góc {view.value}"],
                 "occlusion_rules": ["Thân trước che thân sau"]
             }
         return {
-            "down": _make_dir("Front", "Nhìn trực diện hướng trước"),
-            "side": _make_dir("Right Profile", "Ngoảnh ngang 90 độ"),
-            "up": _make_dir("Back", "Nhìn từ phía sau lưng")
+            "down": _make_dir(ViewType.FRONT, OrientationAngle.FRONT_FACING),
+            "side": _make_dir(ViewType.RIGHT_PROFILE, OrientationAngle.RIGHT_PROFILE),
+            "up": _make_dir(ViewType.BACK, OrientationAngle.BACK_FACING)
         }
 
     @staticmethod
     def _get_offline_fallback_animations() -> Dict[str, Any]:
-        def _make_anim_prof(anim_type, count, seq):
+        """Tạo dữ liệu hoạt họa dự phòng ngoại tuyến chuẩn theo AnimationType và LoopCharacteristics Enums."""
+        def _make_anim_prof(anim_type, count, seq, loop_char=LoopCharacteristics.SEAMLESS):
             return {
-                "animation_type": anim_type,
+                "animation_type": anim_type.value,
                 "frame_count": count,
-                "frame_descriptions": [f"Frame {i+1}: Tư thế {anim_type} nhịp {i+1}" for i in range(count)],
-                "moving_body_parts": ["Chân", "Tay"] if anim_type == "Walk" else ["Ngực nhún"],
+                "frame_descriptions": [f"Frame {i+1}: Tư thế {anim_type.value} nhịp {i+1}" for i in range(count)],
+                "moving_body_parts": ["Chân", "Tay"] if anim_type == AnimationType.WALK else ["Ngực nhún"],
                 "fixed_body_parts": ["Trục đầu"],
-                "leg_motion": "Bước chân so le tuần hoàn" if anim_type == "Walk" else "Đứng yên bám sàn",
-                "arm_motion": "Vung tay theo bước chân" if anim_type == "Walk" else "Hạ xuôi tự nhiên",
+                "leg_motion": "Bước chân so le tuần hoàn" if anim_type == AnimationType.WALK else "Đứng yên bám sàn",
+                "arm_motion": "Vung tay theo bước chân" if anim_type == AnimationType.WALK else "Hạ xuôi tự nhiên",
                 "secondary_motion": "Tà áo đung đưa nhẹ",
                 "motion_sequence": seq,
-                "loop_characteristics": f"Seamless loop {count} frame",
+                "loop_characteristics": loop_char.value,
                 "observed_inconsistencies": []
             }
         dir_anim = {
-            "idle": _make_anim_prof("Idle", 3, "F1 -> F2 nhún -> F3 về ban đầu"),
-            "walk": _make_anim_prof("Walk", 4, "Chân trái bước -> Thu chân -> Chân phải bước -> Thu chân")
+            "idle": _make_anim_prof(AnimationType.IDLE, 3, "F1 -> F2 nhún -> F3 về ban đầu"),
+            "walk": _make_anim_prof(AnimationType.WALK, 4, "Chân trái bước -> Thu chân -> Chân phải bước -> Thu chân")
         }
         return {"down": dir_anim, "side": dir_anim, "up": dir_anim}
 

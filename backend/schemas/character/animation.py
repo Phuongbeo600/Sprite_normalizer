@@ -4,13 +4,13 @@
 # enum: Định nghĩa kiểu liệt kê chuỗi chuẩn (String Enum)
 from enum import Enum
 # typing: Định nghĩa các kiểu danh sách, chuỗi và tùy chọn
-from typing import List, Optional
+from typing import List, Optional, Union
 
 # ========================================================
 # 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
 # ========================================================
-# pydantic: Định nghĩa Schema kiểm tra tính hợp lệ dữ liệu hoạt họa animation
-from pydantic import BaseModel, Field
+# pydantic: Định nghĩa Schema kiểm tra tính hợp lệ dữ liệu hoạt họa animation và validator
+from pydantic import BaseModel, Field, field_validator
 
 # ========================================================
 # 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Internal modules)
@@ -30,6 +30,15 @@ class AnimationType(str, Enum):
     """
     IDLE = "Idle"
     WALK = "Walk"
+
+
+class LoopCharacteristics(str, Enum):
+    """
+    Quy chuẩn đặc tính lặp vòng của hoạt họa chuyển động.
+    """
+    SEAMLESS = "Seamless Loop"
+    PING_PONG = "Ping-Pong Loop"
+    ONE_SHOT = "One-Shot"
 
 
 class AnimationProfile(BaseModel):
@@ -89,15 +98,32 @@ class AnimationProfile(BaseModel):
         description="Mô tả toàn bộ trình tự và nhịp điệu của chu kỳ chuyển động quan sát thực tế từ frame đầu đến frame cuối"
     )
 
-    loop_characteristics: str = Field(
-        ...,
-        description="Đặc điểm lặp của chuyển động (ví dụ: Seamless loop/Vòng lặp mượt mà hoàn hảo từ frame cuối về frame đầu, Ping-pong loop/Lặp đổi chiều đối xứng)"
+    loop_characteristics: Union[LoopCharacteristics, str] = Field(
+        default=LoopCharacteristics.SEAMLESS,
+        description="Đặc điểm lặp của chuyển động: Seamless Loop, Ping-Pong Loop, One-Shot"
     )
 
     observed_inconsistencies: List[str] = Field(
         default_factory=list,
         description="Những điểm sai khác, lỗi mất đồng bộ pixel hoặc biến dạng thể tích bất thường phát hiện thấy giữa các frame tham chiếu"
     )
+
+    # ========================================================
+    # BỘ CHUẨN HÓA DỮ LIỆU TỰ ĐỘNG (Field Validators)
+    # ========================================================
+    @field_validator("loop_characteristics", mode="before")
+    @classmethod
+    def normalize_loop(cls, v):
+        """Tự động ánh xạ chuỗi đặc tính lặp sang Enum LoopCharacteristics chuẩn."""
+        if isinstance(v, str):
+            clean = v.lower()
+            if "ping" in clean or "pong" in clean or "đổi chiều" in clean:
+                return LoopCharacteristics.PING_PONG
+            if "one" in clean or "shot" in clean or "đơn" in clean:
+                return LoopCharacteristics.ONE_SHOT
+            if "seamless" in clean or "mượt" in clean or "hoàn hảo" in clean:
+                return LoopCharacteristics.SEAMLESS
+        return v
 
 
 class DirectionAnimation(BaseModel):

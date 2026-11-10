@@ -1,14 +1,16 @@
 # ========================================================
-# 1. THƯ VIỆN NỀN TẢNG PYTHON (Cấu trúc & Kiểu dữ liệu)
+# 1. THƯ VIỆN NỀN TẢNG PYTHON (Cấu trúc, Liệt kê & Kiểu)
 # ========================================================
+# enum: Định nghĩa các kiểu liệt kê chuỗi chuẩn (String Enum) cho danh mục kiểm soát
+from enum import Enum
 # typing: Khai báo kiểu danh sách, chuỗi và tùy chọn giá trị
-from typing import List, Optional
+from typing import List, Optional, Union
 
 # ========================================================
 # 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
 # ========================================================
-# pydantic: Định nghĩa Schema kiểm tra tính hợp lệ dữ liệu giải phẫu
-from pydantic import BaseModel, Field
+# pydantic: Định nghĩa Schema kiểm tra tính hợp lệ dữ liệu giải phẫu và validator
+from pydantic import BaseModel, Field, field_validator
 
 # ========================================================
 # 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Internal modules)
@@ -21,6 +23,31 @@ from pydantic import BaseModel, Field
 # (Không áp dụng cho file backend)
 
 
+class BodyStructure(str, Enum):
+    """
+    Quy chuẩn phân loại cấu trúc hình thái sinh học tổng thể của cơ thể.
+    Kế thừa str để tương thích tuần tự hóa JSON và OpenAI Structured Outputs.
+    """
+    HUMANOID = "Humanoid (Bipedal 2 arms 2 legs)"
+    CHIBI_HUMANOID = "Chibi Humanoid (Exaggerated proportions)"
+    QUADRUPED = "Quadruped (4 legs)"
+    AVIAN = "Avian (Winged / Bird-like)"
+    AMORPHOUS = "Amorphous (Slime / Fluid)"
+    MECHANICAL = "Mechanical / Robotic"
+    SERPENTINE = "Serpentine / Snake-like"
+
+
+class LimbPlacement(str, Enum):
+    """
+    Quy chuẩn thế đứng và vị trí tương đối của các chi so với trọng tâm thân mình.
+    """
+    GROUNDED_NEUTRAL = "Grounded Neutral Stance"
+    COMBAT_READY = "Combat Ready Stance"
+    FLOATING_AERIAL = "Floating / Aerial"
+    CROUCHING = "Crouching / Low Stance"
+    DYNAMIC_ACTION = "Dynamic Action Stance"
+
+
 class AnatomyAnalysis(BaseModel):
     """
     Phân tích cấu trúc cơ thể và các bộ phận sinh học (Anatomy Analysis).
@@ -28,13 +55,13 @@ class AnatomyAnalysis(BaseModel):
     
     LƯU Ý THIẾT KẾ:
     Không yêu cầu AI tự đo đếm kích thước pixel, tọa độ hoặc tỷ lệ cơ thể chính xác.
-    Những thông số đo lường chính xác tuyệt đối đó sẽ được động cơ Python (NumPy/OpenCV)
-    tính toán tự động trong giai đoạn tiếp theo của hệ thống.
+    Những thông số đo lường chính xác tuyệt đối do động cơ Python (NumPy/OpenCV)
+    tính toán tự động trong phân hệ xử lý hình ảnh độc lập.
     """
 
-    body_structure: str = Field(
-        ...,
-        description="Cấu trúc cơ thể tổng thể (ví dụ: Humanoid/Dạng người chuẩn 2 tay 2 chân, Quadruped/Thú bốn chân, Amorphous/Chất nhờn vô định hình, Chibi humanoid)"
+    body_structure: Union[BodyStructure, str] = Field(
+        default=BodyStructure.HUMANOID,
+        description="Cấu trúc cơ thể tổng thể: Humanoid, Chibi Humanoid, Quadruped, Avian, Amorphous, Mechanical, Serpentine"
     )
 
     head_description: str = Field(
@@ -67,12 +94,55 @@ class AnatomyAnalysis(BaseModel):
         description="Các mốc giải phẫu quan trọng có thể nhận diện rõ trên sprite (ví dụ: Khớp vai, Đường phân cách cổ, Điểm gập khuỷu tay, Khớp háng/thắt lưng, Điểm gót chân chạm đất)"
     )
 
-    relative_limb_placement: str = Field(
-        ...,
-        description="Mô tả vị trí tương đối và mối liên kết tư thế giữa các chi so với trục thân mình (ví dụ: Hai tay buông sát thân hơi chếch ra trước, Hai chân đứng rộng bằng vai tạo thế đứng vững)"
+    relative_limb_placement: Union[LimbPlacement, str] = Field(
+        default=LimbPlacement.GROUNDED_NEUTRAL,
+        description="Mô tả vị trí tương đối và mối liên kết tư thế giữa các chi: Grounded Neutral Stance, Combat Ready Stance, Floating / Aerial, Crouching / Low Stance, Dynamic Action Stance"
     )
 
     anatomical_ambiguities: List[str] = Field(
         default_factory=list,
         description="Các bộ phận hoặc khớp nối bị che khuất, vẽ cách điệu hoặc không thể xác định cấu trúc chắc chắn từ ảnh quan sát (ví dụ: Bàn tay bị che hoàn toàn bởi tấm khiên lớn, Khớp đầu gối bị ẩn dưới váy dài)"
     )
+
+    # ========================================================
+    # BỘ CHUẨN HÓA DỮ LIỆU TỰ ĐỘNG (Field Validators)
+    # ========================================================
+    @field_validator("body_structure", mode="before")
+    @classmethod
+    def normalize_body_structure(cls, v):
+        """Tự động ánh xạ chuỗi cấu trúc cơ thể sang Enum BodyStructure chuẩn."""
+        if isinstance(v, str):
+            clean = v.lower()
+            if "chibi" in clean:
+                return BodyStructure.CHIBI_HUMANOID
+            if "humanoid" in clean or "người" in clean:
+                return BodyStructure.HUMANOID
+            if "quadruped" in clean or "bốn chân" in clean or "thú" in clean:
+                return BodyStructure.QUADRUPED
+            if "avian" in clean or "chim" in clean or "cánh" in clean:
+                return BodyStructure.AVIAN
+            if "amorphous" in clean or "nhờn" in clean or "slime" in clean:
+                return BodyStructure.AMORPHOUS
+            if "mech" in clean or "robot" in clean or "máy" in clean:
+                return BodyStructure.MECHANICAL
+            if "serpent" in clean or "snake" in clean or "rắn" in clean:
+                return BodyStructure.SERPENTINE
+        return v
+
+    @field_validator("relative_limb_placement", mode="before")
+    @classmethod
+    def normalize_limb_placement(cls, v):
+        """Tự động ánh xạ chuỗi tư thế sang Enum LimbPlacement chuẩn."""
+        if isinstance(v, str):
+            clean = v.lower()
+            if "combat" in clean or "chiến đấu" in clean or "thủ thế" in clean:
+                return LimbPlacement.COMBAT_READY
+            if "float" in clean or "bay" in clean or "lơ lửng" in clean:
+                return LimbPlacement.FLOATING_AERIAL
+            if "crouch" in clean or "ngồi" in clean or "nhún" in clean:
+                return LimbPlacement.CROUCHING
+            if "action" in clean or "chạy" in clean or "nhảy" in clean:
+                return LimbPlacement.DYNAMIC_ACTION
+            if "ground" in clean or "đứng" in clean or "bằng vai" in clean:
+                return LimbPlacement.GROUNDED_NEUTRAL
+        return v

@@ -13,9 +13,9 @@ import json
 from pydantic import ValidationError
 
 # ========================================================
-# 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Pydantic Schemas)
+# 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Pydantic Schemas & Enums)
 # ========================================================
-# Import toàn bộ các Schema nhân vật mới
+# Import toàn bộ các Schema và Controlled Vocabulary Enums nhân vật mới
 from backend.schemas.character import (
     IdentityAnalysis,
     AnatomyAnalysis,
@@ -32,7 +32,24 @@ from backend.schemas.character import (
     GlobalAnalysis,
     ConsistencyAnalysis,
     NegativeConstraints,
-    AIAnalysis
+    AIAnalysis,
+    PixelArtEra,
+    OutlineStyle,
+    ShadingStyle,
+    DitheringStyle,
+    PixelClusterStyle,
+    DetailDensity,
+    PixelCleanliness,
+    LightingDirection,
+    GenderPresentation,
+    BodyType,
+    ShapeLanguage,
+    BodyStructure,
+    LimbPlacement,
+    Reflectivity,
+    PixelTexture,
+    OrientationAngle,
+    LoopCharacteristics
 )
 # Import các Schema hiện hữu của hệ thống để xác nhận không bị ảnh hưởng
 from backend.schemas import (
@@ -378,6 +395,71 @@ class TestCharacterSchemas(unittest.TestCase):
         self.assertIn("animation_analysis", schema["properties"])
         self.assertIn("consistency_analysis", schema["properties"])
         self.assertIn("negative_constraints", schema["properties"])
+
+    def test_09_controlled_vocabulary_enums_and_validators(self):
+        """Tiêu chí 9: Kiểm tra hệ thống Controlled Vocabulary Enums và bộ chuẩn hóa tự động (Validators)."""
+        # 1. Kiểm tra PixelStyleAnalysis tự động ánh xạ chuỗi sang Enum
+        style = PixelStyleAnalysis(
+            art_style="16-bit SNES / GBA Classic Pixel Art",
+            outline_style="selective outline (selout) viền sẫm",
+            shading_style="cel-shading sắc nét",
+            lighting_direction="top-left 45 độ"
+        )
+        self.assertEqual(style.outline_style, OutlineStyle.SELECTIVE_OUTLINE)
+        self.assertEqual(style.shading_style, ShadingStyle.CEL_SHADING)
+        self.assertEqual(style.lighting_direction, LightingDirection.TOP_LEFT)
+
+        # 2. Kiểm tra IdentityAnalysis tự động ánh xạ giới tính và vóc dáng
+        ident = IdentityAnalysis(
+            character_type="Chiến binh",
+            gender_presentation="nam giới (masculine)",
+            body_type="chibi 2 đầu",
+            silhouette="Khối trụ",
+            costume_description="Áo giáp sắt"
+        )
+        self.assertEqual(ident.gender_presentation, GenderPresentation.MASCULINE)
+        self.assertEqual(ident.body_type, BodyType.CHIBI)
+
+        # 3. Kiểm tra AnatomyAnalysis tự động ánh xạ cấu trúc và thế đứng
+        anat = AnatomyAnalysis(
+            body_structure="humanoid người 2 chân",
+            relative_limb_placement="combat chiến đấu",
+            head_description="Đầu mũ giáp",
+            torso_description="Thân giáp ngực"
+        )
+        self.assertEqual(anat.body_structure, BodyStructure.HUMANOID)
+        self.assertEqual(anat.relative_limb_placement, LimbPlacement.COMBAT_READY)
+
+        # 4. Kiểm tra MaterialAnalysis tự động ánh xạ độ phản xạ và chất cảm hạt
+        mat = MaterialAnalysis(
+            region_name="Giáp vai",
+            material_type=MaterialType.METAL,
+            color_description="Bạc",
+            reflectivity="metallic phản xạ kim loại",
+            pixel_texture="smooth mịn phẳng",
+            shading_description="Đổ bóng gắt"
+        )
+        self.assertEqual(mat.reflectivity, Reflectivity.METALLIC)
+        self.assertEqual(mat.pixel_texture, PixelTexture.SMOOTH)
+
+        # 5. Kiểm tra DirectionProfile tự động ánh xạ góc xoay
+        dp = DirectionProfile(
+            view_type=ViewType.FRONT,
+            body_orientation="nhìn thẳng trực diện 0 độ",
+            head_orientation="hướng thẳng",
+            silhouette_description="Khối cân đối"
+        )
+        self.assertEqual(dp.body_orientation, OrientationAngle.FRONT_FACING)
+        self.assertEqual(dp.head_orientation, OrientationAngle.FRONT_FACING)
+
+        # 6. Kiểm tra AnimationProfile tự động ánh xạ chu kỳ lặp
+        ap = AnimationProfile(
+            animation_type=AnimationType.WALK,
+            frame_count=4,
+            motion_sequence="1 -> 2 -> 3 -> 4",
+            loop_characteristics="seamless mượt mà hoàn hảo"
+        )
+        self.assertEqual(ap.loop_characteristics, LoopCharacteristics.SEAMLESS)
 
 
 if __name__ == "__main__":
