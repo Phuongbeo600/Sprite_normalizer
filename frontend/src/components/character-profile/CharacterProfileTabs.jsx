@@ -6,8 +6,8 @@ import React from 'react';
 // ========================================================
 // 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
 // ========================================================
-// lucide-react: Bộ icon trực quan cho từng phân hệ phân tích hồ sơ nhân vật
-import { User, Compass, Activity, ShieldCheck, Calculator, Sparkles, RefreshCw } from 'lucide-react';
+// lucide-react: Bộ icon trực quan cho từng phân hệ tra cứu hồ sơ nhân vật
+import { Palette, Compass, Activity, RefreshCw } from 'lucide-react';
 
 // ========================================================
 // 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Components & Dữ liệu)
@@ -20,18 +20,21 @@ import { User, Compass, Activity, ShieldCheck, Calculator, Sparkles, RefreshCw }
 // Kế thừa các lớp CSS từ theme.css
 
 /**
- * Thanh chuyển đổi phân hệ (Tabs) và bảng tác vụ phân tích hồ sơ nhân vật.
- * Hỗ trợ chuyển đổi mượt mà giữa 4 phân hệ AI Reference Analysis và 1 phân hệ Toán học nghịch đảo.
+ * Thanh chuyển đổi 3 phân hệ tra cứu Hồ sơ DNA của nhân vật tham chiếu:
+ * - 1. Phong cách mỹ thuật & Bảng vật liệu (Global & Materials)
+ * - 2. Không gian 3 hướng nhìn (Down / Side / Up)
+ * - 3. Hoạt họa chuyển động (Idle / Walk)
+ * 
+ * Đã loại bỏ các tab trùng lặp (Tab 4 và Tab 5) để giao diện tinh gọn, không gây rối mắt.
  * 
  * @param {Object} props Thuộc tính truyền vào component.
- * @param {string} props.activeTab Phân hệ đang được kích hoạt ('global' | 'directions' | 'animations' | 'constraints' | 'inverse_math').
+ * @param {string} props.activeTab Phân hệ đang được kích hoạt ('global' | 'directions' | 'animations').
  * @param {Function} props.onSelectTab Hàm gọi lại khi người dùng chọn tab mới.
  * @param {Object} props.tabStatuses Trạng thái dữ liệu của từng tab ({ global: boolean, ... }).
  * @param {string|null} props.analyzingTab Tên tab đang được gửi yêu cầu phân tích lên máy chủ.
  * @param {Function} props.onAnalyzeTab Hàm kích hoạt phân tích riêng tab hiện tại.
- * @param {Function} props.onAnalyzeAll Hàm kích hoạt phân tích tuần tự toàn bộ hồ sơ.
  * @param {boolean} props.disabled Vô hiệu hóa nút bấm khi chưa chọn ảnh sprite mẫu.
- * @returns {React.ReactElement} Giao diện thanh điều hướng và nút tác vụ.
+ * @returns {React.ReactElement} Giao diện thanh điều hướng 3 phân hệ DNA.
  */
 export default function CharacterProfileTabs({
   activeTab,
@@ -39,25 +42,21 @@ export default function CharacterProfileTabs({
   tabStatuses,
   analyzingTab,
   onAnalyzeTab,
-  onAnalyzeAll,
   disabled
 }) {
-  // Danh sách cấu hình 5 tab làm việc chính
+  // Danh sách 3 phân hệ tra cứu DNA tinh gọn (không bị trùng lặp)
   const tabConfigs = [
-    { key: 'global', label: '1. Phong cách & Vật liệu', icon: User },
+    { key: 'global', label: '1. Phong cách & Vật liệu', icon: Palette },
     { key: 'directions', label: '2. 3 Hướng nhìn', icon: Compass },
-    { key: 'animations', label: '3. Chuyển động', icon: Activity },
-    { key: 'constraints', label: '4. Ràng buộc & Prompt', icon: ShieldCheck },
-    { key: 'inverse_math', label: '5. Toán học nghịch đảo', icon: Calculator },
+    { key: 'animations', label: '3. Chuyển động (Animation)', icon: Activity },
   ];
 
   const isCurrentTabAnalyzing = analyzingTab === activeTab;
-  const isAllAnalyzing = analyzingTab === 'all';
 
   return (
     <div>
-      {/* 1. Thanh danh sách các Tab */}
-      <nav className="profile-tabs-header" aria-label="Phân hệ phân tích nhân vật">
+      {/* 1. Thanh danh sách 3 Tab phân hệ DNA */}
+      <nav className="profile-tabs-header" aria-label="Phân hệ tra cứu DNA nhân vật">
         {tabConfigs.map((tab) => {
           const Icon = tab.icon;
           const isDone = tabStatuses[tab.key];
@@ -73,60 +72,38 @@ export default function CharacterProfileTabs({
             >
               <Icon size={15} />
               <span>{tab.label}</span>
-              {tab.key !== 'inverse_math' && (
-                <span
-                  className={`profile-tab-badge ${isLoading ? 'loading' : isDone ? 'done' : ''}`}
-                  title={isLoading ? 'Đang phân tích...' : isDone ? 'Đã có dữ liệu' : 'Chưa phân tích'}
-                />
-              )}
+              <span
+                className={`profile-tab-badge ${isLoading ? 'loading' : isDone ? 'done' : ''}`}
+                title={isLoading ? 'Đang phân tích...' : isDone ? 'Đã có dữ liệu' : 'Chưa phân tích'}
+              />
             </button>
           );
         })}
       </nav>
 
-      {/* 2. Thanh công cụ tác vụ: Quét riêng tab hoặc Quét toàn bộ hồ sơ */}
-      {activeTab !== 'inverse_math' && (
-        <div className="profile-actions-bar">
-          <div className="profile-actions-group">
-            {/* Nút quét riêng Tab hiện tại (Tiết kiệm token tối đa) */}
-            <button
-              type="button"
-              disabled={disabled || Boolean(analyzingTab)}
-              onClick={() => onAnalyzeTab(activeTab)}
-              style={{
-                fontSize: '0.8rem',
-                padding: '6px 12px',
-                background: 'var(--accent-secondary-btn)',
-                color: 'var(--text-highlight)',
-                border: '1px solid var(--accent-purple-glow)'
-              }}
-            >
-              <RefreshCw size={14} className={isCurrentTabAnalyzing ? 'spin' : ''} />
-              {isCurrentTabAnalyzing ? 'Đang quét Tab này…' : 'Quét lại riêng Tab này (Tiết kiệm token)'}
-            </button>
-          </div>
-
-          <div className="profile-actions-group">
-            {/* Nút quét toàn bộ 4 Tab tuần tự */}
-            <button
-              type="button"
-              disabled={disabled || Boolean(analyzingTab)}
-              onClick={onAnalyzeAll}
-              style={{
-                fontSize: '0.8rem',
-                padding: '6px 14px',
-                background: 'var(--accent-active-tab)',
-                color: 'var(--text-white)',
-                fontWeight: 600,
-                boxShadow: '0 0 10px var(--accent-purple-glow)'
-              }}
-            >
-              <Sparkles size={14} className={isAllAnalyzing ? 'spin' : ''} />
-              {isAllAnalyzing ? 'Đang quét toàn bộ 4 Tab…' : 'Quét toàn bộ hồ sơ AI'}
-            </button>
-          </div>
-        </div>
-      )}
+      {/* 2. Thanh tác vụ tinh gọn: Nút quét lại riêng phân hệ này nếu cần */}
+      <div className="profile-actions-bar" style={{ justifyContent: 'flex-end', paddingTop: '8px' }}>
+        <button
+          type="button"
+          disabled={disabled || Boolean(analyzingTab)}
+          onClick={() => onAnalyzeTab(activeTab)}
+          style={{
+            fontSize: '0.75rem',
+            padding: '5px 10px',
+            background: 'var(--accent-secondary-btn)',
+            color: 'var(--text-highlight)',
+            border: '1px solid var(--accent-purple-glow)',
+            borderRadius: '6px',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            cursor: disabled ? 'not-allowed' : 'pointer'
+          }}
+        >
+          <RefreshCw size={13} className={isCurrentTabAnalyzing ? 'spin' : ''} />
+          {isCurrentTabAnalyzing ? 'Đang quét lại…' : 'Quét lại riêng phân hệ này'}
+        </button>
+      </div>
     </div>
   );
 }
