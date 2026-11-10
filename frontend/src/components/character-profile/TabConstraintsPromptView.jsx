@@ -180,57 +180,65 @@ export default function TabConstraintsPromptView({
 
         <button
           type="button"
-          className="analysis-generate"
+          className="btn-primary-studio"
           disabled={generatingPrompt || !fullProfile}
           onClick={handleSubmitGenerate}
-          style={{ marginTop: '8px' }}
+          style={{ width: '100%', marginTop: '10px', minHeight: '42px', fontSize: '0.9rem' }}
         >
-          <Sparkles size={16} />
+          <Sparkles size={17} />
           {generatingPrompt ? 'Đang tổng hợp Prompt cho nhân vật mới…' : 'Sinh Prompt AI Tối Ưu Cho Nhân Vật Mới'}
         </button>
 
         {/* Kết quả Prompt đã sinh */}
         {generatedPromptResult && (
-          <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <div style={{ marginTop: '14px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {/* Positive Prompt */}
-            <div>
-              <div className="analysis-output-title">
-                <h3 style={{ fontSize: '0.85rem', color: '#10b981' }}>Positive Prompt (Cho Midjourney / DALL-E)</h3>
+            <div className="studio-prompt-output-card">
+              <div className="studio-prompt-output-header">
+                <h4 style={{ color: '#10b981' }}>
+                  <Sparkles size={14} color="#10b981" />
+                  Positive Prompt (Midjourney v6 / SDXL / DALL-E)
+                </h4>
                 <button
                   type="button"
+                  className="btn-ghost-studio"
                   onClick={() => handleCopy(generatedPromptResult.positive_prompt, 'positive')}
-                  style={{ minHeight: '30px', padding: '4px 8px', fontSize: '0.75rem' }}
+                  style={{ color: copiedPos ? '#10b981' : 'var(--text-muted)' }}
                 >
                   {copiedPos ? <Check size={13} color="#10b981" /> : <Copy size={13} />}
                   {copiedPos ? 'Đã chép!' : 'Sao chép'}
                 </button>
               </div>
               <textarea
+                className="studio-prompt-textarea"
                 rows={5}
                 readOnly
                 value={generatedPromptResult.positive_prompt}
-                style={{ fontSize: '0.8rem', lineHeight: '1.4' }}
               />
             </div>
 
             {/* Negative Prompt */}
-            <div>
-              <div className="analysis-output-title">
-                <h3 style={{ fontSize: '0.85rem', color: '#ef4444' }}>Negative Prompt (Chống lỗi giải phẫu & vỡ nét)</h3>
+            <div className="studio-prompt-output-card">
+              <div className="studio-prompt-output-header">
+                <h4 style={{ color: '#ef4444' }}>
+                  <ShieldAlert size={14} color="#ef4444" />
+                  Negative Prompt (Khử nhiễu & Chống lỗi pixel)
+                </h4>
                 <button
                   type="button"
+                  className="btn-ghost-studio"
                   onClick={() => handleCopy(generatedPromptResult.negative_prompt, 'negative')}
-                  style={{ minHeight: '30px', padding: '4px 8px', fontSize: '0.75rem' }}
+                  style={{ color: copiedNeg ? '#10b981' : 'var(--text-muted)' }}
                 >
                   {copiedNeg ? <Check size={13} color="#10b981" /> : <Copy size={13} />}
                   {copiedNeg ? 'Đã chép!' : 'Sao chép'}
                 </button>
               </div>
               <textarea
+                className="studio-prompt-textarea"
                 rows={3}
                 readOnly
                 value={generatedPromptResult.negative_prompt}
-                style={{ fontSize: '0.8rem', lineHeight: '1.4' }}
               />
             </div>
 
@@ -238,15 +246,15 @@ export default function TabConstraintsPromptView({
             {generatedPromptResult.technical_notes && (
               <div style={{
                 fontSize: '0.775rem',
-                padding: '8px 10px',
+                padding: '10px 12px',
                 background: 'rgba(99, 102, 241, 0.08)',
                 borderLeft: '3px solid var(--accent-purple)',
-                borderRadius: '4px',
+                borderRadius: '6px',
                 color: 'var(--text-highlight)',
-                lineHeight: '1.4',
+                lineHeight: '1.5',
                 whiteSpace: 'pre-wrap'
               }}>
-                <Info size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '4px' }} />
+                <Info size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '5px' }} />
                 <strong>Ghi chú kỹ thuật: </strong>
                 {generatedPromptResult.technical_notes}
               </div>

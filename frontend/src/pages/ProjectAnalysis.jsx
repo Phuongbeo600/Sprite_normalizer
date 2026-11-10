@@ -6,13 +6,28 @@ import React, { useEffect, useState } from 'react';
 // ========================================================
 // 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
 // ========================================================
-// lucide-react: Bộ icon vector SVG siêu nhẹ hiển thị thư mục, quét ảnh, tạo prompt và sao chép
-import { FolderOpen, ScanSearch, Sparkles, Copy, Check, Eye, EyeOff } from 'lucide-react';
+// lucide-react: Bộ icon vector SVG siêu nhẹ hiển thị thư mục, quét ảnh, tạo prompt, sao chép và chuyển đổi chế độ
+import {
+  FolderOpen,
+  ScanSearch,
+  Sparkles,
+  Copy,
+  Check,
+  Eye,
+  EyeOff,
+  Dna,
+  Wand2,
+  ChevronRight,
+  ShieldCheck,
+  Ruler,
+  Layers,
+  ArrowRight
+} from 'lucide-react';
 
 // ========================================================
 // 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Components & Dữ liệu)
 // ========================================================
-// Component thanh điều hướng phân hệ phân tích hồ sơ nhân vật
+// Component thanh điều hướng 5 phân hệ hồ sơ nhân vật
 import CharacterProfileTabs from '../components/character-profile/CharacterProfileTabs';
 // Component hiển thị phân hệ 1: Phong cách & Vật liệu toàn cục
 import TabGlobalView from '../components/character-profile/TabGlobalView';
@@ -29,16 +44,19 @@ import TabConstraintsPromptView from '../components/character-profile/TabConstra
 // Định dạng giao diện được kế thừa từ theme.css thông qua index.css
 
 /**
- * Màn hình Phân tích Giải phẫu Sprite và Cố vấn Prompt AI (Inverse Scaling Engine & AI Reference Profile).
- * Tích hợp kiến trúc phân hệ Tab hiện đại:
- * - Bước 1: Quét hình học & giải phẫu học cơ thể Sprite (Heuristic + AI Gemini Vision).
- * - Bước 2: Hồ sơ Nhân vật tham chiếu theo Tab (Global, Directions, Animations, Constraints)
- *           kết hợp Cố vấn Prompt AI & Toán học nghịch đảo.
+ * Màn hình Studio Chuẩn Hóa & Thiết Kế Sprite AI (Project Analysis & Generation Studio).
+ * Thiết kế lại theo chuẩn Modern Creative Workspace:
+ * - Stepper luồng quy trình trực quan (Nạp mẫu -> Phân tích DNA -> Tạo nhân vật mới).
+ * - Khung Viewport nền caro Checkerboard chuẩn Pixel Art Aseprite/Photoshop.
+ * - Thẻ chỉ số đo lường giải phẫu học nhanh (Quick Metrics Grid).
+ * - Bộ chuyển đổi 2 chế độ làm việc: [1. Hồ sơ Quy chuẩn DNA] vs [2. Phòng Tạo Nhân vật Mới].
  * 
- * @returns {React.ReactElement} Giao diện phân tích 2 cột trực quan.
+ * @returns {React.ReactElement} Giao diện Creative Workspace hoàn chỉnh.
  */
 export default function ProjectAnalysis() {
-  // Trạng thái ảnh tham chiếu và ảnh đã vẽ lớp phủ giải phẫu
+  // ========================================================
+  // TRẠNG THÁI ẢNH THAM CHIẾU & LỚP PHỦ GIẢI PHẪU
+  // ========================================================
   const [reference, setReference] = useState(null);
   const [annotatedUrl, setAnnotatedUrl] = useState(null);
   const [showOverlay, setShowOverlay] = useState(true);
@@ -50,9 +68,15 @@ export default function ProjectAnalysis() {
   const [analysisError, setAnalysisError] = useState('');
 
   // ========================================================
+  // TRẠNG THÁI ĐIỀU HƯỚNG WORKSPACE STUDIO MỚI
+  // ========================================================
+  // Chế độ làm việc chính ở Cột Phải: 'dna_profile' (Hồ sơ quy chuẩn) | 'prompt_studio' (Tạo nhân vật mới)
+  const [workspaceMode, setWorkspaceMode] = useState('prompt_studio');
+
+  // ========================================================
   // TRẠNG THÁI PHÂN HỆ HỒ SƠ NHÂN VẬT THEO TAB (CHARACTER PROFILE)
   // ========================================================
-  // Tab đang kích hoạt: 'global' | 'directions' | 'animations' | 'constraints' | 'inverse_math'
+  // Tab phân hệ đang kích hoạt: 'global' | 'directions' | 'animations' | 'constraints' | 'inverse_math'
   const [activeProfileTab, setActiveProfileTab] = useState('global');
   // Dữ liệu hồ sơ nhân vật hoàn chỉnh
   const [profileData, setProfileData] = useState({
@@ -377,281 +401,402 @@ export default function ProjectAnalysis() {
     inverse_math: Boolean(metrics),
   };
 
+  const hasAnyProfileData = Boolean(
+    profileData.global_analysis ||
+    profileData.direction_analysis ||
+    profileData.animation_analysis ||
+    metrics
+  );
+
   return (
-    <div className="analysis-layout">
+    <div className="studio-workspace-container">
       {/* ========================================================
-          CỘT TRÁI: BƯỚC 1 - NHÂN VẬT THAM CHIẾU & PHÂN TÍCH GIẢI PHẪU
+          1. THANH TIÊU ĐỀ WORKSPACE & STEPPER LUỒNG THAO TÁC
           ======================================================== */}
-      <section className="analysis-panel" aria-labelledby="reference-title">
-        <h2 id="reference-title">Bước 1. Nhân vật tham chiếu</h2>
-        <div className="analysis-actions">
-          <label className="analysis-file">
-            <FolderOpen size={17} aria-hidden="true" />
-            Chọn sprite mẫu
-            <input type="file" accept="image/png,image/jpeg,image/webp" onChange={handleReferenceChange} />
-          </label>
-          <button
-            type="button"
-            disabled={!reference || analyzing}
-            onClick={handleScanAnatomy}
-          >
-            <ScanSearch size={17} />
-            {analyzing ? 'Đang phân tích…' : 'Quét giải phẫu'}
-          </button>
-        </div>
-
-        {/* Khung xem trước ảnh mẫu và lớp phủ Bounding Box */}
-        <figure className="analysis-preview">
-          {reference ? (
-            <img
-              src={showOverlay && annotatedUrl ? annotatedUrl : reference.url}
-              alt={reference.name}
-              style={{ imageRendering: 'pixelated' }}
-            />
-          ) : (
-            <span>Ảnh tham chiếu sẽ hiện ở đây</span>
-          )}
-        </figure>
-
-        {/* Các tùy chọn hiển thị và quét lại */}
-        <div className="analysis-options">
-          <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-            <input
-              type="checkbox"
-              checked={showOverlay}
-              disabled={!annotatedUrl}
-              onChange={(e) => setShowOverlay(e.target.checked)}
-            />
-            {showOverlay ? <Eye size={15} /> : <EyeOff size={15} />}
-            Vẽ lớp phủ đo lường (Overlay)
-          </label>
-          <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-            <input
-              type="checkbox"
-              checked={useGemini}
-              onChange={(e) => setUseGemini(e.target.checked)}
-            />
-            Dùng AI Vision (Gemini / ChatGPT)
-          </label>
-          <button
-            type="button"
-            disabled={!reference || analyzing}
-            onClick={handleScanAnatomy}
-          >
-            Quét lại
-          </button>
-        </div>
-
-        {/* Chú giải trực quan các vùng phân tách (Legend) */}
-        {annotatedUrl && (
-          <div style={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: '8px',
-            fontSize: '0.75rem',
-            padding: '8px 10px',
-            background: 'rgba(255, 255, 255, 0.03)',
-            borderRadius: '6px',
-            border: '1px solid var(--border-color, #333)',
-            marginBottom: '10px'
-          }}>
-            <span style={{ color: '#00e5ff', fontWeight: 600 }}>■ [HEAD] Đầu</span>
-            <span style={{ color: '#ff8c00', fontWeight: 600 }}>■ [TORSO] Thân</span>
-            <span style={{ color: '#ba55d3', fontWeight: 600 }}>■ [LEGS] Chân</span>
-            <span style={{ color: '#ffd700', fontWeight: 600, borderBottom: '1px dashed #ffd700' }}>╌ [WEAPON] Vũ khí</span>
-            <span style={{ color: '#ff69b4', fontWeight: 600, borderBottom: '1px dashed #ff69b4' }}>╌ [CAPE/WINGS] Áo/Cánh</span>
-            <span style={{ color: '#a0a0a0', fontWeight: 600, borderBottom: '1px dashed #a0a0a0' }}>╌ [SHADOW] Bóng sàn</span>
-          </div>
-        )}
-
-        <h3>Kết quả đo lường giải phẫu</h3>
-        {analysisError && (
-          <p className="analysis-result" style={{ color: '#ef4444' }}>
-            ⚠️ {analysisError}
+      <header className="studio-header-card">
+        <div className="studio-title-group">
+          <h1>
+            <Sparkles size={22} color="var(--accent-purple)" />
+            Studio Chuẩn Hóa & Thiết Kế Sprite AI
+          </h1>
+          <p>
+            Phân tích giải phẫu học, bóc tách quy chuẩn DNA Pixel Art và sinh Prompt đồng bộ tỷ lệ cho Game 2D.
           </p>
-        )}
-
-        {/* Thông báo thông minh nếu phát hiện phụ kiện ngoại vi */}
-        {metrics && (metrics.weapon_box || metrics.cape_wings_box || metrics.shadow_box) && (
-          <div style={{
-            fontSize: '0.8rem',
-            padding: '8px 12px',
-            marginBottom: '8px',
-            background: 'rgba(16, 185, 129, 0.1)',
-            borderLeft: '3px solid #10b981',
-            borderRadius: '4px',
-            color: '#34d399',
-            lineHeight: '1.4'
-          }}>
-            🛡️ <strong>AI & Python đã tự động tách vùng:</strong> Chiều cao cơ thể sinh học thuần là{' '}
-            <strong>{metrics.anatomical_height || metrics.visible_height}px</strong> (đã loại bỏ vũ khí/bóng sàn khỏi tỷ lệ chuẩn hóa).
-          </div>
-        )}
-
-        <div
-          className="analysis-result"
-          style={{ whiteSpace: 'pre-wrap', lineHeight: '1.5', fontSize: '0.875rem' }}
-        >
-          {metrics
-            ? metrics.summary_text
-            : (reference
-                ? `Đã chọn ${reference.name}. Hãy bấm "Quét giải phẫu" để đo lường tỷ lệ đầu, thân và điểm tiếp đất.`
-                : 'Chọn ảnh nhân vật mẫu để xem trước.')
-          }
         </div>
-      </section>
+
+        {/* Stepper quy trình trực quan */}
+        <nav className="studio-workflow-stepper" aria-label="Tiến trình làm việc">
+          <span className={`studio-step-item ${reference ? 'completed' : 'active'}`}>
+            {reference ? <Check size={13} /> : '1'} Nạp Sprite Mẫu
+          </span>
+          <span className="studio-step-separator">›</span>
+          <span className={`studio-step-item ${analyzing ? 'active' : hasAnyProfileData ? 'completed' : ''}`}>
+            {hasAnyProfileData ? <Check size={13} /> : '2'} Phân Tích DNA
+          </span>
+          <span className="studio-step-separator">›</span>
+          <span className={`studio-step-item ${workspaceMode === 'prompt_studio' ? 'active' : ''}`}>
+            3 Tạo Nhân Vật Mới
+          </span>
+        </nav>
+      </header>
 
       {/* ========================================================
-          CỘT PHẢI: BƯỚC 2 - HỒ SƠ PHÂN TÍCH NHÂN VẬT & PROMPT STUDIO THEO TAB
+          2. BỐ CỤC LƯỚI BẤT ĐỐI XỨNG: VIEWPORT CANVAS & WORKSPACE
           ======================================================== */}
-      <section className="analysis-panel" aria-labelledby="prompt-title">
-        <h2 id="prompt-title">Bước 2. Hồ sơ Phân tích AI & Cố vấn Prompt</h2>
-
-        {/* Thanh chuyển đổi phân hệ Tab */}
-        <CharacterProfileTabs
-          activeTab={activeProfileTab}
-          onSelectTab={setActiveProfileTab}
-          tabStatuses={tabStatuses}
-          analyzingTab={analyzingTab}
-          onAnalyzeTab={handleAnalyzeTab}
-          onAnalyzeAll={handleAnalyzeAll}
-          disabled={!reference}
-        />
-
-        {/* Thông báo lỗi nếu phân tích thất bại */}
-        {profileError && (
-          <p className="analysis-result" style={{ color: '#ef4444' }}>
-            ⚠️ {profileError}
-          </p>
-        )}
-
+      <div className="studio-grid">
         {/* ========================================================
-            NỘI DUNG TỪNG PHÂN HỆ TAB
+            CỘT TRÁI: VIEWPORT SPRITE MẪU & THẺ SỐ ĐO GIẢI PHẪU
             ======================================================== */}
-
-        {/* Tab 1: Phong cách & Vật liệu Toàn cục */}
-        {activeProfileTab === 'global' && (
-          <TabGlobalView data={profileData.global_analysis} />
-        )}
-
-        {/* Tab 2: 3 Hướng nhìn (Down / Side / Up) */}
-        {activeProfileTab === 'directions' && (
-          <TabDirectionsView data={profileData.direction_analysis} />
-        )}
-
-        {/* Tab 3: Hoạt họa chuyển động (Idle / Walk) */}
-        {activeProfileTab === 'animations' && (
-          <TabAnimationsView data={profileData.animation_analysis} />
-        )}
-
-        {/* Tab 4: Ràng buộc tính nhất quán & Phòng tạo Prompt AI */}
-        {activeProfileTab === 'constraints' && (
-          <TabConstraintsPromptView
-            consistency={profileData.consistency_analysis}
-            negativeConstraints={profileData.negative_constraints}
-            fullProfile={profileData}
-            onGeneratePrompt={handleGeneratePromptFromProfile}
-            generatingPrompt={generatingProfilePrompt}
-            generatedPromptResult={generatedProfilePrompt}
-          />
-        )}
-
-        {/* Tab 5: Kế hoạch Toán học nghịch đảo (Inverse Scaling Engine) */}
-        {activeProfileTab === 'inverse_math' && (
-          <div>
-            <div className="analysis-fields">
-              <label>Đầu nhân vật mới
-                <select value={headRule} onChange={(e) => setHeadRule(e.target.value)}>
-                  <option value="Bằng nhân vật gốc (Tỷ lệ chuẩn)">Bằng nhân vật mẫu (Tỷ lệ chuẩn)</option>
-                  <option value="To hơn nhân vật gốc (Chibi hơn)">Lớn hơn nhân vật mẫu (Chibi hơn)</option>
-                  <option value="Nhỏ hơn nhân vật gốc (Dáng cao hơn)">Nhỏ hơn nhân vật mẫu (Dáng cao)</option>
-                </select>
-              </label>
-              <label>Chiều rộng thân
-                <select value={bodyWidthRule} onChange={(e) => setBodyWidthRule(e.target.value)}>
-                  <option value="Bằng nhân vật gốc">Bằng nhân vật mẫu</option>
-                  <option value="Rộng hơn nhân vật gốc">Rộng hơn nhân vật mẫu (Cơ bắp/Mập)</option>
-                  <option value="Hẹp hơn nhân vật gốc">Hẹp hơn nhân vật mẫu (Gầy/Thon)</option>
-                </select>
-              </label>
-              <label>Chiều cao thân
-                <select value={bodyHeightRule} onChange={(e) => setBodyHeightRule(e.target.value)}>
-                  <option value="Bằng nhân vật gốc">Bằng nhân vật mẫu</option>
-                  <option value="Cao hơn nhân vật gốc">Cao hơn nhân vật mẫu</option>
-                  <option value="Thấp hơn nhân vật gốc">Thấp hơn nhân vật mẫu</option>
-                </select>
-              </label>
-              <label>Ý tưởng nhân vật mới (Concept)
+        <aside className="studio-column-left">
+          {/* Card Viewport hiển thị Sprite chuẩn Pixel Art */}
+          <div className="studio-viewport-card">
+            <div className="studio-viewport-header">
+              <h3>
+                <FolderOpen size={16} color="var(--accent-purple)" />
+                {reference ? reference.name : 'Chưa nạp sprite mẫu'}
+              </h3>
+              <label className="btn-secondary-studio" style={{ padding: '5px 10px', fontSize: '0.75rem', minHeight: '30px' }}>
+                <FolderOpen size={13} />
+                Chọn ảnh
                 <input
-                  type="text"
-                  value={characterConcept}
-                  placeholder="Ví dụ: Nữ hiệp sĩ áo giáp bạc cầm khiên, Slime độc tím..."
-                  onChange={(e) => setCharacterConcept(e.target.value)}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  onChange={handleReferenceChange}
+                  style={{ display: 'none' }}
                 />
               </label>
             </div>
 
+            {/* Nền caro Checkerboard Pixel Art */}
+            <figure className="pixel-checkerboard-bg">
+              {reference ? (
+                <img
+                  src={showOverlay && annotatedUrl ? annotatedUrl : reference.url}
+                  alt={reference.name}
+                />
+              ) : (
+                <span>Kéo thả hoặc bấm "Chọn ảnh" để nạp sprite tham chiếu pixel art</span>
+              )}
+            </figure>
+
+            {/* Thanh công cụ điều khiển nổi bên dưới Viewport */}
+            <div className="studio-viewport-controls">
+              <label className={`studio-toggle-chip ${showOverlay && annotatedUrl ? 'active' : ''}`}>
+                <input
+                  type="checkbox"
+                  checked={showOverlay}
+                  disabled={!annotatedUrl}
+                  onChange={(e) => setShowOverlay(e.target.checked)}
+                />
+                {showOverlay ? <Eye size={13} /> : <EyeOff size={13} />}
+                Lớp phủ đo lường
+              </label>
+
+              <label className={`studio-toggle-chip ${useGemini ? 'active' : ''}`}>
+                <input
+                  type="checkbox"
+                  checked={useGemini}
+                  onChange={(e) => setUseGemini(e.target.checked)}
+                />
+                AI Vision
+              </label>
+
+              {/* Nút chính Quét giải phẫu */}
+              <button
+                type="button"
+                className="btn-primary-studio"
+                disabled={!reference || analyzing}
+                onClick={handleScanAnatomy}
+                style={{ minHeight: '32px', padding: '6px 12px', fontSize: '0.775rem' }}
+              >
+                <ScanSearch size={14} className={analyzing ? 'spin' : ''} />
+                {analyzing ? 'Đang đo lường…' : metrics ? 'Quét lại' : 'Quét giải phẫu'}
+              </button>
+            </div>
+
+            {/* Chú giải màu sắc Bounding Box (Legend) */}
+            {annotatedUrl && (
+              <div className="studio-legend-bar">
+                <span className="studio-legend-item" style={{ color: '#00e5ff' }}>■ Đầu</span>
+                <span className="studio-legend-item" style={{ color: '#ff8c00' }}>■ Thân</span>
+                <span className="studio-legend-item" style={{ color: '#ba55d3' }}>■ Chân</span>
+                <span className="studio-legend-item" style={{ color: '#ffd700' }}>╌ Vũ khí</span>
+                <span className="studio-legend-item" style={{ color: '#ff69b4' }}>╌ Áo/Cánh</span>
+                <span className="studio-legend-item" style={{ color: '#a0a0a0' }}>╌ Bóng sàn</span>
+              </div>
+            )}
+          </div>
+
+          {/* Card Số đo Giải phẫu học Pixel (Quick Metrics Grid) */}
+          <div className="studio-metric-card">
+            <div className="studio-metric-card-header">
+              <h4>
+                <Ruler size={14} style={{ display: 'inline', marginRight: '6px' }} />
+                Thông số giải phẫu hình học
+              </h4>
+              {metrics && (
+                <span style={{ fontSize: '0.7rem', color: '#10b981', fontWeight: 600 }}>
+                  ● Đã hiệu chuẩn
+                </span>
+              )}
+            </div>
+
+            {analysisError && (
+              <p style={{ margin: 0, color: '#ef4444', fontSize: '0.775rem' }}>
+                ⚠️ {analysisError}
+              </p>
+            )}
+
+            {/* Lưới 4 ô số đo nổi bật */}
+            {metrics ? (
+              <div className="studio-metric-grid">
+                <div className="studio-metric-cell">
+                  <span className="metric-label">Chiều cao sinh học</span>
+                  <span className="metric-val">
+                    {metrics.anatomical_height || metrics.visible_height} px
+                  </span>
+                  <span className="metric-sub">Đã loại trừ vũ khí/bóng</span>
+                </div>
+
+                <div className="studio-metric-cell">
+                  <span className="metric-label">Tỷ lệ dáng người</span>
+                  <span className="metric-val">
+                    1:{typeof metrics.heads_tall === 'number' ? metrics.heads_tall.toFixed(1) : metrics.heads_tall} đầu
+                  </span>
+                  <span className="metric-sub">{metrics.style_category || 'Dáng game'}</span>
+                </div>
+
+                <div className="studio-metric-cell">
+                  <span className="metric-label">Kích thước đầu</span>
+                  <span className="metric-val">{metrics.head_w} × {metrics.head_h} px</span>
+                  <span className="metric-sub">{metrics.head_ratio_percent}% thân</span>
+                </div>
+
+                <div className="studio-metric-cell">
+                  <span className="metric-label">Kích thước thân</span>
+                  <span className="metric-val">{metrics.body_w} × {metrics.body_h} px</span>
+                  <span className="metric-sub">Khung tiếp đất vững</span>
+                </div>
+              </div>
+            ) : (
+              <div style={{ fontSize: '0.775rem', color: 'var(--text-dim)', textAlign: 'center', padding: '12px 0' }}>
+                {reference
+                  ? 'Bấm "Quét giải phẫu" ở trên để đo tỷ lệ pixel của nhân vật mẫu.'
+                  : 'Nạp ảnh sprite ở trên để bắt đầu thẩm định tỷ lệ.'}
+              </div>
+            )}
+
+            {/* Thông báo bóc tách phụ kiện */}
+            {metrics && (metrics.weapon_box || metrics.cape_wings_box || metrics.shadow_box) && (
+              <div style={{
+                fontSize: '0.75rem',
+                padding: '8px 10px',
+                background: 'rgba(16, 185, 129, 0.08)',
+                borderLeft: '2px solid #10b981',
+                borderRadius: '4px',
+                color: '#34d399',
+                lineHeight: '1.4'
+              }}>
+                🛡️ <strong>Đã tự động bóc tách:</strong> Chiều cao thân chuẩn là{' '}
+                <strong>{metrics.anatomical_height || metrics.visible_height}px</strong> (đã lọc riêng vũ khí & bóng sàn).
+              </div>
+            )}
+          </div>
+        </aside>
+
+        {/* ========================================================
+            CỘT PHẢI: WORKSPACE HỒ SƠ DNA & PHÒNG TẠO NHÂN VẬT MỚI
+            ======================================================== */}
+        <main className="studio-column-right">
+          {/* Bộ chuyển đổi 2 chế độ làm việc lớn (Segmented Control Tabs) */}
+          <div className="studio-segmented-switch">
             <button
               type="button"
-              className="analysis-generate"
-              disabled={!metrics || generatingPrompt}
-              onClick={handleGeneratePromptAdvice}
-              style={{ marginTop: '8px' }}
+              className={`studio-segment-btn ${workspaceMode === 'prompt_studio' ? 'active' : ''}`}
+              onClick={() => setWorkspaceMode('prompt_studio')}
             >
-              <Sparkles size={18} />
-              {generatingPrompt ? 'Đang tính toán nghịch đảo…' : 'Phân tích tỉ lệ và tạo prompt AI'}
+              <Wand2 size={16} />
+              <span>Phòng Tạo Nhân Vật Mới & Sinh Prompt</span>
+              <span className="badge-pill">Chính</span>
             </button>
 
-            {/* Phân tích kế hoạch tỷ lệ & toán học nghịch đảo */}
-            <div
-              className="analysis-result"
-              style={{ whiteSpace: 'pre-wrap', lineHeight: '1.5', fontSize: '0.825rem', margin: '12px 0' }}
+            <button
+              type="button"
+              className={`studio-segment-btn ${workspaceMode === 'dna_profile' ? 'active' : ''}`}
+              onClick={() => setWorkspaceMode('dna_profile')}
             >
-              {mathPlanText || 'Chưa có phân tích phong cách hoặc kế hoạch tỉ lệ. Hãy quét giải phẫu Bước 1 trước.'}
-            </div>
-
-            {/* Positive Prompt */}
-            <div className="analysis-output-title">
-              <h3 id="positive-prompt-title">Positive Prompt (Cho Midjourney / DALL-E)</h3>
-              <button
-                type="button"
-                disabled={!positivePrompt}
-                onClick={() => handleCopyPrompt(positivePrompt, 'positive')}
-              >
-                {copiedPositive ? <Check size={14} color="#10b981" /> : <Copy size={14} />}
-                {copiedPositive ? 'Đã sao chép!' : 'Sao chép'}
-              </button>
-            </div>
-            <textarea
-              aria-labelledby="positive-prompt-title"
-              rows={7}
-              readOnly
-              value={positivePrompt}
-              placeholder="Prompt tiếng Anh tối ưu hóa không gian và tỷ lệ đầu sẽ xuất hiện ở đây..."
-            />
-
-            {/* Negative Prompt */}
-            <div className="analysis-output-title" style={{ marginTop: '12px' }}>
-              <h3 id="negative-prompt-title">Negative Prompt (Chống lỗi giải phẫu & nhòe)</h3>
-              <button
-                type="button"
-                disabled={!negativePrompt}
-                onClick={() => handleCopyPrompt(negativePrompt, 'negative')}
-              >
-                {copiedNegative ? <Check size={14} color="#10b981" /> : <Copy size={14} />}
-                {copiedNegative ? 'Đã sao chép!' : 'Sao chép'}
-              </button>
-            </div>
-            <textarea
-              aria-labelledby="negative-prompt-title"
-              rows={3}
-              readOnly
-              value={negativePrompt}
-              placeholder="Negative prompt chống cắt chân, chống nhiễu hạt..."
-            />
+              <Dna size={16} />
+              <span>Hồ sơ Quy chuẩn DNA (5 Phân hệ)</span>
+              {hasAnyProfileData && <span className="badge-pill">🟢 Đã có dữ liệu</span>}
+            </button>
           </div>
-        )}
-      </section>
+
+          {/* ========================================================
+              CHẾ ĐỘ 1: PHÒNG TẠO NHÂN VẬT MỚI (PROMPT STUDIO)
+              ======================================================== */}
+          {workspaceMode === 'prompt_studio' && (
+            <TabConstraintsPromptView
+              consistency={profileData.consistency_analysis}
+              negativeConstraints={profileData.negative_constraints}
+              fullProfile={profileData}
+              onGeneratePrompt={handleGeneratePromptFromProfile}
+              generatingPrompt={generatingProfilePrompt}
+              generatedPromptResult={generatedProfilePrompt}
+            />
+          )}
+
+          {/* ========================================================
+              CHẾ ĐỘ 2: HỒ SƠ QUY CHUẨN DNA CỦA NHÂN VẬT MẪU
+              ======================================================== */}
+          {workspaceMode === 'dna_profile' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {/* Thanh chọn 5 phân hệ hồ sơ */}
+              <CharacterProfileTabs
+                activeTab={activeProfileTab}
+                onSelectTab={setActiveProfileTab}
+                tabStatuses={tabStatuses}
+                analyzingTab={analyzingTab}
+                onAnalyzeTab={handleAnalyzeTab}
+                onAnalyzeAll={handleAnalyzeAll}
+                disabled={!reference}
+              />
+
+              {/* Thông báo lỗi nếu có */}
+              {profileError && (
+                <p className="analysis-result" style={{ color: '#ef4444' }}>
+                  ⚠️ {profileError}
+                </p>
+              )}
+
+              {/* Tab 1: Phong cách & Vật liệu Toàn cục */}
+              {activeProfileTab === 'global' && (
+                <TabGlobalView data={profileData.global_analysis} />
+              )}
+
+              {/* Tab 2: 3 Hướng nhìn (Down / Side / Up) */}
+              {activeProfileTab === 'directions' && (
+                <TabDirectionsView data={profileData.direction_analysis} />
+              )}
+
+              {/* Tab 3: Hoạt họa chuyển động (Idle / Walk) */}
+              {activeProfileTab === 'animations' && (
+                <TabAnimationsView data={profileData.animation_analysis} />
+              )}
+
+              {/* Tab 4: Ràng buộc tính nhất quán */}
+              {activeProfileTab === 'constraints' && (
+                <TabConstraintsPromptView
+                  consistency={profileData.consistency_analysis}
+                  negativeConstraints={profileData.negative_constraints}
+                  fullProfile={profileData}
+                  onGeneratePrompt={handleGeneratePromptFromProfile}
+                  generatingPrompt={generatingProfilePrompt}
+                  generatedPromptResult={generatedProfilePrompt}
+                />
+              )}
+
+              {/* Tab 5: Kế hoạch Toán học nghịch đảo */}
+              {activeProfileTab === 'inverse_math' && (
+                <div className="profile-section-card">
+                  <h4 style={{ color: 'var(--text-white)' }}>
+                    <Ruler size={16} color="var(--accent-purple)" />
+                    Kế hoạch Toán học Nghịch đảo (Inverse Scaling Engine)
+                  </h4>
+                  <div className="analysis-fields">
+                    <label>
+                      Đầu nhân vật mới:
+                      <select value={headRule} onChange={(e) => setHeadRule(e.target.value)}>
+                        <option value="Bằng nhân vật gốc (Tỷ lệ chuẩn)">Bằng nhân vật mẫu (Tỷ lệ chuẩn)</option>
+                        <option value="To hơn nhân vật gốc (Chibi hơn)">Lớn hơn nhân vật mẫu (Chibi hơn)</option>
+                        <option value="Nhỏ hơn nhân vật gốc (Dáng cao hơn)">Nhỏ hơn nhân vật mẫu (Dáng cao)</option>
+                      </select>
+                    </label>
+                    <label>
+                      Chiều rộng thân:
+                      <select value={bodyWidthRule} onChange={(e) => setBodyWidthRule(e.target.value)}>
+                        <option value="Bằng nhân vật gốc">Bằng nhân vật mẫu</option>
+                        <option value="Rộng hơn nhân vật gốc">Rộng hơn nhân vật mẫu (Cơ bắp/Mập)</option>
+                        <option value="Hẹp hơn nhân vật gốc">Hẹp hơn nhân vật mẫu (Gầy/Thon)</option>
+                      </select>
+                    </label>
+                    <label>
+                      Chiều cao thân:
+                      <select value={bodyHeightRule} onChange={(e) => setBodyHeightRule(e.target.value)}>
+                        <option value="Bằng nhân vật gốc">Bằng nhân vật mẫu</option>
+                        <option value="Cao hơn nhân vật gốc">Cao hơn nhân vật mẫu</option>
+                        <option value="Thấp hơn nhân vật gốc">Thấp hơn nhân vật mẫu</option>
+                      </select>
+                    </label>
+                    <label>
+                      Ý tưởng (Concept cũ):
+                      <input
+                        type="text"
+                        value={characterConcept}
+                        onChange={(e) => setCharacterConcept(e.target.value)}
+                      />
+                    </label>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="btn-primary-studio"
+                    disabled={!metrics || generatingPrompt}
+                    onClick={handleGeneratePromptAdvice}
+                    style={{ marginTop: '8px' }}
+                  >
+                    <Sparkles size={16} />
+                    {generatingPrompt ? 'Đang tính toán nghịch đảo…' : 'Tính tỷ lệ nghịch đảo'}
+                  </button>
+
+                  {/* Kế hoạch toán học */}
+                  <div
+                    className="analysis-result"
+                    style={{ whiteSpace: 'pre-wrap', lineHeight: '1.5', fontSize: '0.8rem', marginTop: '10px' }}
+                  >
+                    {mathPlanText || 'Hãy quét giải phẫu nhân vật mẫu ở Cột trái để chạy bộ máy tính toán tỷ lệ.'}
+                  </div>
+
+                  {/* Positive Prompt cũ */}
+                  {positivePrompt && (
+                    <div style={{ marginTop: '10px' }}>
+                      <div className="analysis-output-title">
+                        <h3 style={{ fontSize: '0.85rem' }}>Positive Prompt (Tỷ lệ nghịch đảo)</h3>
+                        <button
+                          type="button"
+                          onClick={() => handleCopyPrompt(positivePrompt, 'positive')}
+                          style={{ minHeight: '30px', padding: '4px 8px', fontSize: '0.75rem' }}
+                        >
+                          {copiedPositive ? <Check size={13} color="#10b981" /> : <Copy size={13} />}
+                          {copiedPositive ? 'Đã sao chép!' : 'Sao chép'}
+                        </button>
+                      </div>
+                      <textarea rows={5} readOnly value={positivePrompt} />
+                    </div>
+                  )}
+
+                  {/* Negative Prompt cũ */}
+                  {negativePrompt && (
+                    <div style={{ marginTop: '10px' }}>
+                      <div className="analysis-output-title">
+                        <h3 style={{ fontSize: '0.85rem' }}>Negative Prompt</h3>
+                        <button
+                          type="button"
+                          onClick={() => handleCopyPrompt(negativePrompt, 'negative')}
+                          style={{ minHeight: '30px', padding: '4px 8px', fontSize: '0.75rem' }}
+                        >
+                          {copiedNegative ? <Check size={13} color="#10b981" /> : <Copy size={13} />}
+                          {copiedNegative ? 'Đã sao chép!' : 'Sao chép'}
+                        </button>
+                      </div>
+                      <textarea rows={3} readOnly value={negativePrompt} />
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </main>
+      </div>
     </div>
   );
 }

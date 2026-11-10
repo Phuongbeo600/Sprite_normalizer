@@ -546,3 +546,481 @@
   color: var(--text-highlight);
   min-width: 50px;
 }
+
+/* ========================================================
+   REDESIGN UI/UX: MODERN CREATIVE WORKSPACE - PIXEL ART STUDIO
+   ======================================================== */
+
+/* 1. Khung chứa chính toàn trang Studio */
+.studio-workspace-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 1560px;
+  margin: 0 auto;
+  padding: 0 20px 32px;
+}
+
+/* 2. Thanh tiêu đề & Stepper luồng thao tác */
+.studio-header-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 20px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+}
+
+.studio-title-group h1 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-white);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  letter-spacing: -0.01em;
+}
+
+.studio-title-group p {
+  margin: 4px 0 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+/* Stepper quy trình 3 giai đoạn */
+.studio-workflow-stepper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-input);
+  padding: 5px 8px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-subtle);
+  font-size: 0.775rem;
+}
+
+.studio-step-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  color: var(--text-dim);
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.studio-step-item.active {
+  background: var(--accent-purple);
+  color: var(--text-white);
+  box-shadow: 0 2px 8px var(--accent-purple-glow);
+}
+
+.studio-step-item.completed {
+  color: #10b981;
+}
+
+.studio-step-separator {
+  color: var(--border-subtle);
+  font-size: 0.7rem;
+}
+
+/* 3. Bố cục lưới bất đối xứng 2 cột */
+.studio-grid {
+  display: grid;
+  grid-template-columns: minmax(360px, 420px) minmax(0, 1fr);
+  align-items: start;
+  gap: 20px;
+}
+
+@media (max-width: 1080px) {
+  .studio-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Cột trái: Viewport ảnh tham chiếu & Số đo */
+.studio-column-left {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  position: sticky;
+  top: 16px;
+}
+
+/* Cột phải: Hồ sơ DNA & Phòng tạo nhân vật mới */
+.studio-column-right {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+/* 4. Khung Viewport hiển thị Sprite chuẩn Pixel Art (Nền caro checkerboard) */
+.studio-viewport-card {
+  background: var(--bg-sidebar);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.studio-viewport-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: rgba(14, 21, 38, 0.7);
+}
+
+.studio-viewport-header h3 {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Nền caro Checkerboard Pixel Art chuẩn Aseprite / Photoshop */
+.pixel-checkerboard-bg {
+  background-color: #0b1120;
+  background-image: 
+    linear-gradient(45deg, #131c33 25%, transparent 25%), 
+    linear-gradient(-45deg, #131c33 25%, transparent 25%), 
+    linear-gradient(45deg, transparent 75%, #131c33 75%), 
+    linear-gradient(-45deg, transparent 75%, #131c33 75%);
+  background-size: 16px 16px;
+  background-position: 0 0, 0 8px, 8px -8px, -8px 0px;
+  display: grid;
+  place-items: center;
+  height: clamp(240px, 36vh, 380px);
+  padding: 16px;
+  position: relative;
+  overflow: hidden;
+}
+
+.pixel-checkerboard-bg img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+  filter: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.5));
+  transition: transform 0.2s ease;
+}
+
+.pixel-checkerboard-bg span {
+  color: var(--text-dim);
+  font-size: 0.825rem;
+  text-align: center;
+  max-width: 220px;
+  line-height: 1.5;
+}
+
+/* Thanh công cụ điều khiển nổi bên dưới ảnh */
+.studio-viewport-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--bg-input);
+  border-top: 1px solid var(--border-subtle);
+  font-size: 0.775rem;
+}
+
+.studio-toggle-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.studio-toggle-chip:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-primary);
+}
+
+.studio-toggle-chip.active {
+  background: rgba(99, 102, 241, 0.15);
+  border-color: var(--accent-purple);
+  color: #c7d2fe;
+}
+
+.studio-toggle-chip input[type='checkbox'] {
+  margin: 0;
+  width: 14px;
+  height: 14px;
+  accent-color: var(--accent-purple);
+}
+
+/* 5. Chú giải màu sắc Bounding Box (Legend) */
+.studio-legend-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 14px;
+  background: rgba(0, 0, 0, 0.2);
+  border-top: 1px solid var(--border-subtle);
+  font-size: 0.725rem;
+}
+
+.studio-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.02);
+  font-weight: 500;
+}
+
+/* 6. Lưới hiển thị số đo giải phẫu học (Quick Metrics Grid) */
+.studio-metric-card {
+  background: var(--bg-sidebar);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.studio-metric-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.studio-metric-card-header h4 {
+  margin: 0;
+  font-size: 0.825rem;
+  font-weight: 600;
+  color: var(--text-highlight);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.studio-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.studio-metric-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xs);
+}
+
+.studio-metric-cell .metric-label {
+  font-size: 0.675rem;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  font-weight: 600;
+}
+
+.studio-metric-cell .metric-val {
+  font-size: 0.925rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.studio-metric-cell .metric-sub {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+/* 7. Bộ chuyển đổi chế độ xem chính (Segmented Control Tabs) */
+.studio-segmented-switch {
+  display: flex;
+  background: var(--bg-sidebar);
+  padding: 4px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-card);
+  gap: 4px;
+}
+
+.studio-segment-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 9px 14px;
+  border-radius: var(--radius-xs);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.studio-segment-btn:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-primary);
+}
+
+.studio-segment-btn.active {
+  background: var(--accent-purple);
+  color: var(--text-white);
+  box-shadow: 0 2px 10px var(--accent-purple-glow);
+}
+
+.studio-segment-btn .badge-pill {
+  font-size: 0.675rem;
+  padding: 2px 6px;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.15);
+  font-weight: 600;
+}
+
+/* 8. Nút bấm chuẩn phân cấp (Button Hierarchy) */
+.btn-primary-studio {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--accent-purple-glow);
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  color: var(--text-white);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.25);
+}
+
+.btn-primary-studio:hover:not(:disabled) {
+  background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+}
+
+.btn-primary-studio:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.btn-secondary-studio {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-card);
+  background: var(--accent-secondary-btn);
+  color: var(--text-primary);
+  font-size: 0.825rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-secondary-studio:hover:not(:disabled) {
+  background: var(--accent-secondary-btn-hover);
+  border-color: var(--border-card-hover);
+  color: var(--text-white);
+}
+
+.btn-secondary-studio:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.btn-ghost-studio {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: var(--radius-xs);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.775rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-ghost-studio:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-primary);
+}
+
+/* 9. Khung xuất Prompt phong cách Codebox Studio */
+.studio-prompt-output-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-sidebar);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.studio-prompt-output-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: rgba(14, 21, 38, 0.8);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.studio-prompt-output-header h4 {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.studio-prompt-textarea {
+  width: 100%;
+  border: none;
+  background: var(--bg-input);
+  color: #e2e8f0;
+  font-family: 'Fira Code', 'JetBrains Mono', Consolas, monospace;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  padding: 12px 14px;
+  resize: vertical;
+  outline: none;
+}
+
+.studio-prompt-textarea:focus {
+  background: #0d1424;
+}
