@@ -1,0 +1,1 @@
+1. Phân tích nhân vật để tạo thì khả năng hông cần giới tính, cần xem lại schemas prompt thôi.

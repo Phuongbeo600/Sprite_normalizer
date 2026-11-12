@@ -235,7 +235,9 @@ class PromptBuilderService:
         frame_actions: Optional[Dict[str, Any]] = None,
         outfit_and_colors: Optional[str] = None,
         weapons_and_props: Optional[str] = None,
-        custom_instructions: Optional[str] = None
+        custom_instructions: Optional[str] = None,
+        inherit_scale: bool = True,
+        inherit_style: bool = True,
     ) -> Dict[str, str]:
         """
         Biên dịch toàn bộ khung giải phẫu, phong cách và ma trận 15 frame thành câu Prompt 3 Tầng hoàn chỉnh.
@@ -246,6 +248,8 @@ class PromptBuilderService:
         @param {Optional[str]} outfit_and_colors Mô tả trang phục và màu sắc.
         @param {Optional[str]} weapons_and_props Mô tả vũ khí và phụ kiện.
         @param {Optional[str]} custom_instructions Chỉ đạo nghệ thuật bổ sung.
+        @param {bool} inherit_scale Dùng số đo lát cắt tham chiếu.
+        @param {bool} inherit_style Dùng bảng màu tham chiếu.
         @returns {Dict[str, str]} Từ điển chứa 'positive_prompt' và 'negative_prompt'.
         """
         data = profile_data or {}
@@ -257,7 +261,6 @@ class PromptBuilderService:
         height = anatomy.get("anatomical_height", 48)
         head_ratio = anatomy.get("head_to_body_ratio", "1:4.0")
         era = pixel_style.get("pixel_art_era", "16-bit SNES")
-        outline = pixel_style.get("outline_style", "crisp dark pixel contour")
         shading = pixel_style.get("shading_style", "2-tone cell shading")
         lighting = pixel_style.get("lighting_direction", "consistent top-left lighting")
         
@@ -278,18 +281,21 @@ class PromptBuilderService:
 
         # TẦNG 0 (KHUNG TO NHẤT): MASTER COLOR & GRAPHIC PALETTE SPECIFICATIONS
         # Trích xuất 6 tiêu chuẩn kỹ thuật đo được 100% từ ảnh mẫu bằng Python NumPy
-        palette = data.get("palette_metrics") or data.get("global_analysis", {}).get("palette_metrics")
-        if palette and isinstance(palette, dict):
-            master_color_spec = palette.get("master_color_prompt", "").strip()
+        palette = data.get("palette_metrics") or (data.get("global_analysis") or {}).get("palette_metrics")
+        if inherit_style and isinstance(palette, dict) and palette:
+            # Tệp hồ sơ cũ có thể chứa câu ép số bậc sáng cho từng chất liệu.
+            master_color_spec = "\n".join(
+                line for line in (palette.get("master_color_prompt") or "").splitlines()
+                if not (line.startswith("- Shading Architecture: ") and " distinct tone levels)" in line)
+            ).strip()
             if not master_color_spec:
                 total_c = palette.get("total_colors", 32)
                 era_c = palette.get("palette_era", era)
                 top_hex = palette.get("top_hex_list", [])
                 hex_str = ", ".join(top_hex[:8]) if top_hex else ""
-                shading_st = palette.get("shading_style_detected", shading)
-                steps = palette.get("shading_steps", 2)
                 hue_desc = palette.get("hue_shift_description", "Straight shading")
-                out_desc = palette.get("outline_style_detected", outline)
+                outline = palette.get("outline_style_detected")
+                outline_line = f"- Outline Grammar: {outline}.\n" if outline else ""
                 sat_t = palette.get("saturation_type", "Balanced Classic Saturation")
                 con_t = palette.get("contrast_type", "High Contrast")
                 con_r = palette.get("contrast_ratio", 4.5)
@@ -297,9 +303,8 @@ class PromptBuilderService:
                 master_color_spec = (
                     f"MASTER COLOR & GRAPHIC PALETTE SPECIFICATIONS (STRICTLY HARMONIZED WITH REFERENCE ASSET):\n"
                     f"- Color Budget: Strictly indexed {total_c}-color palette ({era_c}), primary palette anchors: [{hex_str}].\n"
-                    f"- Shading Architecture: {shading_st} per surface ({steps} distinct tone levels), strictly zero smooth airbrushing or blurry gradients.\n"
                     f"- Hue-Shifting Rule: {hue_desc}.\n"
-                    f"- Outline Grammar: {out_desc}, strictly 1-pixel crisp pixel contour without orphan noise.\n"
+                    f"{outline_line}"
                     f"- Palette Saturation & Contrast: {sat_t}, {con_t} curve ({con_r}:1 ratio).\n"
                     f"- Background: Isolated on pure transparent background (PNG alpha channel), zero drop shadows on floor."
                 )
@@ -310,8 +315,18 @@ class PromptBuilderService:
         prompt_parts.append(
             f"Masterpiece authentic {era} pixel art sprite sheet of a {concept}{outfit}{props}.\n"
             f"Strict anatomy constraints: exactly {height} pixels character height, strict {head_ratio} head-to-body proportion.\n"
-            f"Rendering specifications: {outline}, {shading}, {lighting}, transparent background, isolated on pure solid transparent background (PNG alpha channel), clean cut-out sprite sheet without background elements or floor shadows."
+            f"Rendering specifications: {shading}, {lighting}, transparent background, isolated on pure solid transparent background (PNG alpha channel), clean cut-out sprite sheet without background elements or floor shadows."
         )
+        reference_style = data.get("reference_style")
+        style_prompt = reference_style.get("style_prompt") if isinstance(reference_style, dict) else None
+        if inherit_style and isinstance(style_prompt, str) and style_prompt.strip():
+            prompt_parts.append(f"REFERENCE STYLE GUIDANCE:\n{style_prompt.strip()}")
+
+        manual = data.get("manual_region_measurements")
+        regions = manual if isinstance(manual, dict) and manual.get("measurements") else data.get("region_measurements")
+        region_notes = regions.get("prompt_notes") if isinstance(regions, dict) else None
+        if inherit_scale and isinstance(region_notes, str) and region_notes.strip():
+            prompt_parts.append(region_notes.strip())
 
         # TẦNG 2: GRID LAYOUT & SPECIFICATIONS (Bố cục ma trận lưới 3x5)
         prompt_parts.append(

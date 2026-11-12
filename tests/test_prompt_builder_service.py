@@ -123,6 +123,25 @@ class TestPromptBuilderService(unittest.TestCase):
         self.assertIn("blurry", neg)
         self.assertIn("deformed anatomy", neg)
 
+    def test_prompt_takes_outline_only_from_color_spec(self):
+        """Kiểm tra mô tả viền AI không lấn át đặc tả viền Python."""
+        profile = {
+            "pixel_style": {"outline_style": "AI colored outline", "shading_style": "Cel-shading"},
+            "palette_metrics": {"outline_style_detected": "Selective Outline (Selout)"},
+        }
+        prompt = PromptBuilderService.compile_sprite_sheet_prompt("Knight", profile)["positive_prompt"]
+        self.assertEqual(prompt.count("Outline Grammar:"), 1)
+        self.assertIn("Selective Outline (Selout)", prompt)
+        self.assertNotIn("AI colored outline", prompt)
+        self.assertNotIn("distinct tone levels", prompt)
+        self.assertIn("Cel-shading", prompt)
+
+        prompt = PromptBuilderService.compile_sprite_sheet_prompt(
+            "Knight", profile, inherit_style=False,
+        )["positive_prompt"]
+        self.assertNotIn("Selective Outline (Selout)", prompt)
+        self.assertNotIn("AI colored outline", prompt)
+
 
 if __name__ == "__main__":
     unittest.main()

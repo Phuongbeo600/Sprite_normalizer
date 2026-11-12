@@ -147,16 +147,11 @@ class SettingsService:
         base_url: Optional[str] = None
     ) -> Dict[str, Any]:
         """
-        Kiểm tra nhanh API Key thông qua đối tượng Provider Đa hình tương ứng.
-        Hoàn toàn không có if/else cho từng loại API!
+        Kiểm tra khóa của nhà cung cấp đang được hỗ trợ.
         """
         clean_provider = provider.lower().strip()
-        effective_key = (api_key or "").strip()
-        if not effective_key:
-            if clean_provider == "openai":
-                effective_key = os.getenv("OPENAI_API_KEY", "").strip()
-            else:
-                effective_key = os.getenv("GEMINI_API_KEY", "").strip()
+        key_name = "OPENAI_API_KEY" if clean_provider == "openai" else "GEMINI_API_KEY"
+        effective_key = (api_key or "").strip() or os.getenv(key_name, "").strip()
 
         if not effective_key:
             return {

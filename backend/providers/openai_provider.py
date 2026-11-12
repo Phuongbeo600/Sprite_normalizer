@@ -28,11 +28,18 @@ from .base import BaseAiProvider
 
 class OpenAiProvider(BaseAiProvider):
     """
-    Hiện thực hóa kết nối tới OpenAI ChatGPT API (GPT-4o / GPT-4o-mini).
+    Kết nối OpenAI Chat Completions để phân tích ảnh và sinh JSON.
     Hỗ trợ tùy biến Base URL (Proxy/Gateway) linh hoạt.
     """
 
-    CANDIDATE_MODELS = ["gpt-4o-mini", "gpt-4o", "chatgpt-4o-latest"]
+    DEFAULT_BASE_URL = "https://api.openai.com/v1"
+    DEFAULT_MODEL = "gpt-6-luna"
+    PROXY_MODELS = ("gpt-4o-mini", "gpt-4o", "chatgpt-4o-latest", DEFAULT_MODEL)
+
+    @classmethod
+    def _models_for_base(cls, base_url: str) -> Tuple[str, ...]:
+        """Giữ thứ tự model tương thích với proxy đã cấu hình."""
+        return (cls.DEFAULT_MODEL,) if base_url.lower() == cls.DEFAULT_BASE_URL else cls.PROXY_MODELS
 
     def test_connection(self, api_key: str, base_url: Optional[str] = None) -> Tuple[bool, str]:
         """
@@ -46,17 +53,18 @@ class OpenAiProvider(BaseAiProvider):
         if not clean_key:
             return False, "Chưa cung cấp OpenAI API Key để kiểm tra."
 
-        clean_base = (base_url or "https://api.openai.com/v1").rstrip("/")
+        clean_base = (base_url or self.DEFAULT_BASE_URL).rstrip("/")
         headers = {
             "Authorization": f"Bearer {clean_key}",
             "Content-Type": "application/json"
         }
         url = f"{clean_base}/chat/completions"
-        payload = {
-            "model": "gpt-4o-mini",
-            "messages": [{"role": "user", "content": "ping"}],
-            "max_tokens": 5
-        }
+        model = self._models_for_base(clean_base)[0]
+        payload = {"model": model, "messages": [{"role": "user", "content": "ping"}]}
+        if model == self.DEFAULT_MODEL:
+            payload.update(reasoning_effort="none", max_completion_tokens=8)
+        else:
+            payload["max_tokens"] = 5
 
         try:
             resp = requests.post(url, json=payload, headers=headers, timeout=12)
@@ -74,7 +82,7 @@ class OpenAiProvider(BaseAiProvider):
         base_url: Optional[str] = None
     ) -> Dict[str, Any]:
         """
-        Gửi ảnh Sprite lên OpenAI ChatGPT Vision (GPT-4o) để phân tích giải phẫu học.
+        Gửi ảnh sprite và yêu cầu phân tích đến OpenAI.
 
         @param {Image.Image} image Ảnh sprite.
         @param {str} api_key Khóa API.
@@ -87,7 +95,7 @@ class OpenAiProvider(BaseAiProvider):
             raise ValueError("Chưa cấu hình OpenAI API Key.")
 
         img_b64 = self.encode_image_to_base64(image)
-        clean_base = (base_url or "https://api.openai.com/v1").rstrip("/")
+        clean_base = (base_url or self.DEFAULT_BASE_URL).rstrip("/")
         url = f"{clean_base}/chat/completions"
         headers = {
             "Authorization": f"Bearer {clean_key}",
@@ -95,7 +103,7 @@ class OpenAiProvider(BaseAiProvider):
         }
 
         last_error = ""
-        for model in self.CANDIDATE_MODELS:
+        for model in self._models_for_base(clean_base):
             payload = {
                 "model": model,
                 "response_format": {"type": "json_object"},
@@ -113,8 +121,11 @@ class OpenAiProvider(BaseAiProvider):
                         ]
                     }
                 ],
-                "temperature": 0.1
             }
+            if model == self.DEFAULT_MODEL:
+                payload["reasoning_effort"] = "none"
+            else:
+                payload["temperature"] = 0.1
 
             try:
                 resp = requests.post(url, json=payload, headers=headers, timeout=25)
@@ -148,7 +159,7 @@ class OpenAiProvider(BaseAiProvider):
         if not clean_key:
             raise ValueError("Chưa cấu hình OpenAI API Key.")
 
-        clean_base = (base_url or "https://api.openai.com/v1").rstrip("/")
+        clean_base = (base_url or self.DEFAULT_BASE_URL).rstrip("/")
         url = f"{clean_base}/chat/completions"
         headers = {
             "Authorization": f"Bearer {clean_key}",
@@ -156,7 +167,7 @@ class OpenAiProvider(BaseAiProvider):
         }
 
         last_error = ""
-        for model in self.CANDIDATE_MODELS:
+        for model in self._models_for_base(clean_base):
             payload = {
                 "model": model,
                 "response_format": {"type": "json_object"},
@@ -164,8 +175,11 @@ class OpenAiProvider(BaseAiProvider):
                     {"role": "system", "content": "You are a professional pixel art art director and prompt engineer. Always return valid JSON."},
                     {"role": "user", "content": prompt.strip()}
                 ],
-                "temperature": 0.3
             }
+            if model == self.DEFAULT_MODEL:
+                payload["reasoning_effort"] = "none"
+            else:
+                payload["temperature"] = 0.3
 
             try:
                 resp = requests.post(url, json=payload, headers=headers, timeout=25)

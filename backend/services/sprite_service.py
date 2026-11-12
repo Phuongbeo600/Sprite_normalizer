@@ -4,7 +4,7 @@
 # io: Xử lý luồng byte trong bộ nhớ RAM cho ảnh
 import io
 # typing: Định nghĩa các kiểu dữ liệu
-from typing import Optional, Tuple
+from typing import Optional
 
 # ========================================================
 # 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
@@ -17,6 +17,10 @@ from PIL import Image
 # ========================================================
 # SpriteNormalizer: Thuật toán cắt biên và căn lề điểm neo
 from backend.core.normalizer import SpriteNormalizer
+# HeuristicPaletteAnalyzer: Ánh xạ báo cáo màu sang cấu trúc hồ sơ hiện có.
+from backend.core.palette_analyzer import HeuristicPaletteAnalyzer
+# analyze_sprite: Phân tích màu, lưới và viền bằng thuật toán Python.
+from backend.core.pixel_art_metrics import analyze_sprite
 
 # ========================================================
 # 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
@@ -29,6 +33,18 @@ class SpriteService:
     Dịch vụ xử lý và chuẩn hóa kích thước Sprite (Sprite Normalization Service).
     Đóng gói toàn bộ luồng đọc byte ảnh, gọi thuật toán SpriteNormalizer và xuất dữ liệu PNG.
     """
+
+    @staticmethod
+    def analyze_colors(image: Image.Image) -> dict:
+        """Trả báo cáo đo màu cục bộ và đặc tả bảng màu dùng trong Studio."""
+        analyzer = HeuristicPaletteAnalyzer()
+        report = analyze_sprite(image)
+        if "error" in report:
+            return {"palette_metrics": analyzer.analyze_palette(image).model_dump(), "pixel_art_report": None}
+        return {
+            "palette_metrics": analyzer.from_pixel_art_report(report).model_dump(),
+            "pixel_art_report": report,
+        }
 
     @staticmethod
     def normalize_image_bytes(

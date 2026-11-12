@@ -146,6 +146,8 @@ class TestPaletteAnalyzer(unittest.TestCase):
         pos_prompt = compiled["positive_prompt"]
         # Khung to nhất phải nằm ở đầu câu
         self.assertTrue(pos_prompt.startswith("MASTER COLOR & GRAPHIC PALETTE SPECIFICATIONS"))
+        self.assertIn("Outline Grammar: Selective Dark Outline (Selout).", pos_prompt)
+        self.assertNotIn("distinct tone levels", pos_prompt)
         # Vẫn bảo toàn nguyên vẹn 100% Ma trận 15 frame ở khung dưới
         self.assertIn("SPRITE SHEET GRID LAYOUT (3 Rows x 5 Columns, total 15 frames)", pos_prompt)
         self.assertIn("[ROW 1 - DOWN / FRONT VIEW]:", pos_prompt)

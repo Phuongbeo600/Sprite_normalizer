@@ -109,6 +109,7 @@ export default function App() {
                 <ProjectAnalysis
                   currentProject={currentProject}
                   loadedPresetData={loadedPresetData}
+                  isActive={activeTab === 'analysis'}
                 />
               </div>
 

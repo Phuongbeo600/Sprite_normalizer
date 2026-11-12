@@ -39,6 +39,7 @@ import {
  * @param {Object|null} props.consistency Dữ liệu phân tích tính nhất quán (ConsistencyAnalysis).
  * @param {Object|null} props.negativeConstraints Dữ liệu ràng buộc phủ định (NegativeConstraints).
  * @param {Object} props.fullProfile Toàn bộ hồ sơ nhân vật phục vụ sinh prompt.
+ * @param {Object|null} props.measuredGeometry Số đo hình học dùng khi kế thừa vóc dáng.
  * @param {Function} props.onGeneratePrompt Hàm gọi API sinh prompt từ profile.
  * @param {boolean} props.generatingPrompt Trạng thái đang gọi API sinh prompt.
  * @param {Object|null} props.generatedPromptResult Kết quả prompt đã sinh.
@@ -52,6 +53,7 @@ export default function TabConstraintsPromptView({
   consistency,
   negativeConstraints,
   fullProfile,
+  measuredGeometry,
   onGeneratePrompt,
   generatingPrompt,
   generatedPromptResult,
@@ -89,42 +91,71 @@ export default function TabConstraintsPromptView({
     }
   }, [initialConfig]);
 
-  // Cập nhật lại khung frame khi fullProfile thay đổi (lần đầu quét AI xong)
+  // Chỉ đặt lại khung frame khi các dữ liệu tạo khung thay đổi.
+  const frameWalk = fullProfile?.animations?.walk_profile || fullProfile?.animation_analysis?.walk_profile;
   useEffect(() => {
-    if (fullProfile && !initialConfig?.frame_actions_data) {
-      setFrameActions(createDefaultFrameActionsFromProfile(fullProfile));
+    if (!initialConfig?.frame_actions_data) {
+      setFrameActions(createDefaultFrameActionsFromProfile({
+        animations: { walk_profile: frameWalk },
+      }));
     }
-  }, [fullProfile]);
+  }, [frameWalk, initialConfig?.frame_actions_data]);
 
   // Các tùy chọn kế thừa quy chuẩn kỹ thuật từ nhân vật cũ
   const [inheritScale, setInheritScale] = useState(true);
   const [inheritStyle, setInheritStyle] = useState(true);
 
-  // Trích xuất hoặc khởi tạo Master Color Prompt từ Palette
+  const [reusePalette, setReusePalette] = useState(false);
+  const palette = fullProfile?.palette_metrics || fullProfile?.global_analysis?.palette_metrics;
+  const pixelStyle = fullProfile?.pixel_style || fullProfile?.global_analysis?.pixel_style;
+  const referenceStyle = fullProfile?.reference_style;
+  const stylePrompt = referenceStyle?.style_prompt?.trim();
+  const regionNotes = fullProfile?.manual_region_measurements?.prompt_notes || fullProfile?.region_measurements?.prompt_notes;
+  const hasPalette = palette?.total_colors > 0;
+  const hasGeometry = Boolean(measuredGeometry?.heads_tall || regionNotes);
+  const hasStyle = Boolean(hasPalette || pixelStyle || stylePrompt);
+  const keepsStyle = inheritStyle && hasStyle;
+  const keepsScale = inheritScale && hasGeometry;
+  const keepsPalette = reusePalette && hasPalette && Boolean(palette.top_hex_list?.length);
+
+  // Chỉ chèn mã HEX mẫu khi người dùng chủ động chọn dùng lại bảng màu.
   const defaultMasterColorPrompt = useMemo(() => {
-    const palette = fullProfile?.palette_metrics || fullProfile?.global_analysis?.palette_metrics;
-    if (palette?.master_color_prompt) {
-      return palette.master_color_prompt.trim();
+    if (!hasPalette || (!keepsStyle && !keepsPalette)) return '';
+    const colors = keepsPalette ? ` Use reference palette anchors [${palette.top_hex_list.slice(0, 8).join(', ')}].` : '';
+    const budget = `- Color Budget: Use up to ${palette.total_colors} colors.${colors}`;
+    const styleLines = keepsStyle
+      ? (palette.master_color_prompt || '').split('\n').filter((line) =>
+          line.startsWith('- ') && !line.startsWith('- Color Budget:') && !line.startsWith('- Shading Architecture:'),
+        )
+      : [];
+    if (keepsStyle && palette.outline_style_detected && !styleLines.some((line) => line.startsWith('- Outline Grammar:'))) {
+      styleLines.push(`- Outline Grammar: ${palette.outline_style_detected}.`);
     }
-    const era = fullProfile?.pixel_style?.pixel_art_era || fullProfile?.global_analysis?.pixel_style?.pixel_art_era || '16-bit SNES';
-    return (
-      "MASTER COLOR & GRAPHIC PALETTE SPECIFICATIONS (STRICTLY HARMONIZED WITH REFERENCE ASSET):\n" +
-      `- Color Budget: Strictly indexed 24-color palette (${era} Classic), primary palette anchors: [#8b5cf6, #3b82f6, #10b981].\n` +
-      "- Shading Architecture: 2-Tone Cel-Shading per surface (2 distinct tone levels), strictly zero smooth airbrushing or blurry gradients.\n" +
-      "- Hue-Shifting Rule: Active Hue-Shifting detected (cool shadow tones, warm highlights).\n" +
-      "- Outline Grammar: Selective Dark Outline (Selout), strictly 1-pixel crisp pixel contour without orphan noise.\n" +
-      "- Palette Saturation & Contrast: Vibrant Retro Pixel Saturation, High Contrast curve (6.5:1 ratio).\n" +
-      "- Background: Isolated on pure transparent background (PNG alpha channel), zero drop shadows on floor."
-    );
-  }, [fullProfile]);
+    return ['REFERENCE PIXEL ART SPECIFICATIONS:', budget, ...styleLines].join('\n');
+  }, [palette, hasPalette, keepsStyle, keepsPalette]);
 
   const [masterColorPrompt, setMasterColorPrompt] = useState(defaultMasterColorPrompt);
-
   useEffect(() => {
-    if (defaultMasterColorPrompt) {
-      setMasterColorPrompt(defaultMasterColorPrompt);
-    }
+    setMasterColorPrompt(defaultMasterColorPrompt);
   }, [defaultMasterColorPrompt]);
+
+  const promptProfile = useMemo(() => {
+    const headCount = measuredGeometry?.heads_tall;
+    return {
+      anatomy: keepsScale && headCount > 0 ? { head_to_body_ratio: `1:${headCount}` } : {},
+      pixel_style: keepsStyle ? pixelStyle || {} : {},
+    };
+  }, [measuredGeometry, keepsScale, pixelStyle, keepsStyle]);
+
+  const appliedReference = [
+    hasPalette && (keepsStyle || keepsPalette) && `tối đa ${palette.total_colors} màu`,
+    keepsPalette && `${Math.min(8, palette.top_hex_list.length)} màu chủ đạo của mẫu`,
+    keepsStyle && hasPalette && palette.outline_style_detected && 'kiểu viền đã đo',
+    keepsStyle && pixelStyle?.lighting_direction && 'hướng sáng từ hồ sơ',
+    keepsStyle && stylePrompt && `chỉ dẫn vẽ ${referenceStyle?.provider === 'openai' ? 'OpenAI' : 'Gemini'}`,
+    keepsScale && measuredGeometry?.heads_tall && `dáng cao ${measuredGeometry.heads_tall} đầu`,
+    keepsScale && regionNotes && 'số đo từng vùng',
+  ].filter(Boolean);
 
   /**
    * Cập nhật nội dung mô tả của một Frame cụ thể trong ma trận 15 frames.
@@ -159,8 +190,13 @@ export default function TabConstraintsPromptView({
    * Biên dịch câu Prompt thời gian thực (Live Preview) dựa trên các giá trị hiện tại.
    */
   const livePositivePrompt = useMemo(() => {
-    return compileLivePrompt(frameActions, concept, outfitAndColors, weaponsAndProps, fullProfile, masterColorPrompt);
-  }, [frameActions, concept, outfitAndColors, weaponsAndProps, fullProfile, masterColorPrompt]);
+    return compileLivePrompt(
+      frameActions, concept, outfitAndColors, weaponsAndProps, promptProfile,
+      keepsStyle || keepsPalette ? masterColorPrompt : '',
+      keepsScale ? regionNotes : '',
+      keepsStyle ? stylePrompt : '',
+    );
+  }, [frameActions, concept, outfitAndColors, weaponsAndProps, promptProfile, keepsStyle, keepsPalette, masterColorPrompt, keepsScale, regionNotes, stylePrompt]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -173,12 +209,12 @@ export default function TabConstraintsPromptView({
           Bộ Tạo Prompt Sprite Sheet 3x5 (Ma Trận 15 Frame Hoạt Họa)
         </h4>
         <p style={{ margin: '0 0 8px', fontSize: '0.775rem', color: 'var(--text-muted)' }}>
-          Tự do tạo nhân vật mới theo phong cách pixel và tỷ lệ kích thước của Sprite mẫu. Toàn bộ thông số từ 7 Schemas (độ nhún trọng tâm, hướng sáng, viền) được tự động tiêm vào 15 Frame của 3 hướng.
+          Mô tả nhân vật mới và chọn các đặc điểm muốn dùng từ sprite mẫu. App ráp prompt từ dữ liệu đã có.
         </p>
 
         <div className="analysis-fields">
           <label>
-            Ý tưởng cốt lõi (Concept):
+            Bạn muốn vẽ nhân vật gì?
             <input
               type="text"
               value={concept}
@@ -223,30 +259,61 @@ export default function TabConstraintsPromptView({
             <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
               <input
                 type="checkbox"
-                checked={inheritScale}
+                checked={keepsScale}
+                disabled={!hasGeometry}
                 onChange={(e) => setInheritScale(e.target.checked)}
               />
-              <span>🔒 <strong>Khóa tỷ lệ game</strong> (Giữ chiều cao và tỷ lệ đầu/thân từ Schema)</span>
+              <span><strong>Cùng vóc dáng</strong></span>
             </label>
 
             <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
               <input
                 type="checkbox"
-                checked={inheritStyle}
+                checked={keepsStyle}
+                disabled={!hasStyle}
                 onChange={(e) => setInheritStyle(e.target.checked)}
               />
-              <span>🎨 <strong>Đồng bộ nét vẽ pixel</strong> (Viền & Đổ bóng như cũ)</span>
+              <span><strong>Cùng nét vẽ</strong></span>
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={keepsPalette}
+                disabled={!hasPalette || !palette.top_hex_list?.length}
+                onChange={(event) => setReusePalette(event.target.checked)}
+              />
+              <span><strong>Dùng lại bảng màu gốc</strong></span>
             </label>
           </div>
         </div>
 
         {/* KHUNG TO NHẤT (TẦNG 0): BẢNG QUY ĐỊNH MÀU SẮC & ĐỒ HỌA CỐT LÕI */}
-        <MasterColorSpecCard
-          masterColorPrompt={masterColorPrompt}
-          setMasterColorPrompt={setMasterColorPrompt}
-          defaultMasterColorPrompt={defaultMasterColorPrompt}
-          topHexList={fullProfile?.palette_metrics?.top_hex_list}
-        />
+        <div className="studio-inheritance-summary">
+          <p><strong>Đang dùng từ mẫu</strong> {appliedReference.length ? appliedReference.join(' · ') : 'Chưa dùng dữ liệu từ sprite mẫu.'}</p>
+          <p><strong>Theo mô tả của bạn</strong> {[concept, outfitAndColors, weaponsAndProps].filter((value) => value?.trim()).join(' · ') || 'Chưa có mô tả.'}</p>
+        </div>
+        {stylePrompt && (
+          <details className="studio-measure-details">
+            <summary>Chỉ dẫn vẽ từ Hồ sơ mẫu</summary>
+            <p className="studio-style-prompt-text">{stylePrompt}</p>
+            {referenceStyle.observations?.length > 0 && (
+              <ul className="studio-style-observations">
+                {referenceStyle.observations.map((item, index) => <li key={index}>{item}</li>)}
+              </ul>
+            )}
+          </details>
+        )}
+        {(keepsStyle || keepsPalette) && defaultMasterColorPrompt && (
+          <details className="studio-measure-details">
+            <summary>Chi tiết đặc tả màu trong prompt</summary>
+            <MasterColorSpecCard
+              masterColorPrompt={masterColorPrompt}
+              setMasterColorPrompt={setMasterColorPrompt}
+              defaultMasterColorPrompt={defaultMasterColorPrompt}
+              topHexList={keepsPalette ? palette.top_hex_list : undefined}
+            />
+          </details>
+        )}
 
         {/* KHUNG DƯỚI: TIÊU ĐỀ MA TRẬN 15 FRAME HOẠT HỌA */}
         <div style={{ marginTop: '16px', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>

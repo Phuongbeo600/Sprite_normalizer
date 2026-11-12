@@ -8,23 +8,29 @@ import json
 # logging: Ghi nhận nhật ký cảnh báo lỗi
 import logging
 # typing: Định nghĩa các kiểu từ điển, tùy chọn, bộ giá trị
-from typing import Optional, Dict, Any, Tuple
+from typing import Annotated, Optional, Dict, Any, Tuple
 
 # ========================================================
 # 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
 # ========================================================
 # fastapi: Khởi tạo router và nhận file upload
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException
+# run_in_threadpool: Giữ các tuyến đo có thể phục vụ trong lúc chờ Gemini.
+from fastapi.concurrency import run_in_threadpool
 # pydantic: Định nghĩa schema kiểm tra dữ liệu yêu cầu
 from pydantic import BaseModel, Field
 # PIL (Pillow): Mở ảnh tải lên
-from PIL import Image
+from PIL import Image, ImageOps
 
 # ========================================================
 # 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Services, Database & Schemas)
 # ========================================================
 # CharacterAnalysisService: Dịch vụ phân tích nhân vật theo phân hệ Tab
 from backend.services.character_analysis_service import CharacterAnalysisService
+# generate_style_prompt: Phân tích cách vẽ dựa trên ảnh và số đo Python.
+from backend.services.reference_style_service import generate_style_prompt
+# ReferenceStylePrompt: Dữ liệu phong cách trả về Studio.
+from backend.schemas.character.ai_analysis import ReferenceStylePrompt
 # PromptBuilderService: Dịch vụ xây dựng ma trận 15 frame hoạt họa chân tay đối nghịch
 from backend.services.prompt_builder_service import PromptBuilderService
 # NewCharacterPromptRequest: Schema yêu cầu tạo nhân vật mới không bị gán cứng
@@ -40,6 +46,7 @@ from backend.services.project_service import ProjectService
 # (Không áp dụng cho file backend)
 
 character_analysis_router = APIRouter(prefix="/character-profile", tags=["Character Profile Analysis"])
+VISION_PROVIDERS = ("gemini", "openai")
 
 
 class GeneratePromptFromProfileRequest(BaseModel):
@@ -92,6 +99,49 @@ def _resolve_project_api_key(
     return eff_key, eff_prov or "gemini", eff_base
 
 
+@character_analysis_router.get("/vision-status")
+def get_vision_status(project_id: Optional[int] = None):
+    """Đọc trạng thái cấu hình AI cục bộ, không gọi nhà cung cấp."""
+    credentials = _resolve_project_api_key(project_id, None, None, None)
+    key, provider, _ = CharacterAnalysisService._resolve_credentials(*credentials)
+    ready = provider in VISION_PROVIDERS and bool((key or "").strip())
+    return {"provider": provider, "ready": ready, "gemini_ready": provider == "gemini" and ready}
+
+
+@character_analysis_router.post("/style-prompt", response_model=ReferenceStylePrompt)
+async def generate_reference_style_prompt(
+    file: Annotated[UploadFile, File()],
+    python_metrics_json: Annotated[str, Form(max_length=12000)],
+    project_id: Annotated[Optional[int], Form()] = None,
+) -> ReferenceStylePrompt:
+    """Tạo chỉ dẫn phong cách từ ảnh đã chọn và các số đo của Studio."""
+    credentials = await run_in_threadpool(_resolve_project_api_key, project_id, None, None, None)
+    key, provider, base_url = CharacterAnalysisService._resolve_credentials(*credentials)
+    if provider not in VISION_PROVIDERS or not (key or "").strip():
+        raise HTTPException(status_code=409, detail="Chưa cấu hình khóa API cho nhà cung cấp đã chọn.")
+
+    try:
+        metrics = json.loads(python_metrics_json)
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail="Số đo Python phải là JSON hợp lệ.") from error
+    if not isinstance(metrics, dict):
+        raise HTTPException(status_code=422, detail="Số đo Python phải là một đối tượng JSON.")
+
+    try:
+        contents = await file.read()
+        with Image.open(io.BytesIO(contents)) as source:
+            image = ImageOps.exif_transpose(source).convert("RGBA")
+    except (OSError, ValueError, Image.DecompressionBombError) as error:
+        raise HTTPException(status_code=400, detail="Không đọc được ảnh sprite.") from error
+
+    try:
+        return await run_in_threadpool(generate_style_prompt, image, metrics, key.strip(), provider, base_url)
+    except (ValueError, RuntimeError) as error:
+        raise HTTPException(
+            status_code=502, detail="Nhà cung cấp AI chưa trả được đoạn phong cách hợp lệ. Hãy thử lại.",
+        ) from error
+
+
 @character_analysis_router.post("/analyze-tab")
 async def analyze_character_tab(
     file: UploadFile = File(...),
@@ -100,7 +150,8 @@ async def analyze_character_tab(
     api_key: Optional[str] = Form(None),
     provider: Optional[str] = Form(None),
     base_url: Optional[str] = Form(None),
-    current_profile_json: Optional[str] = Form(None)
+    current_profile_json: Optional[str] = Form(None),
+    vision_only: Annotated[bool, Form()] = False,
 ):
     """
     Phân tích độc lập từng Tab (hoặc toàn bộ) cho Hồ sơ Nhân vật tham chiếu:
@@ -110,30 +161,38 @@ async def analyze_character_tab(
         raise HTTPException(status_code=400, detail="Tệp tải lên phải là định dạng hình ảnh.")
 
     try:
-        contents = await file.read()
-        image = Image.open(io.BytesIO(contents)).convert("RGBA")
-
         # Tự động lấy key từ MySQL của dự án nếu cần
         eff_key, eff_prov, eff_base = _resolve_project_api_key(project_id, api_key, provider, base_url)
+        if vision_only:
+            eff_key, eff_prov, eff_base = CharacterAnalysisService._resolve_credentials(eff_key, eff_prov, eff_base)
+            if eff_prov not in VISION_PROVIDERS or not (eff_key or "").strip():
+                raise HTTPException(status_code=409, detail="Chưa cấu hình khóa API cho nhà cung cấp đã chọn.")
+
+        contents = await file.read()
+        with Image.open(io.BytesIO(contents)) as source:
+            image = source.convert("RGBA")
         tab_clean = tab_name.lower().strip()
 
         # Tab 1: Phân tích Toàn cục
         if tab_clean == "global":
-            result = CharacterAnalysisService.analyze_tab_global(
-                image=image, api_key=eff_key, provider=eff_prov, base_url=eff_base
+            result = await run_in_threadpool(
+                CharacterAnalysisService.analyze_tab_global,
+                image=image, api_key=eff_key, provider=eff_prov, base_url=eff_base, include_palette=not vision_only,
             )
             return {"status": "success", "tab": "global", "data": result}
 
         # Tab 2: Phân tích 3 hướng nhìn
         elif tab_clean == "directions":
-            result = CharacterAnalysisService.analyze_tab_directions(
+            result = await run_in_threadpool(
+                CharacterAnalysisService.analyze_tab_directions,
                 image=image, api_key=eff_key, provider=eff_prov, base_url=eff_base
             )
             return {"status": "success", "tab": "directions", "data": result}
 
         # Tab 3: Phân tích Hoạt họa
         elif tab_clean == "animations":
-            result = CharacterAnalysisService.analyze_tab_animations(
+            result = await run_in_threadpool(
+                CharacterAnalysisService.analyze_tab_animations,
                 image=image, api_key=eff_key, provider=eff_prov, base_url=eff_base
             )
             return {"status": "success", "tab": "animations", "data": result}
@@ -144,7 +203,8 @@ async def analyze_character_tab(
             g_data = curr_profile.get("global_analysis", {})
             d_data = curr_profile.get("direction_analysis", {})
             a_data = curr_profile.get("animation_analysis", {})
-            result = CharacterAnalysisService.analyze_tab_constraints(
+            result = await run_in_threadpool(
+                CharacterAnalysisService.analyze_tab_constraints,
                 global_data=g_data, direction_data=d_data, animation_data=a_data,
                 api_key=eff_key, provider=eff_prov, base_url=eff_base
             )
@@ -152,10 +212,20 @@ async def analyze_character_tab(
 
         # Chạy toàn bộ (All tabs tuần tự)
         elif tab_clean == "all":
-            global_res = CharacterAnalysisService.analyze_tab_global(image, api_key=eff_key, provider=eff_prov, base_url=eff_base)
-            direction_res = CharacterAnalysisService.analyze_tab_directions(image, api_key=eff_key, provider=eff_prov, base_url=eff_base)
-            animation_res = CharacterAnalysisService.analyze_tab_animations(image, api_key=eff_key, provider=eff_prov, base_url=eff_base)
-            constraints_res = CharacterAnalysisService.analyze_tab_constraints(
+            global_res = await run_in_threadpool(
+                CharacterAnalysisService.analyze_tab_global, image,
+                api_key=eff_key, provider=eff_prov, base_url=eff_base, include_palette=not vision_only,
+            )
+            direction_res = await run_in_threadpool(
+                CharacterAnalysisService.analyze_tab_directions, image,
+                api_key=eff_key, provider=eff_prov, base_url=eff_base,
+            )
+            animation_res = await run_in_threadpool(
+                CharacterAnalysisService.analyze_tab_animations, image,
+                api_key=eff_key, provider=eff_prov, base_url=eff_base,
+            )
+            constraints_res = await run_in_threadpool(
+                CharacterAnalysisService.analyze_tab_constraints,
                 global_data=global_res, direction_data=direction_res, animation_data=animation_res,
                 api_key=eff_key, provider=eff_prov, base_url=eff_base
             )
@@ -166,8 +236,10 @@ async def analyze_character_tab(
                 "animation_analysis": animation_res,
                 "consistency_analysis": constraints_res.get("consistency_analysis", {}),
                 "negative_constraints": constraints_res.get("negative_constraints", {}),
-                "palette_metrics": global_res.get("palette_metrics")
             }
+            if not vision_only:
+                full_ai_analysis["palette_metrics"] = global_res.get("palette_metrics")
+                full_ai_analysis["pixel_art_report"] = global_res.get("pixel_art_report")
             # Tự động ánh xạ dữ liệu 7 Schemas sang ma trận 15 frame hoạt họa có chân tay đối nghịch
             full_ai_analysis["frame_actions_data"] = PromptBuilderService.build_default_frame_actions(full_ai_analysis)
             return {"status": "success", "tab": "all", "data": full_ai_analysis}
@@ -201,7 +273,9 @@ async def generate_prompt_from_profile(request: GeneratePromptFromProfileRequest
             frame_actions=request.frame_actions,
             outfit_and_colors=request.outfit_and_colors,
             weapons_and_props=request.weapons_and_props,
-            custom_instructions=f"Vóc dáng: {request.stature_rule}"
+            custom_instructions=f"Vóc dáng: {request.stature_rule}",
+            inherit_scale=request.inherit_scale,
+            inherit_style=request.inherit_style,
         )
 
         final_pos = request.compiled_positive_prompt or compiled["positive_prompt"]

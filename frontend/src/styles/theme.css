@@ -899,6 +899,407 @@
   font-weight: 600;
 }
 
+/* Tab nạp sprite và kết quả phân tích */
+.studio-workspace-nav {
+  flex-wrap: wrap;
+}
+
+.studio-workspace-nav .studio-segment-btn {
+  flex: 1 0 max-content;
+}
+
+.studio-title-group h1 svg,
+.studio-reference-grid .studio-viewport-header h3 svg {
+  color: var(--accent-purple);
+  flex-shrink: 0;
+}
+
+.studio-reference-grid .studio-viewport-header {
+  gap: 12px;
+}
+
+.studio-reference-grid .studio-viewport-header h3 {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.studio-file-button {
+  position: relative;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.studio-file-button input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.studio-file-button:focus-within {
+  outline: 2px solid var(--accent-purple);
+  outline-offset: 2px;
+}
+
+.studio-file-button:has(input:disabled) {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.studio-reference-preview {
+  margin: 0;
+}
+
+.studio-reference-preview img {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+.studio-reference-grid .studio-metric-card-header h4 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-transform: none;
+}
+
+.studio-reference-meta,
+.studio-reference-error {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.studio-reference-error {
+  color: #fca5a5;
+}
+
+.studio-reference-readings {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(105px, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.studio-reference-readings div {
+  padding: 8px 10px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xs);
+}
+
+.studio-reference-readings dt {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.studio-reference-readings dd {
+  margin: 3px 0 0;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.studio-reference-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.studio-reference-swatches li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 7px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xs);
+  color: var(--text-muted);
+  font-size: 0.7rem;
+}
+
+.studio-reference-swatches li span {
+  width: 12px;
+  height: 12px;
+  border: 1px solid var(--border-card);
+  border-radius: 2px;
+}
+
+.studio-reference-next {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.studio-source-name {
+  overflow-wrap: anywhere;
+}
+
+.studio-scan-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sidebar);
+  color: var(--text-primary);
+  font-size: 0.8rem;
+}
+
+.studio-scan-status:empty {
+  display: none;
+}
+
+.studio-workspace-container .spin {
+  flex-shrink: 0;
+  animation: studio-spin 0.9s linear infinite;
+}
+
+@keyframes studio-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .studio-workspace-container .spin {
+    animation: none;
+  }
+}
+
+.studio-measure-heading,
+.studio-reference-grid .studio-metric-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.studio-measure-heading h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.studio-auto-measure {
+  justify-self: start;
+  align-self: flex-start;
+}
+
+.studio-measure-details summary {
+  padding-block: 6px;
+  color: var(--text-highlight);
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.studio-style-prompt-text {
+  padding: 10px 12px;
+  background: var(--bg-input);
+  border-radius: var(--radius-xs);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.studio-style-observations {
+  margin: 8px 0 0;
+  padding-inline-start: 20px;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+
+.studio-inheritance-summary {
+  display: grid;
+  gap: 5px;
+  padding: 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xs);
+  background: var(--bg-input);
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.studio-inheritance-summary strong {
+  color: var(--text-primary);
+  margin-inline-end: 6px;
+}
+
+.studio-legend-head { color: #00e5ff; }
+.studio-legend-torso { color: #ff8c00; }
+.studio-legend-legs { color: #ba55d3; }
+.studio-legend-weapon { color: #ffd700; }
+.studio-legend-cape { color: #ff69b4; }
+.studio-legend-shadow { color: #a0a0a0; }
+
+/* Bàn đo thủ công dùng màu riêng cho từng bộ phận. */
+.sprite-measure-editor {
+  --measure-head: #f9db69;
+  --measure-neck: #63e6ef;
+  --measure-torso: #9ee876;
+  --measure-left_arm: #ffae6d;
+  --measure-right_arm: #bba0ff;
+  --measure-left_leg: #73abff;
+  --measure-right_leg: #ff83bb;
+}
+
+.sprite-measure-toolbar,
+.sprite-measure-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.sprite-measure-actions output {
+  min-width: 34px;
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.sprite-measure-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 230px);
+}
+
+.sprite-measure-scroll {
+  min-width: 0;
+  min-height: 300px;
+  height: clamp(300px, 57vh, 690px);
+  overflow: auto;
+  padding: 16px;
+  background-color: #101827;
+  background-image: conic-gradient(#182339 25%, transparent 0 50%, #182339 0 75%, transparent 0);
+  background-size: 16px 16px;
+}
+
+.sprite-measure-scroll canvas {
+  display: block;
+  image-rendering: pixelated;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.sprite-measure-scroll canvas:focus-visible {
+  outline: 1px dashed var(--text-muted);
+}
+
+.sprite-measure-controls {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  padding: 12px;
+  border-inline-start: 1px solid var(--border-subtle);
+  background: var(--bg-sidebar);
+  font-size: 0.8rem;
+}
+
+.sprite-measure-controls fieldset {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 6px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xs);
+}
+
+.sprite-measure-controls legend {
+  padding-inline: 4px;
+  color: var(--text-muted);
+}
+
+.sprite-measure-controls label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px;
+  cursor: pointer;
+}
+
+.sprite-measure-controls input {
+  accent-color: var(--accent-purple);
+}
+
+.sprite-measure-part output {
+  margin-inline-start: auto;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.sprite-measure-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  flex: 0 0 10px;
+}
+
+.sprite-measure-status {
+  min-height: 40px;
+  margin: 0;
+  padding: 10px 14px;
+  border-top: 1px solid var(--border-subtle);
+  font-size: 0.8rem;
+}
+
+@media (max-width: 680px) {
+  #root .app-layout {
+    gap: 8px;
+    padding: 8px;
+  }
+
+  .app-layout .minimal-sidebar {
+    width: 54px;
+    min-width: 54px;
+    padding: 12px 5px;
+  }
+
+  .app-layout .minimal-logo,
+  .app-layout .minimal-nav-item,
+  .app-layout .minimal-user-card {
+    justify-content: center;
+    padding-inline: 0;
+  }
+
+  .app-layout .minimal-sidebar .logo-text,
+  .app-layout .minimal-sidebar .minimal-nav-item span,
+  .app-layout .minimal-sidebar .minimal-user-info {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .app-layout .main-content-viewport {
+    min-width: 0;
+    padding: 8px;
+  }
+
+  .studio-workspace-container {
+    padding-inline: 0;
+  }
+
+  .studio-workspace-nav .studio-segment-btn {
+    padding-inline: 8px;
+  }
+
+  .studio-reference-grid .studio-viewport-controls {
+    justify-content: flex-start;
+  }
+
+  .sprite-measure-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sprite-measure-controls {
+    border-inline-start: 0;
+  }
+}
+
 /* 8. Nút bấm chuẩn phân cấp (Button Hierarchy) */
 .btn-primary-studio {
   display: inline-flex;

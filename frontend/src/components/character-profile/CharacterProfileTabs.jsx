@@ -82,6 +82,7 @@ export default function CharacterProfileTabs({
       </nav>
 
       {/* 2. Thanh tác vụ tinh gọn: Nút quét lại riêng phân hệ này nếu cần */}
+      {onAnalyzeTab && (
       <div className="profile-actions-bar" style={{ justifyContent: 'flex-end', paddingTop: '8px' }}>
         <button
           type="button"
@@ -101,9 +102,10 @@ export default function CharacterProfileTabs({
           }}
         >
           <RefreshCw size={13} className={isCurrentTabAnalyzing ? 'spin' : ''} />
-          {isCurrentTabAnalyzing ? 'Đang quét lại…' : 'Quét lại riêng phân hệ này'}
+          {isCurrentTabAnalyzing ? 'Đang chờ Gemini…' : 'Gửi ảnh tới Gemini cho phần này'}
         </button>
       </div>
+      )}
     </div>
   );
 }

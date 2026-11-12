@@ -86,13 +86,11 @@ class PromptService:
             shadow_box=m_dict.get("shadow_box")
         )
 
-        active_provider = (request.provider or os.getenv("AI_PROVIDER", "gemini")).lower()
+        active_provider = (request.provider or os.getenv("AI_PROVIDER", "gemini")).strip().lower()
         active_base_url = request.base_url or os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
 
-        if active_provider == "openai":
-            effective_key = request.api_key or os.getenv("OPENAI_API_KEY")
-        else:
-            effective_key = request.api_key or os.getenv("GEMINI_API_KEY")
+        key_name = "OPENAI_API_KEY" if active_provider == "openai" else "GEMINI_API_KEY"
+        effective_key = request.api_key or os.getenv(key_name)
 
         # Nếu có API Key -> Gọi qua tính Đa hình của AiProviderFactory
         if effective_key and effective_key.strip():

@@ -247,7 +247,7 @@ export default function ProjectSettings({ currentProject }) {
                 checked={provider === 'openai'}
                 onChange={() => setProvider('openai')}
               />
-              OpenAI ChatGPT (GPT-4o)
+              OpenAI
             </label>
           </div>
         </div>
@@ -353,7 +353,7 @@ export default function ProjectSettings({ currentProject }) {
           <div className="profile-section-card" style={{ marginBottom: '20px' }}>
             <h4 style={{ color: 'var(--text-white)', fontSize: '0.9rem', marginBottom: '12px' }}>
               <Key size={16} color="var(--accent-purple)" />
-              OpenAI ChatGPT API Key
+              OpenAI API Key
             </h4>
 
             {openaiHasKey && !showOpenaiInput ? (

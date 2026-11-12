@@ -1,24 +1,13 @@
 // ========================================================
 // 1. THƯ VIỆN NỀN TẢNG REACT (Quản lý component & trạng thái)
 // ========================================================
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 // ========================================================
 // 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
 // ========================================================
 // lucide-react: Bộ icon vector SVG siêu nhẹ hiển thị thư mục, quét ảnh, tạo prompt, sao chép và chuyển đổi chế độ
-import {
-  FolderOpen,
-  Sparkles,
-  Check,
-  Eye,
-  EyeOff,
-  Dna,
-  Wand2,
-  Ruler,
-  Zap,
-  Bookmark
-} from 'lucide-react';
+import { Dna, FolderOpen, LoaderCircle, Ruler, Sparkles, Wand2 } from 'lucide-react';
 
 // ========================================================
 // 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Components & Dữ liệu)
@@ -31,7 +20,9 @@ import TabGlobalView from '../components/character-profile/TabGlobalView';
 import TabDirectionsView from '../components/character-profile/TabDirectionsView';
 // Component hiển thị phân hệ 3: Hoạt họa chuyển động (Idle, Walk)
 import TabAnimationsView from '../components/character-profile/TabAnimationsView';
-// Component hiển thị phân hệ chính: Phòng tạo Nhân vật Mới & Sinh Prompt AI
+// TabReferenceView: Nạp ảnh và hiển thị hai báo cáo đo lường.
+import TabReferenceView from '../components/character-profile/TabReferenceView';
+// Component hiển thị phân hệ sinh prompt cho nhân vật mới.
 import TabConstraintsPromptView from '../components/character-profile/TabConstraintsPromptView';
 
 // ========================================================
@@ -40,34 +31,93 @@ import TabConstraintsPromptView from '../components/character-profile/TabConstra
 // Định dạng giao diện được kế thừa từ theme.css thông qua index.css
 
 /**
+ * Chọn các số đo Python để gửi cùng ảnh tham chiếu.
+ *
+ * @param {Object} data Bảng màu, báo cáo pixel và số đo của ảnh đang mở.
+ * @returns {Object} Dữ liệu đo có nguồn rõ ràng và không chứa mô tả AI.
+ */
+function collectPythonMeasurements({ palette, pixelReport, metrics, profileData }) {
+  const report = {};
+  if (palette?.total_colors > 0) {
+    report.palette = {
+      total_colors: palette.total_colors,
+      dominant_hex: palette.top_hex_list,
+      outline_style: palette.outline_style_detected,
+      shading_steps_estimate: palette.shading_steps,
+      hue_shift: palette.hue_shift_description,
+      saturation: palette.average_saturation,
+      contrast_ratio: palette.contrast_ratio,
+    };
+  }
+  if (pixelReport) {
+    report.pixel_grid = pixelReport.grid;
+    report.outline = pixelReport.outline;
+    report.detail = pixelReport.detail;
+    report.clusters = pixelReport.clusters;
+  }
+  if (metrics) {
+    report.automatic_geometry = {
+      image_size_px: [metrics.canvas_width, metrics.canvas_height],
+      character_height_px: metrics.anatomical_height ?? metrics.visible_height,
+      character_width_px: metrics.visible_width,
+      heads_tall: metrics.heads_tall,
+      head_width_px: metrics.head_width ?? metrics.head_w,
+      head_height_px: metrics.head_height ?? metrics.head_h,
+      body_width_px: metrics.body_width ?? metrics.body_w,
+      body_height_px: metrics.body_height ?? metrics.body_h,
+      ground_y: metrics.ground_y,
+    };
+  }
+  for (const [name, regions] of [
+    ['automatic_regions', profileData.region_measurements],
+    ['manual_regions', profileData.manual_region_measurements],
+  ]) {
+    const entries = Object.entries(regions?.measurements || {});
+    if (entries.length) {
+      report[name] = {
+        image_size_px: regions.image_size_px,
+        measurements: Object.fromEntries(entries.map(([part, measurement]) => [part, {
+          type: measurement.polygon ? 'cross_section' : 'reference_segment',
+          width_px: measurement.width_px,
+        }])),
+      };
+    }
+  }
+  return report;
+}
+
+/**
  * Màn hình Studio Chuẩn Hóa & Thiết Kế Sprite AI (Project Analysis & Generation Studio).
  * Thiết kế tinh gọn theo chuẩn Modern Creative Workspace:
- * - 1 Luồng làm việc duy nhất: [Nạp Sprite] ➔ [1-Click Phân tích Toàn diện] ➔ [Nhập Ý Tưởng & Sinh Prompt].
+ * - Chọn ảnh một lần để đo bằng Python hoặc mô tả bằng Gemini theo yêu cầu.
  * - Tự động đọc và lưu trữ thông số theo dự án (currentProject.id) trong MySQL.
  * - Hỗ trợ lưu trữ bản phân tích và Prompt vào Thư viện Presets của dự án.
  * 
  * @param {Object} props Thuộc tính truyền vào component.
  * @param {Object} props.currentProject Dự án hiện tại đang mở (chứa id, name).
  * @param {Object|null} props.loadedPresetData Bản ghi preset được nạp từ trang Thư viện Presets.
+ * @param {boolean} props.isActive Studio đang được hiển thị trong dự án.
  * @returns {React.ReactElement} Giao diện Creative Workspace hoàn chỉnh.
  */
-export default function ProjectAnalysis({ currentProject, loadedPresetData }) {
+export default function ProjectAnalysis({ currentProject, loadedPresetData, isActive = true }) {
   // ========================================================
   // TRẠNG THÁI ẢNH THAM CHIẾU & LỚP PHỦ GIẢI PHẪU
   // ========================================================
   const [reference, setReference] = useState(null);
+  const referenceVersion = useRef(0);
   const [annotatedUrl, setAnnotatedUrl] = useState(null);
   const [showOverlay, setShowOverlay] = useState(true);
 
   // Trạng thái dữ liệu đo đạc giải phẫu hình học (CharacterMetrics)
   const [metrics, setMetrics] = useState(null);
   const [analysisError, setAnalysisError] = useState('');
+  const [colorError, setColorError] = useState('');
+  const [localAction, setLocalAction] = useState(null);
 
   // ========================================================
   // TRẠNG THÁI ĐIỀU HƯỚNG WORKSPACE STUDIO TINH GỌN
   // ========================================================
-  // Chế độ làm việc chính ở Cột Phải: 'prompt_studio' (Tạo nhân vật mới) | 'dna_profile' (Tra cứu DNA mẫu)
-  const [workspaceMode, setWorkspaceMode] = useState('prompt_studio');
+  const [workspaceMode, setWorkspaceMode] = useState('reference');
 
   // ========================================================
   // TRẠNG THÁI HỒ SƠ NHÂN VẬT THAM CHIẾU (CHARACTER PROFILE)
@@ -82,10 +132,9 @@ export default function ProjectAnalysis({ currentProject, loadedPresetData }) {
     consistency_analysis: null,
     negative_constraints: null,
   });
-  // Trạng thái quét phân tích toàn diện (1-Click Master Scan)
-  const [isMasterAnalyzing, setIsMasterAnalyzing] = useState(false);
-  // Trạng thái quét riêng một phân hệ đơn lẻ
-  const [analyzingTab, setAnalyzingTab] = useState(null);
+  const [visionStatus, setVisionStatus] = useState('checking');
+  const [visionProvider, setVisionProvider] = useState(null);
+  const [isGeneratingStyle, setIsGeneratingStyle] = useState(false);
   // Thông báo lỗi phân tích hồ sơ
   const [profileError, setProfileError] = useState('');
 
@@ -109,12 +158,21 @@ export default function ProjectAnalysis({ currentProject, loadedPresetData }) {
   // Nạp dữ liệu khi người dùng bấm "Mở lại trong Studio" từ trang Hồ sơ đã lưu
   useEffect(() => {
     if (loadedPresetData) {
-      if (loadedPresetData.metrics_data) {
-        setMetrics(loadedPresetData.metrics_data);
-      }
-      if (loadedPresetData.profile_data) {
-        setProfileData(loadedPresetData.profile_data);
-      }
+      referenceVersion.current += 1;
+      setReference(null);
+      setAnnotatedUrl(null);
+      setLocalAction(null);
+      setIsGeneratingStyle(false);
+      setAnalysisError('');
+      setColorError('');
+      setProfileError('');
+      setMetrics(loadedPresetData.metrics_data || null);
+      const savedProfile = loadedPresetData.profile_data || {};
+      setProfileData({
+        ...savedProfile,
+        palette_metrics: savedProfile.palette_metrics || savedProfile.global_analysis?.palette_metrics,
+        pixel_art_report: savedProfile.pixel_art_report || savedProfile.global_analysis?.pixel_art_report,
+      });
       if (loadedPresetData.positive_prompt) {
         setGeneratedProfilePrompt({
           positive_prompt: loadedPresetData.positive_prompt,
@@ -128,6 +186,7 @@ export default function ProjectAnalysis({ currentProject, loadedPresetData }) {
         weapons_and_props: loadedPresetData.weapons_and_props,
         stature_rule: loadedPresetData.stature_rule,
         target_direction: loadedPresetData.target_direction,
+        frame_actions_data: loadedPresetData.frame_actions_data,
       });
       setWorkspaceMode('prompt_studio');
     }
@@ -141,6 +200,7 @@ export default function ProjectAnalysis({ currentProject, loadedPresetData }) {
   const handleReferenceChange = (event) => {
     const file = event.target.files[0];
     if (file) {
+      referenceVersion.current += 1;
       setReference({
         file,
         name: file.name,
@@ -149,6 +209,7 @@ export default function ProjectAnalysis({ currentProject, loadedPresetData }) {
       setAnnotatedUrl(null);
       setMetrics(null);
       setAnalysisError('');
+      setColorError('');
       setProfileData({
         global_analysis: null,
         direction_analysis: null,
@@ -163,130 +224,86 @@ export default function ProjectAnalysis({ currentProject, loadedPresetData }) {
     event.target.value = '';
   };
 
+  // Chỉ đọc trạng thái cấu hình của dự án khi mở Hồ sơ mẫu.
+  const projectId = currentProject?.id;
+  useEffect(() => {
+    if (!isActive || workspaceMode !== 'dna_profile') return;
+    const controller = new AbortController();
+    const query = projectId ? `?project_id=${encodeURIComponent(projectId)}` : '';
+    setVisionStatus('checking');
+    fetch(`/api/character-profile/vision-status${query}`, { signal: controller.signal })
+      .then(async (response) => {
+        if (!response.ok) throw new Error('Không đọc được cấu hình AI.');
+        const data = await response.json();
+        if (!controller.signal.aborted) {
+          setVisionProvider(data.provider);
+          setVisionStatus(data.ready ? 'ready' : 'missing');
+        }
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setVisionStatus('error');
+      });
+    return () => controller.abort();
+  }, [isActive, workspaceMode, projectId]);
+
   /**
-   * [1-CLICK MASTER SCAN]: Quét phân tích toàn diện Sprite mẫu chỉ với 1 cú click duy nhất:
-   * Tự động truyền project_id để Backend đọc API Key từ CSDL MySQL của dự án này.
+   * Gửi tệp hiện tại cùng các trường của đúng thao tác đang chọn.
+   * @param {string} url Tuyến API xử lý ảnh.
+   * @param {Object} fields Các tùy chọn riêng của thao tác.
    */
-  const handleAnalyzeMaster = async () => {
-    if (!reference || isMasterAnalyzing) return;
+  const requestAnalysis = async (url, fields = {}) => {
+    const body = new FormData();
+    body.append('file', reference.file);
+    Object.entries(fields).forEach(([name, value]) => body.append(name, value));
+    const response = await fetch(url, { method: 'POST', body });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.detail || 'Không xử lý được ảnh.');
+    return payload;
+  };
 
-    setIsMasterAnalyzing(true);
-    setAnalysisError('');
-    setProfileError('');
-    setSaveSuccessMsg('');
-
+  /** @param {'colors'|'size'} action Phép đo Python được yêu cầu. */
+  const handleLocalMeasure = async (action) => {
+    if (!reference || localAction) return;
+    const version = referenceVersion.current;
+    const measureColors = action === 'colors';
+    const setError = measureColors ? setColorError : setAnalysisError;
+    setLocalAction(action);
+    setError('');
     try {
-      // 1. Quét giải phẫu pixel (Bounding box, đầu, thân, chân, tỷ lệ heads_tall)
-      const formDataAnatomy = new FormData();
-      formDataAnatomy.append('file', reference.file);
-      formDataAnatomy.append('auto_remove_bg', 'true');
-      formDataAnatomy.append('use_ai', 'true');
-      if (currentProject?.id) {
-        formDataAnatomy.append('project_id', currentProject.id);
-      }
-
-      const resAnatomy = await fetch('/api/analyze', {
-        method: 'POST',
-        body: formDataAnatomy,
-      });
-
-      if (resAnatomy.ok) {
-        const anatomyData = await resAnatomy.json();
-        setMetrics(anatomyData.metrics);
-        setAnnotatedUrl(anatomyData.annotated_image);
+      const result = await requestAnalysis(measureColors ? '/api/analyze-colors' : '/api/analyze');
+      if (version !== referenceVersion.current) return;
+      if (measureColors) {
+        setProfileData((previous) => ({ ...previous, ...result }));
+      } else {
+        setMetrics(result.metrics);
+        setAnnotatedUrl(result.annotated_image);
         setShowOverlay(true);
-      } else {
-        const errData = await resAnatomy.json();
-        setAnalysisError(errData.detail || 'Lỗi phân tích giải phẫu học hình ảnh.');
+        setProfileData((previous) => ({ ...previous, region_measurements: result.region_measurements }));
       }
-
-      // 2. Quét hồ sơ DNA phong cách Pixel Art (Toàn cục, 3 hướng nhìn, chuyển động, ràng buộc)
-      const formDataProfile = new FormData();
-      formDataProfile.append('file', reference.file);
-      formDataProfile.append('tab_name', 'all');
-      if (currentProject?.id) {
-        formDataProfile.append('project_id', currentProject.id);
-      }
-
-      const resProfile = await fetch('/api/character-profile/analyze-tab', {
-        method: 'POST',
-        body: formDataProfile,
-      });
-
-      if (resProfile.ok) {
-        const profileJson = await resProfile.json();
-        const fullAnalysis = profileJson.data;
-        setProfileData({
-          global_analysis: fullAnalysis.global_analysis || null,
-          direction_analysis: fullAnalysis.direction_analysis || null,
-          animation_analysis: fullAnalysis.animation_analysis || null,
-          consistency_analysis: fullAnalysis.consistency_analysis || null,
-          negative_constraints: fullAnalysis.negative_constraints || null,
-          frame_actions_data: fullAnalysis.frame_actions_data || null,
-          palette_metrics: fullAnalysis.palette_metrics || fullAnalysis.global_analysis?.palette_metrics || null,
-        });
-      } else {
-        const errJson = await resProfile.json();
-        setProfileError(errJson.detail || 'Lỗi bóc tách hồ sơ phong cách pixel.');
-      }
-    } catch (err) {
-      setAnalysisError(err.message || 'Lỗi kết nối máy chủ khi phân tích Sprite.');
+    } catch (error) {
+      if (version === referenceVersion.current) setError(error.message);
     } finally {
-      setIsMasterAnalyzing(false);
+      if (version === referenceVersion.current) setLocalAction(null);
     }
   };
 
-  /**
-   * Quét lại độc lập một phân hệ tra cứu (nếu người dùng cần điều chỉnh riêng).
-   * 
-   * @param {string} tabName Tên phân hệ ('global' | 'directions' | 'animations').
-   */
-  const handleAnalyzeTab = async (tabName) => {
-    if (!reference || analyzingTab || isMasterAnalyzing) return;
-
-    setAnalyzingTab(tabName);
+  /** Gửi ảnh và số đo đến nhà cung cấp AI đã cấu hình cho dự án. */
+  const handleGenerateReferenceStyle = async () => {
+    if (!reference || isGeneratingStyle || localAction || visionStatus !== 'ready') return;
+    const version = referenceVersion.current;
+    setIsGeneratingStyle(true);
     setProfileError('');
-
-    const formData = new FormData();
-    formData.append('file', reference.file);
-    formData.append('tab_name', tabName);
-    formData.append('current_profile_json', JSON.stringify(profileData));
-    if (currentProject?.id) {
-      formData.append('project_id', currentProject.id);
-    }
-
     try {
-      const response = await fetch('/api/character-profile/analyze-tab', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const errJson = await response.json();
-        throw new Error(errJson.detail || `Lỗi phân tích phân hệ ${tabName}`);
+      const fields = { python_metrics_json: JSON.stringify(pythonMeasurements) };
+      if (projectId) fields.project_id = projectId;
+      const result = await requestAnalysis('/api/character-profile/style-prompt', fields);
+      if (version === referenceVersion.current) {
+        setProfileData((previous) => ({ ...previous, reference_style: result }));
       }
-
-      const resJson = await response.json();
-      const tabData = resJson.data;
-
-      setProfileData((prev) => {
-        if (tabName === 'global') {
-          return {
-            ...prev,
-            global_analysis: tabData,
-            palette_metrics: tabData?.palette_metrics || prev?.palette_metrics || null
-          };
-        } else if (tabName === 'directions') {
-          return { ...prev, direction_analysis: tabData };
-        } else if (tabName === 'animations') {
-          return { ...prev, animation_analysis: tabData };
-        }
-        return prev;
-      });
-    } catch (err) {
-      setProfileError(err.message || 'Lỗi khi quét lại phân hệ.');
+    } catch (error) {
+      if (version === referenceVersion.current) setProfileError(error.message);
     } finally {
-      setAnalyzingTab(null);
+      if (version === referenceVersion.current) setIsGeneratingStyle(false);
     }
   };
 
@@ -400,300 +417,157 @@ export default function ProjectAnalysis({ currentProject, loadedPresetData }) {
     animations: Boolean(profileData.animation_analysis),
   };
 
-  const hasAnyProfileData = Boolean(
-    profileData.global_analysis ||
-    profileData.direction_analysis ||
-    profileData.animation_analysis ||
-    metrics
-  );
+  const palette = profileData.palette_metrics || profileData.global_analysis?.palette_metrics;
+  const pixelReport = profileData.pixel_art_report;
+  const referenceStyle = profileData.reference_style;
+  const providerLabel = { gemini: 'Gemini', openai: 'OpenAI' }[visionProvider] || 'AI';
+  const resultProviderLabel = referenceStyle?.provider === 'openai' ? 'OpenAI' : 'Gemini';
+  const pythonMeasurements = collectPythonMeasurements({ palette, pixelReport, metrics, profileData });
+  const progress = [
+    localAction === 'colors' && 'Đang phân tích màu bằng Python…',
+    localAction === 'size' && 'Đang đo kích thước bằng Python…',
+    isGeneratingStyle && `Đang chờ ${providerLabel} viết chỉ dẫn phong cách…`,
+  ].filter(Boolean).join(' ');
 
   return (
     <div className="studio-workspace-container">
-      {/* ========================================================
-          1. THANH TIÊU ĐỀ WORKSPACE & STEPPER TIẾN TRÌNH RÕ RÀNG
-          ======================================================== */}
       <header className="studio-header-card">
         <div className="studio-title-group">
-          <h1>
-            <Sparkles size={22} color="var(--accent-purple)" />
-            Studio Chuẩn Hóa &amp; Thiết Kế Sprite AI
-          </h1>
-          <p>
-            Phân tích giải phẫu học, bóc tách quy chuẩn DNA Pixel Art và sinh Prompt đồng bộ tỷ lệ cho Game 2D.
-            {currentProject && (
-              <span style={{ marginLeft: '6px', color: 'var(--accent-purple)', fontWeight: 600 }}>
-                • Dự án: {currentProject.name}
-              </span>
-            )}
-          </p>
+          <h1><Sparkles size={22} /> Phân tích &amp; Prompt</h1>
+          <p className="studio-source-name">{reference?.name || 'Chưa chọn ảnh sprite'}</p>
         </div>
-
-        {/* Stepper quy trình trực quan 3 bước */}
-        <nav className="studio-workflow-stepper" aria-label="Tiến trình làm việc">
-          <span className={`studio-step-item ${reference ? 'completed' : 'active'}`}>
-            {reference ? <Check size={13} /> : '1'} Nạp Sprite Mẫu
-          </span>
-          <span className="studio-step-separator">›</span>
-          <span className={`studio-step-item ${isMasterAnalyzing ? 'active' : hasAnyProfileData ? 'completed' : ''}`}>
-            {hasAnyProfileData ? <Check size={13} /> : '2'} Phân Tích DNA
-          </span>
-          <span className="studio-step-separator">›</span>
-          <span className={`studio-step-item ${workspaceMode === 'prompt_studio' ? 'active' : ''}`}>
-            3 Tạo Nhân Vật Mới
-          </span>
-        </nav>
+        <label className="btn-secondary-studio studio-file-button">
+          <FolderOpen size={16} /> {reference ? 'Đổi ảnh' : 'Chọn ảnh sprite'}
+          <input type="file" accept="image/png,image/jpeg,image/webp" onChange={handleReferenceChange} disabled={Boolean(progress)} />
+        </label>
       </header>
+      <div className="studio-scan-status" role="status" aria-live="polite">
+        {progress && <><LoaderCircle size={16} className="spin" /> {progress}</>}
+      </div>
 
-      {/* ========================================================
-          2. BỐ CỤC LƯỚI BẤT ĐỐI XỨNG: VIEWPORT CANVAS & WORKSPACE
-          ======================================================== */}
-      <div className="studio-grid">
-        {/* ========================================================
-            CỘT TRÁI: VIEWPORT SPRITE MẪU & THẺ SỐ ĐO GIẢI PHẪU
-            ======================================================== */}
-        <aside className="studio-column-left">
-          {/* Card Viewport hiển thị Sprite chuẩn Pixel Art */}
-          <div className="studio-viewport-card">
-            <div className="studio-viewport-header">
-              <h3>
-                <FolderOpen size={16} color="var(--accent-purple)" />
-                {reference ? reference.name : 'Chưa nạp sprite mẫu'}
-              </h3>
-              <label className="btn-secondary-studio" style={{ padding: '5px 10px', fontSize: '0.75rem', minHeight: '30px' }}>
-                <FolderOpen size={13} />
-                Chọn ảnh
-                <input
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp"
-                  onChange={handleReferenceChange}
-                  style={{ display: 'none' }}
-                />
-              </label>
-            </div>
+      <nav className="studio-segmented-switch studio-workspace-nav" aria-label="Khu vực làm việc">
+        {[
+          ['reference', 'Đo sprite', Ruler],
+          ['dna_profile', 'Hồ sơ mẫu', Dna],
+          ['prompt_studio', 'Sinh Prompt', Wand2],
+        ].map(([mode, label, Icon]) => (
+          <button
+            key={mode}
+            type="button"
+            className={`studio-segment-btn ${workspaceMode === mode ? 'active' : ''}`}
+            aria-pressed={workspaceMode === mode}
+            onClick={() => setWorkspaceMode(mode)}
+          >
+            <Icon size={16} /> {label}
+          </button>
+        ))}
+      </nav>
 
-            {/* Nền caro Checkerboard Pixel Art */}
-            <figure className="pixel-checkerboard-bg">
-              {reference ? (
-                <img
-                  src={showOverlay && annotatedUrl ? annotatedUrl : reference.url}
-                  alt={reference.name}
-                />
-              ) : (
-                <span>Kéo thả hoặc bấm "Chọn ảnh" để nạp sprite tham chiếu pixel art</span>
-              )}
-            </figure>
+      {workspaceMode === 'reference' && (
+        <TabReferenceView
+          reference={reference}
+          annotatedUrl={annotatedUrl}
+          showOverlay={showOverlay}
+          onToggleOverlay={(event) => setShowOverlay(event.target.checked)}
+          onMeasure={handleLocalMeasure}
+          localAction={localAction}
+          metrics={metrics}
+          regions={profileData.region_measurements}
+          manualRegions={profileData.manual_region_measurements}
+          onManualReport={(report) => setProfileData((previous) => ({
+            ...previous,
+            manual_region_measurements: report,
+          }))}
+          pixelReport={pixelReport}
+          palette={palette}
+          analysisError={analysisError}
+          colorError={colorError}
+          onOpenPrompt={() => setWorkspaceMode('prompt_studio')}
+        />
+      )}
 
-            {/* Thanh công cụ điều khiển Viewport: NÚT QUÉT 1-CLICK DUY NHẤT & LỚP PHỦ */}
-            <div className="studio-viewport-controls">
-              <label className={`studio-toggle-chip ${showOverlay && annotatedUrl ? 'active' : ''}`}>
-                <input
-                  type="checkbox"
-                  checked={showOverlay}
-                  disabled={!annotatedUrl}
-                  onChange={(e) => setShowOverlay(e.target.checked)}
-                />
-                {showOverlay ? <Eye size={13} /> : <EyeOff size={13} />}
-                Lớp phủ đo lường
-              </label>
+      <div hidden={workspaceMode !== 'prompt_studio'}>
+        <TabConstraintsPromptView
+          consistency={profileData.consistency_analysis}
+          negativeConstraints={profileData.negative_constraints}
+          fullProfile={profileData}
+          measuredGeometry={metrics}
+          onGeneratePrompt={handleGeneratePromptFromProfile}
+          generatingPrompt={generatingProfilePrompt}
+          generatedPromptResult={generatedProfilePrompt}
+          onSavePreset={handleSavePreset}
+          savingPreset={savingPreset}
+          saveSuccessMsg={saveSuccessMsg}
+          initialConfig={loadedPresetConfig}
+        />
+      </div>
 
-              {/* NÚT CHÍNH DUY NHẤT: 1-Click Master Scan */}
+      {workspaceMode === 'dna_profile' && (
+        <div className="studio-column-right">
+          <section className="studio-metric-card" aria-busy={isGeneratingStyle}>
+            <div className="studio-measure-heading">
+              <h2>Prompt phong cách từ ảnh mẫu</h2>
               <button
                 type="button"
                 className="btn-primary-studio"
-                disabled={!reference || isMasterAnalyzing}
-                onClick={handleAnalyzeMaster}
-                style={{
-                  minHeight: '34px',
-                  padding: '6px 14px',
-                  fontSize: '0.8rem',
-                  fontWeight: 600,
-                  boxShadow: '0 0 12px var(--accent-purple-glow)'
-                }}
+                disabled={!reference || visionStatus !== 'ready' || isGeneratingStyle || Boolean(localAction)}
+                onClick={handleGenerateReferenceStyle}
               >
-                <Zap size={15} className={isMasterAnalyzing ? 'spin' : ''} />
-                {isMasterAnalyzing
-                  ? 'Đang phân tích toàn diện…'
-                  : hasAnyProfileData
-                  ? 'Quét lại toàn bộ'
-                  : 'Phân tích Sprite Mẫu'}
+                {isGeneratingStyle ? <LoaderCircle size={16} className="spin" /> : <Sparkles size={16} />}
+                {isGeneratingStyle ? 'Đang phân tích phong cách…' : `Tạo prompt phong cách bằng ${providerLabel}`}
               </button>
             </div>
-
-            {/* Chú giải màu sắc Bounding Box (Legend) */}
-            {annotatedUrl && (
-              <div className="studio-legend-bar">
-                <span className="studio-legend-item" style={{ color: '#00e5ff' }}>■ Đầu</span>
-                <span className="studio-legend-item" style={{ color: '#ff8c00' }}>■ Thân</span>
-                <span className="studio-legend-item" style={{ color: '#ba55d3' }}>■ Chân</span>
-                <span className="studio-legend-item" style={{ color: '#ffd700' }}>╌ Vũ khí</span>
-                <span className="studio-legend-item" style={{ color: '#ff69b4' }}>╌ Áo/Cánh</span>
-                <span className="studio-legend-item" style={{ color: '#a0a0a0' }}>╌ Bóng sàn</span>
-              </div>
+            <p className="studio-reference-meta">
+              Khi bấm tạo, app gửi ảnh và các số đo Python đang có tới {providerLabel} để viết chỉ dẫn vẽ dùng lại được.
+            </p>
+            {reference && Object.keys(pythonMeasurements).length === 0 && (
+              <p className="studio-reference-meta">Chưa có số đo. Bạn có thể đo sprite trước để bổ sung dữ liệu.</p>
             )}
-          </div>
-
-          {/* Card Số đo Giải phẫu học Pixel (Quick Metrics Grid) */}
-          <div className="studio-metric-card">
-            <div className="studio-metric-card-header">
-              <h4>
-                <Ruler size={14} style={{ display: 'inline', marginRight: '6px' }} />
-                Thông số giải phẫu hình học
-              </h4>
-              {metrics && (
-                <span style={{ fontSize: '0.7rem', color: '#10b981', fontWeight: 600 }}>
-                  ● Đã hiệu chuẩn
-                </span>
-              )}
-            </div>
-
-            {analysisError && (
-              <p style={{ margin: 0, color: '#ef4444', fontSize: '0.775rem' }}>
-                ⚠️ {analysisError}
+            {visionStatus !== 'ready' && (
+              <p className="studio-reference-meta">
+                {visionStatus === 'checking' && 'Đang kiểm tra cấu hình AI…'}
+                {visionStatus === 'missing' && `Chưa cấu hình khóa ${providerLabel} cho dự án.`}
+                {visionStatus === 'error' && 'Không đọc được cấu hình AI. Hãy mở lại tab để thử lại.'}
               </p>
             )}
+            {profileError && <p className="studio-reference-error" role="alert">{profileError}</p>}
+          </section>
 
-            {/* Lưới 4 ô số đo nổi bật */}
-            {metrics ? (
-              <div className="studio-metric-grid">
-                <div className="studio-metric-cell">
-                  <span className="metric-label">Chiều cao sinh học</span>
-                  <span className="metric-val">
-                    {metrics.anatomical_height || metrics.visible_height} px
-                  </span>
-                  <span className="metric-sub">Đã loại trừ vũ khí/bóng</span>
-                </div>
-
-                <div className="studio-metric-cell">
-                  <span className="metric-label">Tỷ lệ dáng người</span>
-                  <span className="metric-val">
-                    1:{typeof metrics.heads_tall === 'number' ? metrics.heads_tall.toFixed(1) : metrics.heads_tall} đầu
-                  </span>
-                  <span className="metric-sub">{metrics.style_category || 'Dáng game'}</span>
-                </div>
-
-                <div className="studio-metric-cell">
-                  <span className="metric-label">Kích thước đầu</span>
-                  <span className="metric-val">{metrics.head_w} × {metrics.head_h} px</span>
-                  <span className="metric-sub">{metrics.head_ratio_percent}% thân</span>
-                </div>
-
-                <div className="studio-metric-cell">
-                  <span className="metric-label">Kích thước thân</span>
-                  <span className="metric-val">{metrics.body_w} × {metrics.body_h} px</span>
-                  <span className="metric-sub">Khung tiếp đất vững</span>
-                </div>
+          {referenceStyle?.style_prompt && (
+            <section className="studio-metric-card">
+              <div className="studio-measure-heading">
+                <h2>Chỉ dẫn vẽ từ {resultProviderLabel}</h2>
+                <button className="btn-secondary-studio" type="button" onClick={() => setWorkspaceMode('prompt_studio')}>
+                  <Wand2 size={16} /> Mở Sinh Prompt
+                </button>
               </div>
-            ) : (
-              <div style={{ fontSize: '0.775rem', color: 'var(--text-dim)', textAlign: 'center', padding: '12px 0' }}>
-                {reference
-                  ? 'Bấm "Phân tích Sprite Mẫu" ở trên để giải mã tỷ lệ pixel và phong cách.'
-                  : 'Nạp ảnh sprite ở trên để bắt đầu thẩm định tỷ lệ.'}
-              </div>
-            )}
-
-            {/* Thông báo bóc tách phụ kiện */}
-            {metrics && (metrics.weapon_box || metrics.cape_wings_box || metrics.shadow_box) && (
-              <div style={{
-                fontSize: '0.75rem',
-                padding: '8px 10px',
-                background: 'rgba(16, 185, 129, 0.08)',
-                borderLeft: '2px solid #10b981',
-                borderRadius: '4px',
-                color: '#34d399',
-                lineHeight: '1.4'
-              }}>
-                🛡️ <strong>Đã tự động bóc tách:</strong> Chiều cao thân chuẩn là{' '}
-                <strong>{metrics.anatomical_height || metrics.visible_height}px</strong> (đã lọc riêng vũ khí &amp; bóng sàn).
-              </div>
-            )}
-          </div>
-        </aside>
-
-        {/* ========================================================
-            CỘT PHẢI: WORKSPACE TẠO NHÂN VẬT MỚI & TRA CỨU DNA
-            ======================================================== */}
-        <main className="studio-column-right">
-          {/* Bộ chuyển đổi 2 chế độ làm việc lớn (Segmented Switch) */}
-          <div className="studio-segmented-switch">
-            <button
-              type="button"
-              className={`studio-segment-btn ${workspaceMode === 'prompt_studio' ? 'active' : ''}`}
-              onClick={() => setWorkspaceMode('prompt_studio')}
-            >
-              <Wand2 size={16} />
-              <span>Phòng Tạo Nhân Vật Mới &amp; Sinh Prompt</span>
-              <span className="badge-pill">Chính</span>
-            </button>
-
-            <button
-              type="button"
-              className={`studio-segment-btn ${workspaceMode === 'dna_profile' ? 'active' : ''}`}
-              onClick={() => setWorkspaceMode('dna_profile')}
-            >
-              <Dna size={16} />
-              <span>Tra Cứu Hồ Sơ DNA Mẫu (3 Phân Hệ)</span>
-              {hasAnyProfileData && <span className="badge-pill">🟢 Đã có dữ liệu</span>}
-            </button>
-          </div>
-
-          {/* ========================================================
-              CHẾ ĐỘ 1 (CHÍNH): PHÒNG TẠO NHÂN VẬT MỚI (PROMPT STUDIO)
-              ======================================================== */}
-          {workspaceMode === 'prompt_studio' && (
-            <TabConstraintsPromptView
-              consistency={profileData.consistency_analysis}
-              negativeConstraints={profileData.negative_constraints}
-              fullProfile={profileData}
-              onGeneratePrompt={handleGeneratePromptFromProfile}
-              generatingPrompt={generatingProfilePrompt}
-              generatedPromptResult={generatedProfilePrompt}
-              onSavePreset={handleSavePreset}
-              savingPreset={savingPreset}
-              saveSuccessMsg={saveSuccessMsg}
-              initialConfig={loadedPresetConfig}
-            />
+              <p className="studio-style-prompt-text">{referenceStyle.style_prompt}</p>
+              {referenceStyle.observations?.length > 0 && (
+                <details className="studio-measure-details">
+                  <summary>{resultProviderLabel} quan sát được gì?</summary>
+                  <ul className="studio-style-observations">
+                    {referenceStyle.observations.map((item, index) => <li key={index}>{item}</li>)}
+                  </ul>
+                </details>
+              )}
+            </section>
           )}
 
-          {/* ========================================================
-              CHẾ ĐỘ 2 (TRA CỨU): HỒ SƠ QUY CHUẨN DNA 3 PHÂN HỆ
-              ======================================================== */}
-          {workspaceMode === 'dna_profile' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {/* Thanh chọn 3 phân hệ hồ sơ DNA tinh gọn */}
+          {Object.values(tabStatuses).some(Boolean) && (
+            <details className="studio-metric-card studio-measure-details">
+              <summary>Hồ sơ chi tiết đã lưu</summary>
               <CharacterProfileTabs
                 activeTab={activeProfileTab}
                 onSelectTab={setActiveProfileTab}
                 tabStatuses={tabStatuses}
-                analyzingTab={analyzingTab}
-                onAnalyzeTab={handleAnalyzeTab}
-                disabled={!reference}
               />
-
-              {/* Thông báo lỗi nếu có */}
-              {profileError && (
-                <p className="analysis-result" style={{ color: '#ef4444' }}>
-                  ⚠️ {profileError}
-                </p>
-              )}
-
-              {/* Phân hệ 1: Phong cách mỹ thuật & Bảng vật liệu toàn cục */}
-              {activeProfileTab === 'global' && (
-                <TabGlobalView data={profileData.global_analysis} />
-              )}
-
-              {/* Phân hệ 2: Không gian 3 hướng nhìn (Down / Side / Up) */}
-              {activeProfileTab === 'directions' && (
-                <TabDirectionsView data={profileData.direction_analysis} />
-              )}
-
-              {/* Phân hệ 3: Hoạt họa chuyển động (Idle / Walk) */}
-              {activeProfileTab === 'animations' && (
-                <TabAnimationsView data={profileData.animation_analysis} />
-              )}
-            </div>
+              {activeProfileTab === 'global' && <TabGlobalView data={profileData.global_analysis} showPalette={false} />}
+              {activeProfileTab === 'directions' && <TabDirectionsView data={profileData.direction_analysis} />}
+              {activeProfileTab === 'animations' && <TabAnimationsView data={profileData.animation_analysis} />}
+            </details>
           )}
-        </main>
-      </div>
+        </div>
+      )}
     </div>
   );
 }

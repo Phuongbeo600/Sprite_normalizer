@@ -2,8 +2,14 @@
 # 1. THƯ VIỆN NỀN TẢNG PYTHON (Kiểm thử đơn vị)
 # ========================================================
 import unittest
+# patch: Chặn HTTP trong kiểm thử để xác nhận không có yêu cầu ra ngoài.
+from unittest.mock import patch
+# asyncio: Gọi các hàm xử lý bất đồng bộ của tuyến API.
+import asyncio
 # io: Xử lý bộ nhớ luồng ảnh giả lập
 import io
+# json: Mô phỏng tệp số đo của công cụ khoanh vùng.
+import json
 # os: Quản lý biến môi trường trong kiểm thử ngoại tuyến
 import os
 
@@ -12,12 +18,25 @@ import os
 # ========================================================
 # PIL (Pillow): Tạo ảnh mẫu RGBA kiểm thử
 from PIL import Image
+# UploadFile: Tạo tệp ảnh đầu vào cho tuyến API phân tích.
+from fastapi import UploadFile
 
 # ========================================================
 # 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Services & Schemas)
 # ========================================================
 # CharacterAnalysisService: Dịch vụ phân tích hồ sơ nhân vật theo tab
 from backend.services.character_analysis_service import CharacterAnalysisService
+# SettingsService: Kiểm tra hành vi của tuyến kiểm tra khóa OpenAI.
+from backend.services.settings_service import SettingsService
+# Các tuyến phân tích ảnh, hồ sơ và sinh prompt.
+from backend.api.v1.sprites import analyze_character
+# sprites: Gọi tuyến đo thủ công với đa giác hoặc đoạn thẳng.
+from backend.api.v1 import sprites
+# character_analysis: Gọi tuyến tạo chỉ dẫn phong cách từ ảnh mẫu.
+from backend.api.v1 import character_analysis
+from backend.api.v1.character_analysis import (
+    GeneratePromptFromProfileRequest, analyze_character_tab, generate_prompt_from_profile,
+)
 
 # ========================================================
 # 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
@@ -64,6 +83,54 @@ class TestCharacterProfileService(unittest.TestCase):
         self.assertTrue(len(result["materials"]) > 0)
         self.assertIn("Pixel Art", result["identity"]["character_type"])
 
+    def test_configured_openai_creates_reference_style_through_proxy(self):
+        """Kiểm tra OpenAI dùng khóa và Base URL của dự án cho ảnh và prompt."""
+        base_url = "https://proxy.example/v1"
+        buffer = io.BytesIO()
+        self.sample_image.save(buffer, format="PNG")
+        buffer.seek(0)
+        upload = UploadFile(buffer, filename="sprite.png", headers={"content-type": "image/png"})
+        with (
+            patch("backend.api.v1.character_analysis._resolve_project_api_key", return_value=("fake-key", "openai", base_url)),
+            patch("requests.post") as request,
+        ):
+            request.return_value.status_code = 200
+            request.return_value.json.return_value = {"choices": [{"message": {"content": json.dumps({
+                "style_prompt": "Place darker contours where shapes overlap.",
+                "observations": ["Đường tối nằm tại mép chồng nhau."],
+            })}}]}
+            self.assertEqual(SettingsService.test_api_key("openai", "fake-key", base_url)["status"], "success")
+            self.assertEqual(character_analysis.get_vision_status(91)["provider"], "openai")
+            result = asyncio.run(character_analysis.generate_reference_style_prompt(upload, "{}", project_id=91))
+
+        self.assertEqual(result.provider, "openai")
+        self.assertEqual(result.style_prompt, "Place darker contours where shapes overlap.")
+        args, kwargs = request.call_args
+        self.assertEqual(args[0], f"{base_url}/chat/completions")
+        self.assertEqual(kwargs["headers"]["Authorization"], "Bearer fake-key")
+        content = kwargs["json"]["messages"][0]["content"]
+        self.assertIn("style_prompt", content[0]["text"])
+        self.assertTrue(content[1]["image_url"]["url"].startswith("data:image/png;base64,"))
+
+    def test_vision_schema_excludes_python_measurements(self):
+        """Kiểm tra yêu cầu AI và kết quả khi nhà cung cấp trả thêm trường cũ."""
+        raw_profile = CharacterAnalysisService._get_offline_fallback_global()
+        raw_profile["palette_metrics"] = {"total_colors": 999}
+        raw_profile["pixel_style"]["shading_levels"] = 7
+        with patch("backend.services.character_analysis_service.AiProviderFactory.get_provider") as factory:
+            vision = factory.return_value.analyze_vision
+            vision.return_value = raw_profile
+            result = CharacterAnalysisService.analyze_tab_global(self.sample_image, api_key="fake-key")
+
+        sent_prompt = vision.call_args.args[2]
+        self.assertNotIn('"palette_metrics"', sent_prompt)
+        self.assertNotIn('"shading_levels"', sent_prompt)
+        self.assertNotIn("shading levels", sent_prompt)
+        self.assertEqual(result["palette_metrics"]["total_colors"], 1)
+        self.assertIsNone(result["pixel_style"].get("shading_levels"))
+        self.assertNotIn("distinct tone levels", result["palette_metrics"]["master_color_prompt"])
+        self.assertIsNone(CharacterAnalysisService.analyze_tab_global(self.sample_image)["pixel_style"].get("shading_levels"))
+
     def test_analyze_tab_directions(self):
         """Kiểm tra phân tích Tab 2 (3 Hướng nhìn Down / Side / Up)."""
         result = CharacterAnalysisService.analyze_tab_directions(self.sample_image)
@@ -73,6 +140,106 @@ class TestCharacterProfileService(unittest.TestCase):
         self.assertEqual(result["down"]["view_type"], "Front")
         self.assertEqual(result["side"]["view_type"], "Right Profile")
         self.assertEqual(result["up"]["view_type"], "Back")
+
+    def test_sprite_analysis_and_prompt_use_new_measurements(self):
+        """Kiểm tra số đo lát cắt, báo cáo màu và prompt qua các API hiện có."""
+        split_image = self.sample_image.copy()
+        split_image.paste((0, 0, 0, 0), (15, 10, 16, 40))
+        image = split_image.resize((96, 144), Image.Resampling.NEAREST)
+        buffer = io.BytesIO()
+        image.save(buffer, format="PNG")
+
+        def upload():
+            return UploadFile(
+                io.BytesIO(buffer.getvalue()), filename="reference.png",
+                headers={"content-type": "image/png"},
+            )
+
+        with (
+            patch.dict(os.environ, {"GEMINI_API_KEY": "fake-key"}),
+            patch("requests.sessions.Session.request") as outbound,
+        ):
+            colors = sprites.analyze_sprite_colors(upload())
+            anatomy = asyncio.run(analyze_character(upload(), auto_remove_bg=True))
+            outbound.assert_not_called()
+        self.assertEqual(colors["palette_metrics"]["total_colors"], 1)
+        self.assertEqual(anatomy["metrics"]["head_width"], 48)
+        measured = anatomy.get("region_measurements", {})
+        self.assertEqual(measured.get("measurements", {}).get("head", {}).get("width_px"), 24)
+
+        profile = asyncio.run(analyze_character_tab(
+            upload(), "all", None, None, None, None, None,
+        ))["data"]
+        self.assertEqual(profile.get("pixel_art_report", {}).get("palette", {}).get("total_colors"), 1)
+        self.assertEqual(profile["palette_metrics"]["top_hex_list"], ["#ff6432"])
+        self.assertEqual(profile["palette_metrics"]["contrast_ratio"], 1)
+        profile["region_measurements"] = measured
+
+        result = asyncio.run(generate_prompt_from_profile(
+            GeneratePromptFromProfileRequest(profile_data=profile),
+        ))
+        prompt = result["data"]["positive_prompt"]
+        self.assertIn("head width 24 px", prompt)
+        self.assertIn("#ff6432", prompt)
+
+        result = asyncio.run(generate_prompt_from_profile(
+            GeneratePromptFromProfileRequest(profile_data=profile, inherit_scale=False, inherit_style=False),
+        ))
+        prompt = result["data"]["positive_prompt"]
+        self.assertNotIn("head width 24 px", prompt)
+        self.assertNotIn("#ff6432", prompt)
+
+    def test_explicit_vision_scan_does_not_measure_colors(self):
+        """Quét mô tả dùng ảnh và khóa Gemini, không chạy lại thuật toán đo màu."""
+        buffer = io.BytesIO()
+        self.sample_image.save(buffer, format="PNG")
+        buffer.seek(0)
+        upload = UploadFile(buffer, filename="sprite.png", headers={"content-type": "image/png"})
+        with patch("backend.services.character_analysis_service.AiProviderFactory.get_provider") as factory:
+            factory.return_value.analyze_vision.return_value = CharacterAnalysisService._get_offline_fallback_global()
+            result = asyncio.run(analyze_character_tab(
+                upload, "global", None, "fake-key", "gemini", None, None, vision_only=True,
+            ))
+            factory.return_value.analyze_vision.assert_called_once()
+        self.assertNotIn("palette_metrics", result["data"])
+        self.assertNotIn("pixel_art_report", result["data"])
+
+    def test_style_prompt_uses_project_provider_and_python_metrics(self):
+        """Kiểm tra ảnh và số đo được gửi cùng lúc để lấy đoạn phong cách."""
+        buffer = io.BytesIO()
+        self.sample_image.save(buffer, format="PNG")
+        buffer.seek(0)
+        upload = UploadFile(buffer, filename="sprite.png", headers={"content-type": "image/png"})
+        with (
+            patch("backend.api.v1.character_analysis._resolve_project_api_key", return_value=("fake-key", "gemini", None)) as credentials,
+            patch("backend.providers.factory.AiProviderFactory.get_provider") as factory,
+        ):
+            vision = factory.return_value.analyze_vision
+            vision.return_value = {
+                "style_prompt": "Use cool shadow clusters where forms overlap.",
+                "observations": ["Bóng lạnh nằm dưới mái tóc."],
+            }
+            result = asyncio.run(character_analysis.generate_reference_style_prompt(
+                upload, '{"palette":{"total_colors":32}}', project_id=91,
+            ))
+
+        credentials.assert_called_once_with(91, None, None, None)
+        factory.assert_called_once_with("gemini")
+        image, key, prompt = vision.call_args.args
+        self.assertEqual(image.size, self.sample_image.size)
+        self.assertEqual(key, "fake-key")
+        self.assertIn('"total_colors": 32', prompt)
+        self.assertIn("Bạn là họa sĩ pixel art", prompt)
+        self.assertEqual(result.style_prompt, "Use cool shadow clusters where forms overlap.")
+        self.assertEqual(result.observations, ["Bóng lạnh nằm dưới mái tóc."])
+
+        profile = {"reference_style": result.model_dump()}
+        compiled = asyncio.run(generate_prompt_from_profile(
+            GeneratePromptFromProfileRequest(profile_data=profile, core_concept="Orange explorer robot"),
+        ))["data"]["positive_prompt"]
+        self.assertIn("Orange explorer robot", compiled)
+        self.assertIn(result.style_prompt, compiled)
+        self.assertNotIn(result.observations[0], compiled)
 
     def test_analyze_tab_animations(self):
         """Kiểm tra phân tích Tab 3 (Hoạt họa Idle 3 frames & Walk 4 frames)."""
@@ -86,6 +253,28 @@ class TestCharacterProfileService(unittest.TestCase):
         self.assertEqual(down_anim["walk"]["frame_count"], 4)
         self.assertEqual(len(down_anim["idle"]["frame_descriptions"]), 3)
         self.assertEqual(len(down_anim["walk"]["frame_descriptions"]), 4)
+
+    def test_manual_measurements_use_polygons_and_segments(self):
+        """Kiểm tra đa giác tay có trục và đoạn đo đầu trên cùng ảnh."""
+        buffer = io.BytesIO()
+        self.sample_image.save(buffer, format="PNG")
+        buffer.seek(0)
+        upload = UploadFile(buffer, filename="sprite.png", headers={"content-type": "image/png"})
+        payload = {
+            "image_size_px": [32, 48],
+            "measurements": {
+                "head": {"start": [8, 12], "end": [16, 18], "width_px": 999},
+                "left_arm": {
+                    "polygon": [[8, 10], [14, 10], [14, 25], [8, 25]],
+                    "axis": [[11, 10], [11, 25]],
+                },
+            },
+        }
+        report = sprites.measure_manual_regions(upload, json.dumps(payload))
+        self.assertEqual(report["measurements"]["head"]["width_px"], 10)
+        self.assertEqual(report["measurements"]["left_arm"]["width_px"], 6)
+        self.assertEqual(len(report["measurements"]["left_arm"]["cuts"]), 3)
+        self.assertIn("left arm width 6 px", report["prompt_notes"])
 
     def test_analyze_tab_constraints(self):
         """Kiểm tra phân tích Tab 4 (Tính nhất quán & Ràng buộc phủ định)."""

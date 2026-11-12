@@ -19,7 +19,7 @@ Khi tạo sprite hoạt họa hoặc biến thể nhân vật bằng AI (như Mi
 ### Giải pháp của hệ thống
 Hệ thống kết hợp **2 tầng xử lý**:
 1. **Tầng Thuật Toán Toán Học & Hình Học (Offline Heuristics Engine - NumPy & Pillow):**
-   - Tự động cắt hộp bao (Bounding Box), loại bỏ viền trong suốt.
+   - Tự động cắt hộp bao (Bounding Box), loại bỏ viền trong suốt.(phế)
    - Căn lề điểm neo chân (Anchor Alignment: Bottom-Center).
    - Đo đạc chính xác 100% không dùng AI: Tổng số màu thực tế, Kỷ nguyên bảng màu (8-bit, 16-bit, 32-bit), Dải màu chủ đạo, Bậc đổ bóng Cel-shading, Kỹ thuật dịch sắc độ bóng (Hue-Shifting), Kiểu viền (Black outline / Selout), Độ bão hòa & Độ tương phản.
    - Đo chiều cao pixel nhân vật và tỷ lệ đầu/thân.

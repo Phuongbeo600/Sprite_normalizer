@@ -65,7 +65,7 @@ export default function Settings() {
               Quản lý Chìa khóa API đã được chuyển vào từng Dự án
             </h4>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', margin: '0 0 8px', lineHeight: '1.5' }}>
-              Để bảo đảm tính an toàn và cho phép mỗi dự án có thể dùng các nhà cung cấp AI khác nhau (Google Gemini hoặc OpenAI ChatGPT), ô nhập API Key toàn cục đã được gỡ bỏ khỏi màn hình này.
+              Chọn Gemini hoặc OpenAI và cấu hình khóa trong cài đặt từng dự án.
             </p>
             <p style={{ color: 'var(--text-highlight)', fontSize: '0.8rem', margin: 0, fontWeight: 500 }}>
               👉 <strong>Cách cấu hình API Key:</strong> Mở một dự án trong danh sách ➔ Chọn mục <strong>"Cài đặt dự án"</strong> trên thanh điều hướng bên trái để kiểm tra hoặc nhập key riêng cho dự án đó.

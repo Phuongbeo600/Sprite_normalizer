@@ -107,7 +107,7 @@ class LightingDirection(str, Enum):
     AMBIENT = "Ambient / Multi-directional"
 
 
-class PixelStyleAnalysis(BaseModel):
+class PixelStyleDescription(BaseModel):
     """
     Phân tích phong cách mỹ thuật Pixel Art (Pixel Style Analysis).
     Mô tả định tính về mặt thẩm mỹ pixel, kỹ thuật viền (outlines), cách thức phân mảng sáng tối (shading),
@@ -131,11 +131,6 @@ class PixelStyleAnalysis(BaseModel):
     shading_style: Union[ShadingStyle, str] = Field(
         default=ShadingStyle.CEL_SHADING,
         description="Phong cách đổ bóng chủ đạo: Cel-shading, Soft Ramp, Flat Shading, Dithered Shading, Pillow Shading"
-    )
-
-    shading_levels: Optional[int] = Field(
-        default=None,
-        description="Số lượng mức độ sáng/tối đổ bóng ước lượng trên mỗi dải màu chính (ví dụ: 2-tone gồm sáng và tối, 3-tone gồm highlight-mid-shadow), hoặc None nếu không xác định được rõ ràng"
     )
 
     dithering_style: Optional[Union[DitheringStyle, str]] = Field(
@@ -224,3 +219,12 @@ class PixelStyleAnalysis(BaseModel):
             if "ambient" in clean:
                 return LightingDirection.AMBIENT
         return v
+
+
+class PixelStyleAnalysis(PixelStyleDescription):
+    """Phong cách trong hồ sơ, có thể đọc lại số bậc từng lưu ở bản cũ."""
+
+    shading_levels: Optional[int] = Field(
+        default=None,
+        description="Số bậc do hồ sơ cũ ghi nhận, dùng khi đọc dữ liệu đã lưu."
+    )

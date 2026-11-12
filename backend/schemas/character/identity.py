@@ -66,6 +66,7 @@ class IdentityAnalysis(BaseModel):
     """
 
     character_type: str = Field(
+        #Ellipsis bắt buộc phải có dữ liệu khi hàm chạy
         ...,
         description="Loại hoặc danh mục nhân vật (ví dụ: Chiến binh dũng sĩ, Pháp sư bóng tối, Yêu tinh Goblin, Người máy sinh học)"
     )

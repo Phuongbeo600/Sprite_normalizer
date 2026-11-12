@@ -2,13 +2,13 @@
 # 1. THƯ VIỆN NỀN TẢNG PYTHON (Cấu trúc & Kiểu dữ liệu)
 # ========================================================
 # typing: Khai báo kiểu danh sách và giá trị tùy chọn
-from typing import List, Optional
+from typing import Annotated, List, Literal, Optional
 
 # ========================================================
 # 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
 # ========================================================
 # pydantic: Định nghĩa Schema kiểm tra tính hợp lệ dữ liệu tổng hợp
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StringConstraints
 
 # ========================================================
 # 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Character Sub-schemas)
@@ -17,8 +17,8 @@ from pydantic import BaseModel, Field
 from .identity import IdentityAnalysis
 # AnatomyAnalysis: Phân tích cấu trúc giải phẫu sinh học
 from .anatomy import AnatomyAnalysis
-# PixelStyleAnalysis: Phân tích phong cách mỹ thuật pixel
-from .pixel_style import PixelStyleAnalysis
+# Phong cách định tính từ AI và mô hình đọc phong cách của hồ sơ đã lưu.
+from .pixel_style import PixelStyleAnalysis, PixelStyleDescription
 # MaterialAnalysis: Phân tích chất liệu từng vùng
 from .material import MaterialAnalysis
 # DirectionAnalysis: Phân tích 3 hướng nhìn Down, Side, Up
@@ -34,7 +34,7 @@ from .palette import PaletteMetrics
 # (Không áp dụng cho file backend)
 
 
-class GlobalAnalysis(BaseModel):
+class GlobalVisionAnalysis(BaseModel):
     """
     Phân tích tổng thể toàn cục (Global Analysis) của nhân vật tham chiếu.
     Gom nhóm toàn bộ các đặc trưng bất biến về danh tính, cấu trúc giải phẫu học,
@@ -51,7 +51,7 @@ class GlobalAnalysis(BaseModel):
         description="Cấu trúc giải phẫu sinh học, tỷ lệ tương đối giữa các chi và các mốc cơ thể"
     )
 
-    pixel_style: PixelStyleAnalysis = Field(
+    pixel_style: PixelStyleDescription = Field(
         ...,
         description="Phong cách đồ họa pixel art, kỹ thuật đường viền, phân mảng đổ bóng và nguồn sáng"
     )
@@ -61,10 +61,26 @@ class GlobalAnalysis(BaseModel):
         description="Danh sách phân tích chất liệu theo từng vùng cơ thể và trang phục trên nhân vật"
     )
 
+
+class GlobalAnalysis(GlobalVisionAnalysis):
+    """Hồ sơ mẫu có kèm bảng màu do Python đo và hỗ trợ dữ liệu cũ."""
+
+    pixel_style: PixelStyleAnalysis
+
     palette_metrics: Optional[PaletteMetrics] = Field(
         default=None,
         description="Kết quả đo đạc chính xác 100% 6 tiêu chí kỹ thuật màu sắc của Sprite bằng thuật toán Python"
     )
+
+
+class ReferenceStylePrompt(BaseModel):
+    """Chỉ dẫn vẽ tái sử dụng và các dấu hiệu quan sát được từ ảnh mẫu."""
+
+    style_prompt: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=1500)]
+    observations: List[Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=350)]] = Field(
+        default_factory=list, max_length=8,
+    )
+    provider: Optional[Literal["gemini", "openai"]] = None
 
 
 class ConsistencyAnalysis(BaseModel):

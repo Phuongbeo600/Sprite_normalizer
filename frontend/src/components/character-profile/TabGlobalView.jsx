@@ -39,7 +39,7 @@ import PaletteMetricsSection from './PaletteMetricsSection';
  * @param {Object|null} props.data Dữ liệu phân tích toàn cục nhận từ máy chủ.
  * @returns {React.ReactElement} Giao diện hiển thị chi tiết.
  */
-export default function TabGlobalView({ data }) {
+export default function TabGlobalView({ data, showPalette = true }) {
   if (!data) {
     return (
       <div className="analysis-result" style={{ textAlign: 'center', padding: '24px 16px' }}>
@@ -51,6 +51,7 @@ export default function TabGlobalView({ data }) {
   }
 
   const { identity, anatomy, pixel_style, materials, palette_metrics } = data;
+  const hasMeasuredPalette = palette_metrics?.total_colors > 0;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -58,7 +59,7 @@ export default function TabGlobalView({ data }) {
           0. HỒ SƠ ĐO LƯỜNG HỆ MÀU SẮC CHUẨN (PYTHON PALETTE ENGINE)
           Đo đạc 100% chính xác 6 tiêu chí kỹ thuật màu sắc của Sprite bằng Python
           ======================================================== */}
-      {palette_metrics && <PaletteMetricsSection paletteMetrics={palette_metrics} />}
+      {showPalette && palette_metrics && <PaletteMetricsSection paletteMetrics={palette_metrics} />}
 
       {/* ========================================================
           1. ĐẶC ĐIỂM NHẬN DIỆN VÀ DANH TÍNH (IDENTITY)
@@ -232,16 +233,15 @@ export default function TabGlobalView({ data }) {
               <strong>Trường phái Art Style</strong>
               <span>{pixel_style.art_style || 'Pixel Art tiêu chuẩn'}</span>
             </div>
-            <div className="profile-field-item">
-              <strong>Đường viền nét (Outline)</strong>
-              <span>{pixel_style.outline_style || 'Nét đen / Viền chọn lọc'}</span>
-            </div>
+            {!hasMeasuredPalette && pixel_style.outline_style && (
+              <div className="profile-field-item">
+                <strong>Kiểu viền trong hồ sơ</strong>
+                <span>{pixel_style.outline_style}</span>
+              </div>
+            )}
             <div className="profile-field-item">
               <strong>Kiểu đổ bóng (Shading)</strong>
-              <span>
-                {pixel_style.shading_style}
-                {pixel_style.shading_levels ? ` (${pixel_style.shading_levels} bậc sáng)` : ''}
-              </span>
+              <span>{pixel_style.shading_style}</span>
             </div>
             <div className="profile-field-item">
               <strong>Hướng ánh sáng</strong>

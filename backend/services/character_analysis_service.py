@@ -4,7 +4,7 @@ Mục đích: Dịch vụ nghiệp vụ phân tích nhân vật pixel art chuyê
 Ai gọi nó: API router `backend.api.v1.character_analysis`.
 Tại sao tồn tại: Đóng vai trò nhạc trưởng (Orchestrator) kết hợp 2 tầng:
   1. Tầng Heuristics offline (NumPy, Pillow): đo đạc hệ màu sắc và giải phẫu không tốn token.
-  2. Tầng AI Vision online (Gemini, OpenAI): phân tích chi tiết theo 7 Schemas Pydantic.
+  2. Tầng AI Vision tùy chọn (Gemini hoặc OpenAI): phân tích theo các schema Pydantic.
 """
 
 # ========================================================
@@ -30,7 +30,6 @@ from PIL import Image
 # ========================================================
 # Schemas và Controlled Vocabulary Enums phân tích nhân vật theo từng phân hệ Tab
 from backend.schemas.character import (
-    GlobalAnalysis,
     DirectionAnalysis,
     AnimationAnalysis,
     ConsistencyAnalysis,
@@ -59,10 +58,10 @@ from backend.schemas.character import (
 )
 # AiProviderFactory: Khởi tạo Provider đa hình (Gemini / OpenAI)
 from backend.providers.factory import AiProviderFactory
-# HeuristicPaletteAnalyzer: Bộ phân tích 6 tiêu chí hệ màu sắc Pixel Art bằng thuật toán toán học NumPy
-from backend.core.palette_analyzer import HeuristicPaletteAnalyzer
-# PaletteMetrics: Schema kết quả đo lường và phân tích hệ màu sắc
-from backend.schemas.character.palette import PaletteMetrics
+# SpriteService: Cung cấp đo màu cho các máy khách dùng hợp đồng hồ sơ cũ.
+from backend.services.sprite_service import SpriteService
+# GlobalVisionAnalysis: Chỉ yêu cầu AI trả phần mô tả hình ảnh.
+from backend.schemas.character.ai_analysis import GlobalVisionAnalysis
 
 # ========================================================
 # 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
@@ -87,7 +86,8 @@ class CharacterAnalysisService:
         image: Image.Image,
         api_key: Optional[str] = None,
         provider: str = "gemini",
-        base_url: Optional[str] = None
+        base_url: Optional[str] = None,
+        include_palette: bool = True,
     ) -> Dict[str, Any]:
         """
         [TAB 1]: Phân tích Toàn cục, Danh tính, Giải phẫu sinh học, Phong cách Pixel Art và Chất liệu từng vùng.
@@ -99,32 +99,26 @@ class CharacterAnalysisService:
 You are an expert Lead Pixel Artist analyzing a reference character sprite.
 Analyze this reference image and extract the GLOBAL PROFILE in valid JSON matching this schema:
 
-{json.dumps(GlobalAnalysis.model_json_schema(), ensure_ascii=False, indent=2)}
+{json.dumps(GlobalVisionAnalysis.model_json_schema(), ensure_ascii=False, indent=2)}
 
 CRITICAL INSTRUCTIONS:
 1. "identity": Detect character type, gender presentation (or null), body type, distinctive features, silhouette, shape language, facial features (or null if helmeted/covered), costume description, accessories.
 2. "anatomy": Describe body structure (e.g. humanoid), head, torso, arms, legs, unusual parts, landmarks, relative limb placement, anatomical ambiguities. DO NOT measure exact pixel coordinates.
-3. "pixel_style": Describe art style (e.g. 16-bit SNES), outline style (e.g. dark selout), shading style, shading levels (integer or null), dithering style (or null), pixel cluster style, detail density, pixel cleanliness, lighting direction (or null), visual artifacts.
+3. "pixel_style": Describe art style (e.g. 16-bit SNES), outline style (e.g. dark selout), shading technique, dithering style (or null), pixel cluster style, detail density, pixel cleanliness, lighting direction (or null), visual artifacts.
 4. "materials": List of MaterialAnalysis objects for distinct regions (e.g. metal armor, cloth cape, skin).
 
 Return ONLY the raw JSON object adhering to the schema, without markdown formatting.
 """
-        # Đo đạc 100% chính xác 6 tiêu chuẩn kỹ thuật màu sắc của ảnh Sprite bằng thuật toán Python NumPy
-        palette_analyzer = HeuristicPaletteAnalyzer()
-        palette_metrics = palette_analyzer.analyze_palette(image)
-
         if effective_key:
             ai_provider = AiProviderFactory.get_provider(effective_provider)
             raw_data = ai_provider.analyze_vision(image, effective_key, prompt, base_url=clean_base)
-            if isinstance(raw_data, dict):
-                raw_data["palette_metrics"] = palette_metrics.model_dump()
-            # Validate qua Pydantic schema
-            validated = GlobalAnalysis.model_validate(raw_data)
-            return validated.model_dump()
+            result = GlobalVisionAnalysis.model_validate(raw_data).model_dump()
         else:
-            fallback = cls._get_offline_fallback_global()
-            fallback["palette_metrics"] = palette_metrics.model_dump()
-            return fallback
+            result = cls._get_offline_fallback_global()
+        result["pixel_style"]["shading_levels"] = None
+        if include_palette:
+            result.update(SpriteService.analyze_colors(image))
+        return result
 
     @classmethod
     def analyze_tab_directions(
@@ -331,9 +325,9 @@ Return ONLY the raw JSON object adhering to the schema.
 
         # Quy chuẩn đồ họa Pixel (Pixel Art Blueprint)
         art_style = pixel_style_data.get("art_style") or "16-bit retro console pixel art"
-        outline_style = pixel_style_data.get("outline_style") or "Selective dark outline (selout)"
+        palette_data = profile_data.get("palette_metrics") or global_data.get("palette_metrics") or {}
+        outline_style = (palette_data.get("outline_style_detected") if inherit_style else None) or "crisp pixel edges"
         shading_style = pixel_style_data.get("shading_style") or "Cel-shading with hue-shifting"
-        shading_levels = pixel_style_data.get("shading_levels") or 3
         dithering_style = pixel_style_data.get("dithering_style") or "Clean clusters, no heavy dithering"
         cluster_style = pixel_style_data.get("pixel_cluster_style") or "Crisp, intentional pixel clusters without stray noise"
         lighting_dir = pixel_style_data.get("lighting_direction") or "Top-left directional light (45 degrees)"
@@ -370,7 +364,7 @@ TECHNICAL RENDERING BLUEPRINT (INHERITED FROM GAME DESIGN SYSTEM):
 - Game Canvas Scale: {scale_guidance if inherit_scale else "Standard full body framing"}
 - Pixel Art Style: {art_style if inherit_style else "Retro pixel art"}
 - Outline Rule: {outline_style}
-- Shading Rule: {shading_style} ({shading_levels} distinct shades)
+- Shading Rule: {shading_style}
 - Lighting Angle: {lighting_dir}
 - Cluster Rule: {cluster_style}, {dithering_style}
 - Forbidden Defects: {visual_defects_str}
@@ -417,7 +411,7 @@ Return ONLY a valid JSON object:
             f"{outfit_part}{weapon_part}"
             f"exact {view_type} angle, body {body_orient}, head {head_orient}, {limb_placement}, "
             f"{stature_desc}, "
-            f"authentic {art_style}, crisp {outline_style}, professional {shading_style} with {shading_levels} distinct shades, "
+            f"authentic {art_style}, {outline_style}, professional {shading_style}, "
             f"{lighting_dir} casting dynamic directional shadows, {cluster_style}, {dithering_style}, "
             f"{scale_guidance}, "
             f"perfect 1x pixel grid alignment, crisp sharp edges, solid isolated neutral dark background, game asset sprite sheet ready"
@@ -436,7 +430,7 @@ Return ONLY a valid JSON object:
             f"• Trang phục & Vũ khí riêng: {clean_outfit or 'Theo concept'} | {clean_weapons or 'Tự do'}",
             f"• Vóc dáng: {stature_desc}",
             f"• Kế thừa góc nhìn: {view_type} (Đầu {head_orient}, Thân {body_orient})",
-            f"• Kế thừa kỹ thuật đồ họa: {art_style} (Viền: {outline_style}, Đổ bóng: {shading_style} {shading_levels} bậc sáng)",
+            f"• Kế thừa kỹ thuật đồ họa: {art_style} (Viền: {outline_style}, Đổ bóng: {shading_style})",
             f"• Khống chế tỷ lệ game: {scale_guidance or 'Chuẩn hóa tỷ lệ'}"
         ]
 
@@ -456,10 +450,8 @@ Return ONLY a valid JSON object:
         clean_provider = (provider or os.getenv("AI_PROVIDER", "gemini")).lower().strip()
         clean_base = base_url or os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
 
-        if clean_provider == "openai":
-            key = api_key or os.getenv("OPENAI_API_KEY")
-        else:
-            key = api_key or os.getenv("GEMINI_API_KEY")
+        key_name = "OPENAI_API_KEY" if clean_provider == "openai" else "GEMINI_API_KEY"
+        key = api_key or os.getenv(key_name)
 
         return key, clean_provider, clean_base
 
@@ -496,7 +488,6 @@ Return ONLY a valid JSON object:
                 "art_style": PixelArtEra.CLASSIC_16BIT.value,
                 "outline_style": OutlineStyle.SELECTIVE_OUTLINE.value,
                 "shading_style": ShadingStyle.CEL_SHADING.value,
-                "shading_levels": 3,
                 "dithering_style": DitheringStyle.NONE.value,
                 "pixel_cluster_style": PixelClusterStyle.CHUNKY_CLUSTERS.value,
                 "detail_density": DetailDensity.MODERATE.value,

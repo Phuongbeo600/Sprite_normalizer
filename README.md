@@ -36,5 +36,15 @@ npm run dev
   - `src/components/`: Sidebar, Header, ProjectCard, PixelArtIcons, FantasyBackground
   - `src/pages/`: Projects (danh sách), Workspace (chuẩn hóa sprite), Settings (cài đặt)
 - `backend/`: Máy chủ xử lý Python
-  - `core/`: Chứa thuật toán chuẩn hóa sprite (từ MVC cũ)
+  - `core/`: Chứa các thuật toán Python xử lý sprite, gồm chuẩn hóa khung hình, đo kích thước và phân tích màu sắc.
   - `api/`: Các API endpoint giao tiếp với frontend
+
+### Gọi thuật toán từ backend
+
+Chạy `python -m pip install -r backend/requirements.txt` từ thư mục gốc để cài các thư viện xử lý ảnh.
+
+| Mô-đun trong `backend/core/` | Hàm và dữ liệu đầu vào |
+| --- | --- |
+| `region_measure.py` | `measure_region(image, part, polygon, axis=None)` đo bề rộng trên ảnh RGBA từ các đỉnh đa giác nguyên. Với tay hoặc chân, có thể truyền hai điểm xác định hướng chi. Kết quả có `width` và các lát cắt. |
+| `sprite_prompt.py` | `build_sprite_prompt(data, description="")` tạo prompt từ dữ liệu JSON số đo đã đọc, gồm `image_size_px` và `measurements`. |
+| `pixel_art_metrics.py` | `analyze_sprite(image)` nhận ảnh Pillow và trả về báo cáo lưới pixel, bảng màu, viền, đổ bóng và cụm pixel. `compare_styles(ref, cand)` nhận hai báo cáo phân tích thành công và trả về điểm so sánh. |

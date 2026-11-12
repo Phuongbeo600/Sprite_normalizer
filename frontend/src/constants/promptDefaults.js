@@ -38,9 +38,6 @@ export const DEFAULT_NEGATIVE_PROMPT = (
  * @returns {Object} Ma trận 15 frame gồm 3 hướng (down, side, up).
  */
 export function createDefaultFrameActionsFromProfile(profile) {
-  const anatomy = profile?.anatomy || profile?.global_analysis?.anatomy || {};
-  const height = anatomy.anatomical_height || 48;
-  const headRatio = anatomy.head_to_body_ratio || '1:4.0';
   const anim = profile?.animations?.walk_profile || profile?.animation_analysis?.walk_profile || {};
   const bobbing = anim.vertical_bobbing_pixels || '1px';
   const secondary = anim.secondary_motion || 'subtle cloth and hair momentum sway';
@@ -51,7 +48,7 @@ export function createDefaultFrameActionsFromProfile(profile) {
         frame_index: 0,
         label: 'Frame 0: Đứng yên nhìn thẳng (Idle)',
         type: 'static',
-        action_prompt: `Front view, static idle stand: perfectly balanced upright posture (${height}px height, ${headRatio} ratio), both feet flat shoulder-width, hands and weapons rested naturally at sides, eyes facing viewer, zero movement.`
+        action_prompt: 'Front view, static idle stand: perfectly balanced upright posture, both feet flat shoulder-width, hands and weapons rested naturally at sides, eyes facing viewer, zero movement.'
       },
       frame_1: {
         frame_index: 1,
@@ -83,7 +80,7 @@ export function createDefaultFrameActionsFromProfile(profile) {
         frame_index: 0,
         label: 'Frame 0: Đứng yên nhìn ngang (Idle)',
         type: 'static',
-        action_prompt: `Strict right profile view (90 degrees), static idle stand: spine straight (${height}px height), feet slightly staggered for 2D depth, weapon held at ready, far arm and leg partially occluded, zero movement.`
+        action_prompt: 'Strict right profile view (90 degrees), static idle stand: spine straight, feet slightly staggered for 2D depth, weapon held at ready, far arm and leg partially occluded, zero movement.'
       },
       frame_1: {
         frame_index: 1,
@@ -115,7 +112,7 @@ export function createDefaultFrameActionsFromProfile(profile) {
         frame_index: 0,
         label: 'Frame 0: Đứng yên quay lưng (Idle)',
         type: 'static',
-        action_prompt: `Direct back view (180 degrees), static idle stand: spine straight (${height}px height), shoulders square, face completely occluded, showing back of head, rear torso, backpack/sheath and shoe soles, zero movement.`
+        action_prompt: 'Direct back view (180 degrees), static idle stand: spine straight, shoulders square, face completely occluded, showing back of head, rear torso, backpack/sheath and shoe soles, zero movement.'
       },
       frame_1: {
         frame_index: 1,
@@ -154,15 +151,16 @@ export function createDefaultFrameActionsFromProfile(profile) {
  * @param {string} props Vũ khí và phụ kiện.
  * @param {Object} profile Dữ liệu phân tích từ 7 Schemas.
  * @param {string} customMasterColorPrompt Khung đặc tả màu sắc do người dùng chỉnh sửa.
+ * @param {string} referenceSizeNotes Số đo lát cắt dùng làm tỷ lệ tham chiếu.
+ * @param {string} referenceStylePrompt Chỉ dẫn vẽ do AI rút ra từ ảnh mẫu.
  * @returns {string} Chuỗi câu prompt tiếng Anh chuẩn 3 tầng.
  */
-export function compileLivePrompt(actions, charConcept, outfit, props, profile, customMasterColorPrompt) {
+export function compileLivePrompt(actions, charConcept, outfit, props, profile, customMasterColorPrompt, referenceSizeNotes, referenceStylePrompt) {
   const anatomy = profile?.anatomy || profile?.global_analysis?.anatomy || {};
   const pixelStyle = profile?.pixel_style || profile?.global_analysis?.pixel_style || {};
   const height = anatomy.anatomical_height || 48;
   const headRatio = anatomy.head_to_body_ratio || '1:4.0';
-  const era = pixelStyle.pixel_art_era || '16-bit SNES';
-  const outline = pixelStyle.outline_style || 'crisp dark pixel contour';
+  const era = pixelStyle.art_style || pixelStyle.pixel_art_era || '16-bit SNES';
   const shading = pixelStyle.shading_style || '2-tone cell shading';
   const lighting = pixelStyle.lighting_direction || 'consistent top-left lighting';
 
@@ -187,8 +185,10 @@ export function compileLivePrompt(actions, charConcept, outfit, props, profile, 
   promptParts.push(
     `Masterpiece authentic ${era} pixel art sprite sheet of a ${conceptStr}${outfitStr}${propsStr}.\n` +
     `Strict anatomy constraints: exactly ${height} pixels character height, strict ${headRatio} head-to-body proportion.\n` +
-    `Rendering specifications: ${outline}, ${shading}, ${lighting}, transparent background, isolated on pure solid transparent background (PNG alpha channel), clean cut-out sprite sheet without background elements or floor shadows.`
+    `Rendering specifications: ${shading}, ${lighting}, transparent background, isolated on pure solid transparent background (PNG alpha channel), clean cut-out sprite sheet without background elements or floor shadows.`
   );
+  if (referenceStylePrompt?.trim()) promptParts.push(`REFERENCE STYLE GUIDANCE:\n${referenceStylePrompt.trim()}`);
+  if (referenceSizeNotes) promptParts.push(referenceSizeNotes);
 
   // TẦNG 2: GRID LAYOUT & SPECIFICATIONS (3x5)
   promptParts.push(

@@ -138,8 +138,6 @@ class HeuristicPaletteAnalyzer:
             total_unique=total_unique,
             palette_era=palette_era,
             top_hex_list=top_hex_list,
-            shading_style=shading_style,
-            shading_steps=shading_steps,
             hue_shift_desc=hue_shift_desc,
             outline_style=outline_style,
             saturation_type=sat_type,
@@ -164,8 +162,63 @@ class HeuristicPaletteAnalyzer:
             master_color_prompt=master_prompt
         )
 
+    def from_pixel_art_report(self, report: dict) -> PaletteMetrics:
+        """Ánh xạ báo cáo lưới pixel gốc sang hợp đồng bảng màu của hồ sơ."""
+        palette, shading, outline = report["palette"], report["shading"], report["outline"]
+        total_colors = palette["total_colors"]
+        era = self._classify_palette_era(total_colors)
+        steps = round(shading["steps_per_ramp_weighted"])
+        shading_style = f"{steps}-Tone Pixel Shading" if steps else "No shading ramp detected"
+        hue_shift = shading["hue_shift_direction"]
+        outline_style = {
+            "uniform_black": "Uniform Black Outline",
+            "uniform_colored": "Uniform Colored Outline",
+            "selout": "Selective Outline (Selout)",
+            "multicolor_nonselective": "Multicolor Outline",
+        }.get(outline["style"], "Lineless")
+        avg_sat = palette["average_saturation"]
+        saturation_type = self._classify_saturation(avg_sat)
+        contrast = palette["contrast_ratio_wcag"]
+        contrast_type = self._classify_contrast(contrast)
+
+        dominant = []
+        for swatch in palette["dominant"]:
+            hex_code = swatch["hex"]
+            rgb = [int(hex_code[index:index + 2], 16) for index in (1, 3, 5)]
+            percentage = swatch["area_pct"]
+            role = (
+                "Outline" if hex_code in outline["colors"]
+                else self._classify_swatch_role(*rgb, percentage)
+            )
+            dominant.append(DominantColorItem(
+                hex_code=hex_code, rgb=rgb, pixel_count=swatch["pixels"],
+                percentage=percentage, role=role,
+            ))
+        top_hex_list = [swatch.hex_code for swatch in dominant]
+
+        return PaletteMetrics(
+            total_colors=total_colors,
+            palette_era=era,
+            dominant_colors=dominant,
+            top_hex_list=top_hex_list,
+            shading_steps=steps,
+            shading_style_detected=shading_style,
+            hue_shifting_detected=hue_shift != "straight (no hue shift)",
+            hue_shift_description=hue_shift,
+            outline_style_detected=outline_style,
+            average_saturation=round(avg_sat, 2),
+            saturation_type=saturation_type,
+            contrast_ratio=contrast,
+            contrast_type=contrast_type,
+            master_color_prompt=self._compose_master_color_prompt(
+                total_colors, era, top_hex_list, hue_shift,
+                outline_style, saturation_type, contrast_type, contrast,
+                outline_thickness=outline["thickness_px"],
+            ),
+        )
+
     # ========================================================
-    # CÁC PHƯƠNG THỨC TRỢ LÝ PHÂN TÍCH CHUYÊN BIỆT (PRIVATE HELPERS)
+    # CÁC PHƯƠNG THỨC TRỢ LÝ PHÂN TÍCH CHUYÊN BIỆT
     # ========================================================
     def _build_empty_metrics(self) -> PaletteMetrics:
         """Trả về dữ liệu rỗng mặc định khi ảnh hoàn toàn trong suốt."""
@@ -215,28 +268,30 @@ class HeuristicPaletteAnalyzer:
             cnt = int(counts[idx])
             pct = round((cnt / total_visible_pixels) * 100, 2)
 
-            lum = 0.299 * r + 0.587 * g + 0.114 * b
-            if pct > PRIMARY_BASE_MIN_PERCENTAGE:
-                role = "Primary Base"
-            elif pct > SECONDARY_BASE_MIN_PERCENTAGE:
-                role = "Secondary Base"
-            elif lum < DEEP_SHADOW_MAX_LUM and pct > DEEP_SHADOW_MIN_PERCENTAGE:
-                role = "Outline / Deep Shadow"
-            elif lum > HIGHLIGHT_MIN_LUM:
-                role = "Highlight"
-            else:
-                role = "Accent"
-
             dominant_list.append(DominantColorItem(
                 hex_code=hex_str,
                 rgb=[r, g, b],
                 pixel_count=cnt,
                 percentage=pct,
-                role=role
+                role=self._classify_swatch_role(r, g, b, pct)
             ))
             top_hex_list.append(hex_str)
 
         return dominant_list, top_hex_list
+
+    @staticmethod
+    def _classify_swatch_role(r: int, g: int, b: int, percentage: float) -> str:
+        """Gán vai trò màu theo độ sáng và tỷ lệ diện tích."""
+        lum = 0.299 * r + 0.587 * g + 0.114 * b
+        if percentage > PRIMARY_BASE_MIN_PERCENTAGE:
+            return "Primary Base"
+        if percentage > SECONDARY_BASE_MIN_PERCENTAGE:
+            return "Secondary Base"
+        if lum < DEEP_SHADOW_MAX_LUM and percentage > DEEP_SHADOW_MIN_PERCENTAGE:
+            return "Outline / Deep Shadow"
+        if lum > HIGHLIGHT_MIN_LUM:
+            return "Highlight"
+        return "Accent"
 
     def _analyze_shading_and_hue_shift(
         self,
@@ -332,48 +387,54 @@ class HeuristicPaletteAnalyzer:
         colored_saturations = [s for _, s, _ in hsv_colors if s > 0.05]
         avg_sat = float(np.mean(colored_saturations)) if colored_saturations else 0.5
 
-        if avg_sat >= SATURATION_HIGH_THRESHOLD:
-            sat_type = "Vibrant Retro Pixel Saturation"
-        elif avg_sat >= SATURATION_MEDIUM_THRESHOLD:
-            sat_type = "Balanced Classic Saturation"
-        else:
-            sat_type = "Muted / Desaturated Dark Palette"
-
         luminances = [0.299 * p[0] + 0.587 * p[1] + 0.114 * p[2] for p in visible_pixels]
         lum_max = float(np.max(luminances)) if luminances else 255.0
         lum_min = float(np.min(luminances)) if luminances else 0.0
         contrast_val = round((lum_max + 0.05) / (lum_min + 0.05), 1)
 
-        if contrast_val >= CONTRAST_HIGH_THRESHOLD:
-            contrast_type = "High Contrast (Crisp lighting pop)"
-        elif contrast_val >= CONTRAST_MEDIUM_THRESHOLD:
-            contrast_type = "Medium Contrast (Soft readability)"
-        else:
-            contrast_type = "Low Contrast"
+        return avg_sat, self._classify_saturation(avg_sat), contrast_val, self._classify_contrast(contrast_val)
 
-        return avg_sat, sat_type, contrast_val, contrast_type
+    @staticmethod
+    def _classify_saturation(value: float) -> str:
+        """Gán nhãn mô tả độ bão hòa."""
+        if value >= SATURATION_HIGH_THRESHOLD:
+            return "Vibrant Retro Pixel Saturation"
+        if value >= SATURATION_MEDIUM_THRESHOLD:
+            return "Balanced Classic Saturation"
+        return "Muted / Desaturated Dark Palette"
+
+    @staticmethod
+    def _classify_contrast(value: float) -> str:
+        """Gán nhãn mô tả độ tương phản."""
+        if value >= CONTRAST_HIGH_THRESHOLD:
+            return "High Contrast (Crisp lighting pop)"
+        if value >= CONTRAST_MEDIUM_THRESHOLD:
+            return "Medium Contrast (Soft readability)"
+        return "Low Contrast"
 
     def _compose_master_color_prompt(
         self,
         total_unique: int,
         palette_era: str,
         top_hex_list: List[str],
-        shading_style: str,
-        shading_steps: int,
         hue_shift_desc: str,
         outline_style: str,
         saturation_type: str,
         contrast_type: str,
-        contrast_val: float
+        contrast_val: float,
+        outline_thickness: float = 1,
     ) -> str:
         """Biên dịch chuỗi Master Color Prompt hợp chuẩn với Asset tham chiếu."""
         top_swatches_str = ", ".join(top_hex_list[:8])
+        contour = (
+            f", strictly {outline_thickness:g}-pixel crisp pixel contour without orphan noise."
+            if outline_thickness > 0 else ", preserve crisp silhouette edges without adding an outline."
+        )
         return (
             f"MASTER COLOR & GRAPHIC PALETTE SPECIFICATIONS (STRICTLY HARMONIZED WITH REFERENCE ASSET):\n"
             f"- Color Budget: Strictly indexed {total_unique}-color palette ({palette_era}), primary palette anchors: [{top_swatches_str}].\n"
-            f"- Shading Architecture: {shading_style} per surface ({shading_steps} distinct tone levels), strictly zero smooth airbrushing or blurry gradients.\n"
             f"- Hue-Shifting Rule: {hue_shift_desc}.\n"
-            f"- Outline Grammar: {outline_style}, strictly 1-pixel crisp pixel contour without orphan noise.\n"
+            f"- Outline Grammar: {outline_style}{contour}\n"
             f"- Palette Saturation & Contrast: {saturation_type}, {contrast_type} curve ({contrast_val}:1 ratio).\n"
             f"- Background: Isolated on pure transparent background (PNG alpha channel), zero drop shadows on floor."
         )

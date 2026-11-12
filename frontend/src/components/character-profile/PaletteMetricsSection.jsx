@@ -148,10 +148,10 @@ export default function PaletteMetricsSection({ paletteMetrics }) {
             <span className="palette-metric-title">
               <Layers size={14} color="#ec4899" /> 3. Bậc đổ bóng (Shading)
             </span>
-            <span className="profile-tag success">{paletteMetrics.shading_steps} nấc sáng</span>
+            <span className="profile-tag success">Ước lượng {paletteMetrics.shading_steps} bậc</span>
           </div>
           <div className="palette-metric-value">{paletteMetrics.shading_style_detected}</div>
-          <div className="palette-metric-desc">Không dùng cọ mềm mịn (Airbrush), đổ bóng phân mảng dứt khoát chuẩn Cel-shading.</div>
+          <div className="palette-metric-desc">Thống kê từ các dải màu sáng–tối trên sprite mẫu.</div>
         </div>
 
         {/* Tiêu chí 4: Dịch chuyển sắc độ (Hue-Shifting) */}
