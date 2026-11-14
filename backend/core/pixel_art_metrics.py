@@ -188,7 +188,8 @@ def _best_phase(profile: np.ndarray, period: float, step: float = 0.25):
 
 
 def detect_pixel_grid(rgba: np.ndarray, max_period: Optional[float] = None,
-                      min_lift: float = 0.40, min_on_grid: float = 0.60) -> GridResult:
+                      min_lift: float = 0.40, min_on_grid: float = 0.60,
+                      min_edges_per_axis: int = 0) -> GridResult:
     """
     Tìm chu kỳ p và pha sao cho các cạnh màu (gradient) rơi vào lưới {phase + k*p}.
     score(p) = (năng lượng cạnh trên lưới / tổng) - (tỷ lệ vị trí lưới trong ảnh)
@@ -197,7 +198,7 @@ def detect_pixel_grid(rgba: np.ndarray, max_period: Optional[float] = None,
     H, W = rgba.shape[:2]
     px, py = _edge_profiles(rgba)
     tx, ty = float(px.sum()), float(py.sum())
-    if tx + ty <= 0:
+    if tx + ty <= 0 or min(np.count_nonzero(px), np.count_nonzero(py)) < min_edges_per_axis:
         return GridResult(1.0, 0.0, 0.0, 0.0, 0.0)
     max_period = max_period or max(2.0, min(80.0, min(H, W) / 8.0))
     best = None

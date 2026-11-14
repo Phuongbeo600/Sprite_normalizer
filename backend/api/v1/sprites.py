@@ -5,10 +5,12 @@
 import io
 # json: Đọc các vùng và đoạn đo gửi từ trình vẽ sprite.
 import json
+# base64: Chuyển các PNG đã cắt sang dữ liệu xem trước trên trình duyệt.
+from base64 import b64encode
 # dataclasses: Chuyển đổi dataclass CharacterMetrics sang dict
 from dataclasses import asdict
 # typing: Định nghĩa các kiểu tùy chọn
-from typing import Optional
+from typing import Annotated, Literal, Optional
 
 # ========================================================
 # 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
@@ -26,6 +28,8 @@ from PIL import Image, ImageOps
 from backend.services.sprite_service import SpriteService
 # AnatomyService: Dịch vụ phân tích giải phẫu học và tạo ảnh trực quan
 from backend.services.anatomy_service import AnatomyService
+# resize_image: Thu nhỏ toàn bộ ảnh theo kích thước pixel.
+from backend.core.sprite_editing import recover_native_sprite, resize_sprite as resize_image
 
 # ========================================================
 # 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
@@ -33,6 +37,67 @@ from backend.services.anatomy_service import AnatomyService
 # (Không áp dụng cho file backend)
 
 sprites_router = APIRouter(tags=["Sprite Operations"])
+
+
+@sprites_router.post("/detect-resolution")
+def detect_sprite_resolution(file: Annotated[UploadFile, File()]):
+    """Trả kích thước lưới nhận diện và PNG đã khôi phục nếu ảnh bị phóng to."""
+    try:
+        with Image.open(file.file) as source:
+            image, scale = recover_native_sprite(ImageOps.exif_transpose(source))
+            return {
+                "width": image.width,
+                "height": image.height,
+                "scale": scale,
+                "png": b64encode(SpriteService.encode_png(image)).decode("ascii") if scale > 1 else None,
+            }
+    except (OSError, ValueError, Image.DecompressionBombError) as error:
+        raise HTTPException(status_code=400, detail="Không đọc được lưới pixel của ảnh.") from error
+
+
+@sprites_router.post("/resize")
+def resize_sprite(
+    file: Annotated[UploadFile, File()],
+    target_width: Annotated[int, Form(ge=1)],
+    target_height: Annotated[int, Form(ge=1)],
+):
+    """Thu nhỏ ảnh và trả PNG đúng kích thước đã chọn."""
+    try:
+        with Image.open(file.file) as source:
+            image = resize_image(ImageOps.exif_transpose(source), target_width, target_height)
+            return Response(SpriteService.encode_png(image), media_type="image/png")
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    except (OSError, Image.DecompressionBombError) as error:
+        raise HTTPException(status_code=400, detail="Không đọc được ảnh sprite.") from error
+
+
+@sprites_router.post("/slice-sheet")
+def slice_sprite_sheet(
+    file: Annotated[UploadFile, File()],
+    rows: Annotated[int, Form(ge=1, le=256)],
+    columns: Annotated[int, Form(ge=1, le=256)],
+    output: Annotated[Literal["json", "zip"], Form()] = "json",
+    auto_anchor: Annotated[bool, Form()] = False,
+):
+    """Cắt lưới Sprite Sheet thích ứng và trả danh sách PNG hoặc tệp ZIP (Hỗ trợ auto_anchor)."""
+    try:
+        with Image.open(file.file) as source:
+            image = ImageOps.exif_transpose(source)
+            if output == "zip":
+                return Response(
+                    SpriteService.sheet_zip(image, rows, columns, auto_anchor=auto_anchor),
+                    media_type="application/zip",
+                    headers={"Content-Disposition": 'attachment; filename="sprite-frames.zip"'},
+                )
+            return {"frames": [
+                {"name": name, "width": width, "height": height, "png": b64encode(png).decode("ascii")}
+                for name, (width, height), png in SpriteService.sheet_frames(image, rows, columns, auto_anchor=auto_anchor)
+            ]}
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    except (OSError, Image.DecompressionBombError) as error:
+        raise HTTPException(status_code=400, detail="Không đọc được sprite sheet.") from error
 
 
 @sprites_router.post("/analyze-colors")

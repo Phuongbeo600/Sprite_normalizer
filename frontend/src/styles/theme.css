@@ -313,6 +313,274 @@
   margin-inline-start: auto;
 }
 
+/* Bàn chỉnh sprite: thanh công cụ, vùng ảnh, thông số và dải frame. */
+.sprite-editor {
+  min-width: 0;
+  background: var(--bg-sidebar);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.sprite-editor-header,
+.sprite-editor-timeline {
+  display: grid;
+  gap: 10px;
+  padding: 12px 16px;
+}
+
+.sprite-editor-header {
+  border-bottom: 1px solid var(--border-card);
+}
+
+.sprite-editor-title,
+.sprite-editor-toolbar,
+.sprite-editor-switch,
+.sprite-editor-zoom,
+.sprite-editor-status {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.sprite-editor-title h2,
+.sprite-editor-options h3,
+.sprite-editor-options p,
+.sprite-editor-empty p {
+  margin: 0;
+}
+
+.sprite-editor-title h2 {
+  font-size: 1.1rem;
+}
+
+.sprite-editor-title span {
+  overflow-wrap: anywhere;
+}
+
+.sprite-editor-title span,
+.sprite-editor-zoom output,
+.sprite-editor-status,
+.sprite-editor-timeline,
+.sprite-editor-options p {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.sprite-editor-zoom {
+  margin-inline-start: auto;
+}
+
+.sprite-editor-zoom output {
+  min-width: 4ch;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.sprite-editor-switch {
+  gap: 2px;
+  padding: 2px;
+  background: var(--bg-input);
+  border-radius: var(--radius-xs);
+}
+
+.sprite-editor button[aria-pressed='true'] {
+  background: var(--accent-active-tab);
+  color: var(--text-white);
+}
+
+.sprite-editor-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(215px, 255px);
+}
+
+.sprite-editor-stage {
+  min-width: 0;
+}
+
+.sprite-editor-viewport {
+  display: flex;
+  width: 100%;
+  height: clamp(310px, 59vh, 800px);
+  overflow: auto;
+  position: relative;
+  background: var(--bg-input);
+  cursor: grab;
+  touch-action: none;
+  padding: 16px;
+}
+
+.sprite-editor-viewport.is-panning {
+  cursor: grabbing;
+}
+
+.sprite-editor-canvas {
+  position: relative;
+  flex: none;
+  margin: auto;
+  min-width: 1px;
+  min-height: 1px;
+  outline: 1px solid var(--border-card);
+  background-color: #273347;
+  background-image: conic-gradient(#35435a 25%, transparent 0 50%, #35435a 0 75%, transparent 0);
+  background-size: 20px 20px;
+  user-select: none;
+}
+
+.sprite-editor-canvas img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+
+.sprite-editor-grid {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  box-shadow: inset 0 0 0 1px #e8d996;
+  pointer-events: none;
+}
+
+.sprite-editor-grid span {
+  box-shadow: inset 0 0 0 1px #e8d996a6;
+}
+
+.sprite-editor-empty {
+  display: grid;
+  place-items: center;
+  gap: 8px;
+  margin: auto;
+  text-align: center;
+  color: var(--text-muted);
+  cursor: default;
+}
+
+.sprite-editor-empty span {
+  font-size: 0.8rem;
+}
+
+.sprite-editor-status {
+  min-height: 38px;
+  padding: 8px 12px;
+  justify-content: space-between;
+  border-top: 1px solid var(--border-card);
+}
+
+.sprite-editor-status span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sprite-editor-spinner {
+  animation: studio-spin 0.9s linear infinite;
+}
+
+.sprite-editor-options {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-width: 0;
+  padding: 16px;
+  border-inline-start: 1px solid var(--border-card);
+}
+
+.sprite-editor-options h3 {
+  font-size: 0.95rem;
+}
+
+.sprite-editor-options label {
+  display: grid;
+  gap: 5px;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.sprite-editor-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.sprite-editor input[type='number'],
+.sprite-editor select {
+  width: 100%;
+  min-width: 0;
+  padding: 7px;
+  color: var(--text-primary);
+  background: var(--bg-input);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-xs);
+  font: inherit;
+}
+
+.sprite-editor-options .sprite-editor-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sprite-editor-options .studio-reference-error {
+  color: #fca5a5;
+}
+
+.sprite-editor-download {
+  text-decoration: none;
+}
+
+.sprite-editor-timeline {
+  border-top: 1px solid var(--border-card);
+}
+
+.sprite-editor-timeline select {
+  width: auto;
+}
+
+.sprite-editor-frames {
+  display: flex;
+  overflow-x: auto;
+  gap: 6px;
+  padding-bottom: 4px;
+}
+
+.sprite-editor-frames button {
+  display: grid;
+  justify-items: center;
+  flex: 0 0 56px;
+  gap: 4px;
+}
+
+.sprite-editor-frames img {
+  width: 40px;
+  height: 36px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+@media (max-width: 760px) {
+  .sprite-editor-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sprite-editor-options {
+    border-inline-start: 0;
+    border-top: 1px solid var(--border-card);
+  }
+
+  .sprite-editor-zoom {
+    margin-inline-start: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sprite-editor-spinner {
+    animation: none;
+  }
+}
+
 /* ========================================================
    HỆ THỐNG PHÂN TÍCH HỒ SƠ NHÂN VẬT THEO TAB (CHARACTER PROFILE)
    ======================================================== */
