@@ -93,18 +93,75 @@ class ProjectRepository(BaseRepository):
 
     def delete(self, db: Session, entity_id: int) -> bool:
         """
-        Xóa một dự án theo ID.
+        Xóa một dự án theo ID và dọn dẹp sạch sẽ toàn bộ dữ liệu phụ thuộc trong MySQL:
+        1. Xóa các frame cắt rời trong sprite_frames.
+        2. Xóa các tấm ảnh sprite trong project_sprites.
+        3. Xóa các ô frame nhân vật trong testbed_character_frames.
+        4. Xóa đội hình nhân vật trong testbed_characters.
+        5. Xóa bản đồ nền trong testbed_maps.
+        6. Xóa các bản lưu phân tích & prompt trong project_character_presets.
+        7. Xóa dự án khỏi bảng projects.
 
         @param {Session} db Phiên làm việc cơ sở dữ liệu.
         @param {int} entity_id ID dự án cần xóa.
         @returns {bool} True nếu xóa thành công, False nếu không tìm thấy ID.
         """
-        result = db.execute(
-            text("DELETE FROM projects WHERE id = :id"),
-            {"id": entity_id}
-        )
-        db.commit()
-        return result.rowcount > 0
+        try:
+            # Dọn dẹp an toàn các bảng phụ thuộc tránh lỗi ràng buộc khóa ngoại (Foreign Key)
+            try:
+                db.execute(text("""
+                    DELETE sf FROM sprite_frames sf
+                    INNER JOIN project_sprites ps ON sf.sprite_id = ps.id
+                    WHERE ps.project_id = :id
+                """), {"id": entity_id})
+            except Exception:
+                pass
+
+            try:
+                db.execute(text("DELETE FROM project_sprites WHERE project_id = :id"), {"id": entity_id})
+            except Exception:
+                pass
+
+            try:
+                db.execute(text("""
+                    DELETE tcf FROM testbed_character_frames tcf
+                    INNER JOIN testbed_characters tc ON tcf.character_id = tc.id
+                    WHERE tc.project_id = :id
+                """), {"id": entity_id})
+            except Exception:
+                pass
+
+            try:
+                db.execute(text("DELETE FROM testbed_characters WHERE project_id = :id"), {"id": entity_id})
+            except Exception:
+                pass
+
+            try:
+                db.execute(text("DELETE FROM testbed_maps WHERE project_id = :id"), {"id": entity_id})
+            except Exception:
+                pass
+
+            try:
+                db.execute(text("DELETE FROM project_character_presets WHERE project_id = :id"), {"id": entity_id})
+            except Exception:
+                pass
+
+            # Xóa dự án chính
+            result = db.execute(
+                text("DELETE FROM projects WHERE id = :id"),
+                {"id": entity_id}
+            )
+            db.commit()
+            return result.rowcount > 0
+        except Exception:
+            db.rollback()
+            # Thử xóa trực tiếp nếu có cấu hình ON DELETE CASCADE
+            result = db.execute(
+                text("DELETE FROM projects WHERE id = :id"),
+                {"id": entity_id}
+            )
+            db.commit()
+            return result.rowcount > 0
 
     def get_api_config(self, db: Session, project_id: int) -> Optional[Dict[str, Any]]:
         """

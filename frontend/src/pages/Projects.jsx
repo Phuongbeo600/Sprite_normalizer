@@ -1,28 +1,32 @@
 // ========================================================
-// 1. THƯ VIỆN NỀN TẢNG REACT
+// 1. THƯ VIỆN NỀN TẢNG REACT (Quản lý component & trạng thái)
 // ========================================================
-// React dựng giao diện, useState giữ danh sách và useEffect tải dữ liệu.
+// React dựng giao diện, useState giữ danh sách và useEffect tải dữ liệu từ API.
 import React, { useEffect, useState } from 'react';
 
 // ========================================================
-// 2. THƯ VIỆN BÊN NGOÀI
+// 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
 // ========================================================
+// (Không có thư viện bên ngoài phụ thuộc)
 
 // ========================================================
-// 3. THÀNH PHẦN NỘI BỘ DỰ ÁN
+// 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Components & Dữ liệu)
 // ========================================================
-// Thanh nút tạo và nhập dự án.
+// ActionBar: Thanh nút tạo dự án mới
 import ActionBar from '../components/projects/ActionBar';
-// Dòng hiển thị một dự án và cho phép mở dự án đó.
+// ProjectRow: Dòng hiển thị từng dự án kèm nút mở và nút xóa dự án
 import ProjectRow from '../components/projects/ProjectRow';
 
 // ========================================================
-// 4. ĐỊNH DẠNG GIAO DIỆN VÀ MÀU SẮC
+// 4. ĐỊNH DẠNG GIAO DIỆN VÀ MÀU SẮC (Stylesheets)
 // ========================================================
+// Kế thừa định dạng Dark UI từ theme.css thông qua index.css
 
 /**
  * Hiển thị danh sách dự án do máy chủ cung cấp.
- * @param {object} props Thuộc tính của màn hình dự án.
+ * Hỗ trợ tạo mới và xóa dự án trực tiếp khỏi cơ sở dữ liệu MySQL.
+ * 
+ * @param {Object} props Thuộc tính của màn hình dự án.
  * @param {Function} props.onOpenProject Hàm nhận dự án được chọn để mở.
  * @returns {React.ReactElement} Giao diện danh sách và các nút thao tác.
  */
@@ -60,7 +64,9 @@ export default function Projects({ onOpenProject }) {
     return () => controller.abort();
   }, []);
 
-  /** @returns {Promise<void>} Thêm dự án vào danh sách sau khi máy chủ lưu thành công. */
+  /**
+   * Thêm dự án vào danh sách sau khi máy chủ MySQL lưu thành công.
+   */
   const handleCreateProject = async () => {
     const name = prompt('Nhập tên dự án mới:', 'Dự án Sprite mới')?.trim();
     if (!name) return;
@@ -89,9 +95,35 @@ export default function Projects({ onOpenProject }) {
     }
   };
 
-  /** @returns {void} Hiện thông báo về thao tác nhập thư mục dự án. */
-  const handleImportProject = () => {
-    alert('Tính năng: Chọn thư mục sprite để nhập dự án.');
+  /**
+   * Xóa một dự án khỏi cơ sở dữ liệu MySQL và cập nhật lại giao diện.
+   * 
+   * @param {Object} project Dự án cần xóa.
+   */
+  const handleDeleteProject = async (project) => {
+    const confirmed = window.confirm(
+      `Bạn có chắc chắn muốn xóa dự án "${project.name}" không?\n\n` +
+      `⚠️ CẢNH BÁO: Toàn bộ dữ liệu sprite, hồ sơ phân tích prompt và đội hình nhân vật thuộc dự án này sẽ bị xóa vĩnh viễn khỏi CSDL MySQL!`
+    );
+    if (!confirmed) return;
+
+    try {
+      const response = await fetch(`/api/projects/${project.id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const errJson = await response.json().catch(() => ({}));
+        throw new Error(errJson.detail || 'Không thể xóa dự án trên máy chủ.');
+      }
+
+      // Xóa dự án khỏi danh sách hiển thị
+      setProjects((currentProjects) =>
+        currentProjects.filter((p) => p.id !== project.id)
+      );
+    } catch (err) {
+      alert(`Lỗi khi xóa dự án: ${err.message || 'Không thể kết nối máy chủ.'}`);
+    }
   };
 
   return (
@@ -101,11 +133,8 @@ export default function Projects({ onOpenProject }) {
         Dự án của tôi <span className="title-sparkle" aria-hidden="true">✨</span>
       </h1>
 
-      {/* 2. Thanh Nút Thao Tác (Tạo dự án / Nhập dự án) */}
-      <ActionBar
-        onCreateProject={handleCreateProject}
-        onImportProject={handleImportProject}
-      />
+      {/* 2. Thanh Nút Thao Tác (Chỉ giữ lại nút Tạo dự án) */}
+      <ActionBar onCreateProject={handleCreateProject} />
 
       {/* 3. Danh Sách Dự Án */}
       <div className="minimal-projects-list">
@@ -114,6 +143,7 @@ export default function Projects({ onOpenProject }) {
             key={project.id}
             project={project}
             onOpen={onOpenProject}
+            onDelete={handleDeleteProject}
           />
         ))}
       </div>
