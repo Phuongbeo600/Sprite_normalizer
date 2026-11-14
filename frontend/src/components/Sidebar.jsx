@@ -186,6 +186,9 @@ export default function Sidebar({
           ) : (
             /* Khi là Người dùng thường: Hiển thị mục Dự án, Cài đặt và Hướng dẫn (Ảnh số 1 & 3) */
             <>
+              {/* Nhóm 1: Không gian sáng tạo */}
+              <div className="sidebar-nav-section-label">KHÔNG GIAN LÀM VIỆC</div>
+              
               {/* Mục Danh sách Dự án */}
               <button
                 className={`minimal-nav-item ${activeTab === 'projects' ? 'active' : ''}`}
@@ -194,6 +197,9 @@ export default function Sidebar({
                 <Folder size={18} />
                 <span>Dự án</span>
               </button>
+
+              {/* Nhóm 2: Hệ thống & Trợ giúp */}
+              <div className="sidebar-nav-section-label" style={{ marginTop: '14px' }}>HỆ THỐNG</div>
 
               {/* Mục Cài đặt chung ngoài danh sách dự án */}
               <button

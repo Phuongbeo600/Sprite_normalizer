@@ -260,8 +260,12 @@ export default function App() {
     return <HelpCenter onBack={handleReturnFromHelp} />;
   }
 
+  // Xác định xem có đang hiển thị Dashboard (Dự án) hay không
+  // Nếu đúng, áp dụng thêm class phong cách Dark Fantasy Atelier cho Sidebar & Viewport
+  const isDashboardView = !currentProject && activeTab === 'projects';
+
   return (
-    <div className="app-layout">
+    <div className={`app-layout${isDashboardView ? ' atelier-app-layout' : ''}`}>
       {/* 1. Sidebar Cột Trái Cố Định */}
       <Sidebar
         activeTab={activeTab}

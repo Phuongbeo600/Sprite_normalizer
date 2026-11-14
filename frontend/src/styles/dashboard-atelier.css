@@ -1,0 +1,814 @@
+/**
+ * ============================================================================
+ * DARK FANTASY ATELIER — COMPREHENSIVE DASHBOARD STYLESHEET
+ * ============================================================================
+ * Phong cách: 70% Professional Creative Tool + 30% Dark Fantasy Pixel Art
+ * Chuẩn mực: Tasteskill 2.5 (Anti-slop, Quiet Micro-interactions, Tactile feedback)
+ * Phạm vi: Dashboard Dự án, Thẻ Lưới, Thanh Công cụ, và Sidebar Atelier.
+ * ============================================================================
+ */
+
+/* ============================================================================
+   1. HỆ THỐNG BIẾN MÀU ATELIER (DESIGN TOKENS)
+   ============================================================================ */
+.atelier-app-layout {
+  /* Bảng màu Nền Sâu (Obsidian & Midnight Purple) */
+  --atl-void: #06040c;
+  --atl-bg-app: #090614;
+  --atl-bg-sidebar: rgba(12, 8, 24, 0.82);
+  --atl-bg-panel: rgba(18, 13, 34, 0.75);
+  --atl-bg-card: rgba(24, 17, 44, 0.65);
+  --atl-bg-card-hover: rgba(36, 25, 64, 0.85);
+  --atl-bg-input: rgba(14, 10, 26, 0.88);
+
+  /* Bảng màu Thạch Anh & Điểm Nhấn Ma Thuật */
+  --atl-amethyst: #9333ea;
+  --atl-amethyst-light: #c084fc;
+  --atl-amethyst-deep: #581c87;
+  --atl-amethyst-glow: rgba(147, 51, 234, 0.25);
+  --atl-amethyst-soft: rgba(168, 85, 247, 0.12);
+
+  /* Màu Kim Loại & Ánh Sáng Kỳ Ảo */
+  --atl-gold: #f59e0b;
+  --atl-gold-glow: rgba(245, 158, 11, 0.2);
+  --atl-emerald: #10b981;
+  --atl-emerald-glow: rgba(16, 185, 129, 0.2);
+  --atl-rose: #f43f5e;
+
+  /* Bảng Màu Chữ Công Thái Học */
+  --atl-text-pure: #ffffff;
+  --atl-text-primary: #f5f3ff;
+  --atl-text-secondary: #a39bc2;
+  --atl-text-tertiary: #6e658a;
+
+  /* Đường Viền Sắc Nét & Phân Tách */
+  --atl-border-subtle: rgba(255, 255, 255, 0.06);
+  --atl-border-amethyst: rgba(168, 85, 247, 0.18);
+  --atl-border-hover: rgba(192, 132, 252, 0.45);
+
+  /* Bo Góc & Chuyển Động */
+  --atl-r-sm: 8px;
+  --atl-r-md: 12px;
+  --atl-r-lg: 16px;
+  --atl-trans-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  --atl-trans-smooth: 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ============================================================================
+   2. TÁI ĐỊNH HÌNH KHUNG NHÌN CHÍNH (VIEWPORT CONTAINER)
+   ============================================================================ */
+.atelier-app-layout .main-content-viewport {
+  background-color: var(--atl-void);
+  background-image:
+    /* Lớp mặt nạ phủ mờ mềm mại hòa tan hình nền góc phải dưới */
+    radial-gradient(ellipse at 85% 90%, rgba(13, 9, 28, 0.4) 0%, rgba(6, 4, 12, 0.88) 55%, var(--atl-void) 85%),
+    linear-gradient(135deg, rgba(6, 4, 12, 0.98) 0%, rgba(6, 4, 12, 0.75) 50%, rgba(6, 4, 12, 0.4) 100%),
+    url('/background.png');
+  background-size: cover;
+  background-position: right bottom;
+  background-repeat: no-repeat;
+  padding: 0;
+  border: 1px solid var(--atl-border-subtle);
+  overflow-y: auto;
+}
+
+/* ============================================================================
+   3. BỐ CỤC TOÀN CẢNH TRANG DASHBOARD (MAIN ATELIER CANVAS)
+   ============================================================================ */
+.atelier-dashboard-root {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  padding: 28px 36px 48px;
+  gap: 26px;
+  position: relative;
+  z-index: 1;
+}
+
+/* ============================================================================
+   4. BANNER TOÀN CẢNH ATELIER (ATMOSPHERIC HERO SECTION)
+   ============================================================================ */
+.atelier-hero-banner {
+  position: relative;
+  border-radius: var(--atl-r-lg);
+  padding: 28px 32px;
+  background: linear-gradient(135deg, rgba(28, 18, 54, 0.7) 0%, rgba(15, 10, 28, 0.8) 100%);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--atl-border-amethyst);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  overflow: hidden;
+}
+
+/* Đường sáng thạch anh trang trí ở mép trên banner */
+.atelier-hero-banner::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 10%;
+  right: 10%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(192, 132, 252, 0.6), transparent);
+}
+
+.atelier-hero-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 620px;
+}
+
+.atelier-hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--atl-amethyst-light);
+  background: rgba(147, 51, 234, 0.16);
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  padding: 3px 10px;
+  border-radius: 99px;
+  width: fit-content;
+}
+
+.atelier-hero-badge svg {
+  color: var(--atl-gold);
+}
+
+.atelier-hero-title {
+  font-size: 1.75rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--atl-text-pure);
+  margin: 0;
+  line-height: 1.2;
+}
+
+.atelier-hero-title span {
+  background: linear-gradient(135deg, #ffffff 40%, #c084fc 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.atelier-hero-desc {
+  font-size: 0.84rem;
+  line-height: 1.5;
+  color: var(--atl-text-secondary);
+  margin: 0;
+}
+
+/* Các thẻ chỉ số nhanh ở góc phải Hero */
+.atelier-hero-stats {
+  display: flex;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.atelier-stat-pill {
+  display: flex;
+  flex-direction: column;
+  padding: 10px 16px;
+  border-radius: var(--atl-r-md);
+  background: rgba(10, 7, 20, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  min-width: 100px;
+  text-align: center;
+}
+
+.atelier-stat-val {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--atl-text-pure);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+.atelier-stat-label {
+  font-size: 0.68rem;
+  color: var(--atl-text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+  margin-top: 2px;
+}
+
+/* ============================================================================
+   5. THANH ĐIỀU KHIỂN & BỘ LỌC STUDIO (STUDIO COMMAND BAR)
+   ============================================================================ */
+.atelier-command-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  background: var(--atl-bg-panel);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  padding: 10px 16px;
+  border-radius: var(--atl-r-md);
+  border: 1px solid var(--atl-border-amethyst);
+  flex-wrap: wrap;
+}
+
+.atelier-search-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--atl-bg-input);
+  border: 1px solid var(--atl-border-subtle);
+  border-radius: var(--atl-r-sm);
+  padding: 8px 14px;
+  flex: 1;
+  max-width: 380px;
+  min-width: 200px;
+  transition: all var(--atl-trans-fast);
+  color: var(--atl-text-secondary);
+}
+
+.atelier-search-box:focus-within {
+  border-color: var(--atl-amethyst-light);
+  box-shadow: 0 0 0 2px var(--atl-amethyst-glow);
+  color: var(--atl-amethyst-light);
+}
+
+.atelier-search-box input {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--atl-text-pure);
+  font-size: 0.85rem;
+  font-family: inherit;
+  width: 100%;
+}
+
+.atelier-search-box input::placeholder {
+  color: var(--atl-text-tertiary);
+}
+
+.atelier-search-clear {
+  background: transparent;
+  border: none;
+  color: var(--atl-text-tertiary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  padding: 2px;
+}
+
+.atelier-search-clear:hover {
+  color: var(--atl-text-pure);
+}
+
+.atelier-command-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Nút chuyển đổi Chế độ xem Lưới / Danh sách */
+.atelier-view-toggle {
+  display: flex;
+  background: var(--atl-bg-input);
+  border: 1px solid var(--atl-border-subtle);
+  border-radius: var(--atl-r-sm);
+  padding: 3px;
+  gap: 2px;
+}
+
+.atelier-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 30px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--atl-text-tertiary);
+  cursor: pointer;
+  transition: all var(--atl-trans-fast);
+}
+
+.atelier-toggle-btn:hover {
+  color: var(--atl-text-pure);
+}
+
+.atelier-toggle-btn.active {
+  background: var(--atl-amethyst);
+  color: #ffffff;
+  box-shadow: 0 2px 8px var(--atl-amethyst-glow);
+}
+
+/* Nút Tạo Dự Án Mới Chính (Primary Atelier CTA) */
+.atelier-cta-create-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 20px;
+  border-radius: var(--atl-r-sm);
+  background: linear-gradient(135deg, #a855f7 0%, #7e22ce 100%);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  font-weight: 700;
+  font-size: 0.86rem;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: all var(--atl-trans-fast);
+  box-shadow: 0 4px 16px rgba(147, 51, 234, 0.35);
+  white-space: nowrap;
+}
+
+.atelier-cta-create-btn:hover {
+  background: linear-gradient(135deg, #b76bf9 0%, #8b25e6 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(147, 51, 234, 0.5);
+}
+
+.atelier-cta-create-btn:active {
+  transform: scale(0.97);
+}
+
+/* ============================================================================
+   6. LƯỚI THẺ BẢN VẼ DỰ ÁN (PROJECT CARDS GALLERY GRID)
+   ============================================================================ */
+.atelier-grid-view {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 20px;
+}
+
+/* 6a. Thẻ Khởi Tạo Nhanh (Quick Create Card) */
+.atelier-quick-create-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 24px;
+  min-height: 230px;
+  background: rgba(18, 13, 34, 0.35);
+  border: 2px dashed rgba(168, 85, 247, 0.3);
+  border-radius: var(--atl-r-lg);
+  cursor: pointer;
+  transition: all var(--atl-trans-smooth);
+  text-align: center;
+  gap: 12px;
+}
+
+.atelier-quick-create-card:hover {
+  background: rgba(26, 18, 48, 0.6);
+  border-color: var(--atl-amethyst-light);
+  transform: translateY(-3px);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35), 0 0 20px var(--atl-amethyst-glow);
+}
+
+.atelier-quick-icon-circle {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: rgba(147, 51, 234, 0.15);
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--atl-amethyst-light);
+  transition: all var(--atl-trans-fast);
+}
+
+.atelier-quick-create-card:hover .atelier-quick-icon-circle {
+  background: var(--atl-amethyst);
+  color: #ffffff;
+  transform: rotate(90deg) scale(1.1);
+  box-shadow: 0 0 16px var(--atl-amethyst-light);
+}
+
+.atelier-quick-create-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--atl-text-pure);
+  margin: 0;
+}
+
+.atelier-quick-create-sub {
+  font-size: 0.78rem;
+  color: var(--atl-text-tertiary);
+  margin: 0;
+}
+
+/* 6b. Thẻ Dự Án Kính Mờ (Project Grid Card) */
+.atelier-project-grid-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--atl-bg-card);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--atl-border-amethyst);
+  border-radius: var(--atl-r-lg);
+  overflow: hidden;
+  cursor: pointer;
+  transition: all var(--atl-trans-smooth);
+  position: relative;
+  min-height: 230px;
+}
+
+.atelier-project-grid-card:hover {
+  background: var(--atl-bg-card-hover);
+  border-color: var(--atl-border-hover);
+  transform: translateY(-4px);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.5), 0 0 24px rgba(147, 51, 234, 0.15);
+}
+
+/* Vùng Hiển Thị Thumbnail Trực Quan Trên Đầu Thẻ */
+.atelier-card-thumbnail-stage {
+  height: 110px;
+  position: relative;
+  background:
+    linear-gradient(45deg, #100a20 25%, transparent 25%),
+    linear-gradient(-45deg, #100a20 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #100a20 75%),
+    linear-gradient(-45deg, transparent 75%, #100a20 75%);
+  background-size: 16px 16px;
+  background-position: 0 0, 0 8px, 8px -8px, -8px 0px;
+  background-color: #0c0818;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-bottom: 1px solid var(--atl-border-subtle);
+  overflow: hidden;
+}
+
+.atelier-card-thumbnail-stage::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at center, transparent 40%, rgba(10, 7, 22, 0.6) 100%);
+}
+
+.atelier-card-sprite-icon {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  image-rendering: pixelated;
+  z-index: 2;
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.6));
+  transition: transform var(--atl-trans-fast);
+}
+
+.atelier-project-grid-card:hover .atelier-card-sprite-icon {
+  transform: scale(1.15);
+}
+
+.atelier-card-fallback-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--atl-r-sm);
+  background: rgba(147, 51, 234, 0.2);
+  border: 1px solid rgba(168, 85, 247, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--atl-amethyst-light);
+  z-index: 2;
+  transition: transform var(--atl-trans-fast);
+}
+
+.atelier-project-grid-card:hover .atelier-card-fallback-avatar {
+  transform: scale(1.1);
+  background: rgba(147, 51, 234, 0.35);
+}
+
+/* Huy hiệu ID góc trên */
+.atelier-card-badge-id {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--atl-text-tertiary);
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px;
+  z-index: 3;
+  letter-spacing: 0.04em;
+}
+
+/* Thân Thẻ Dự Án (Metadata) */
+.atelier-card-body {
+  padding: 16px 18px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.atelier-card-title {
+  font-size: 1.02rem;
+  font-weight: 700;
+  color: var(--atl-text-pure);
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: -0.01em;
+  transition: color var(--atl-trans-fast);
+}
+
+.atelier-project-grid-card:hover .atelier-card-title {
+  color: var(--atl-amethyst-light);
+}
+
+.atelier-card-status-text {
+  font-size: 0.76rem;
+  color: var(--atl-text-tertiary);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.atelier-card-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--atl-emerald);
+  box-shadow: 0 0 6px var(--atl-emerald);
+}
+
+/* Chân Thẻ Dự Án (Card Footer Actions) */
+.atelier-card-footer {
+  padding: 10px 18px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.atelier-card-open-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--atl-text-secondary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  transition: all var(--atl-trans-fast);
+}
+
+.atelier-project-grid-card:hover .atelier-card-open-btn {
+  color: #ffffff;
+  transform: translateX(3px);
+}
+
+.atelier-card-delete-btn {
+  background: transparent;
+  border: none;
+  color: var(--atl-text-tertiary);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--atl-trans-fast);
+  opacity: 0.7;
+}
+
+.atelier-card-delete-btn:hover {
+  opacity: 1;
+  color: var(--atl-rose);
+  background: rgba(244, 63, 94, 0.15);
+}
+
+/* ============================================================================
+   7. CHẾ ĐỘ DANH SÁCH BẢNG KỸ THUẬT (TECHNICAL LIST VIEW)
+   ============================================================================ */
+.atelier-list-view {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.atelier-list-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 20px;
+  background: var(--atl-bg-card);
+  border: 1px solid var(--atl-border-amethyst);
+  border-radius: var(--atl-r-md);
+  cursor: pointer;
+  transition: all var(--atl-trans-fast);
+}
+
+.atelier-list-row:hover {
+  background: var(--atl-bg-card-hover);
+  border-color: var(--atl-border-hover);
+  transform: translateX(4px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
+.atelier-list-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  background: rgba(147, 51, 234, 0.15);
+  border: 1px solid rgba(168, 85, 247, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--atl-amethyst-light);
+  flex-shrink: 0;
+}
+
+.atelier-list-icon img {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.atelier-list-main-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.atelier-list-title {
+  font-size: 0.94rem;
+  font-weight: 600;
+  color: var(--atl-text-pure);
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.atelier-list-sub {
+  font-size: 0.74rem;
+  color: var(--atl-text-tertiary);
+  margin: 2px 0 0;
+}
+
+.atelier-list-meta-tag {
+  font-size: 0.72rem;
+  color: var(--atl-amethyst-light);
+  background: rgba(147, 51, 234, 0.12);
+  border: 1px solid rgba(168, 85, 247, 0.25);
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-weight: 600;
+}
+
+/* ============================================================================
+   8. TRẠNG THÁI RỖNG & KHÔNG TÌM THẤY (EMPTY STATES)
+   ============================================================================ */
+.atelier-empty-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 64px 24px;
+  background: rgba(18, 13, 34, 0.4);
+  border: 1px dashed var(--atl-border-amethyst);
+  border-radius: var(--atl-r-lg);
+  text-align: center;
+  gap: 14px;
+}
+
+.atelier-empty-stage svg {
+  color: var(--atl-amethyst-light);
+  opacity: 0.6;
+}
+
+.atelier-empty-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--atl-text-pure);
+  margin: 0;
+}
+
+.atelier-empty-desc {
+  font-size: 0.82rem;
+  color: var(--atl-text-tertiary);
+  max-width: 420px;
+  margin: 0;
+}
+
+/* ============================================================================
+   9. SIDEBAR DARK FANTASY ATELIER (COMMAND PANEL)
+   ============================================================================ */
+.atelier-app-layout .minimal-sidebar {
+  background: var(--atl-bg-sidebar);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid var(--atl-border-amethyst);
+  border-radius: var(--atl-r-lg);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55);
+}
+
+.atelier-app-layout .minimal-logo {
+  border-bottom: 1px solid var(--atl-border-subtle);
+  padding-bottom: 16px;
+}
+
+.atelier-app-layout .logo-text {
+  font-size: 1.1rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, #ffffff 40%, #c084fc 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  letter-spacing: -0.02em;
+}
+
+.atelier-app-layout .minimal-nav-item {
+  color: var(--atl-text-secondary);
+  border-radius: var(--atl-r-sm);
+  position: relative;
+  font-weight: 600;
+  transition: all var(--atl-trans-fast);
+}
+
+.atelier-app-layout .minimal-nav-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--atl-text-pure);
+}
+
+.atelier-app-layout .minimal-nav-item.active {
+  background: linear-gradient(90deg, rgba(147, 51, 234, 0.28) 0%, rgba(147, 51, 234, 0.08) 100%);
+  color: #ffffff;
+  border-left: 3px solid var(--atl-amethyst-light);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.atelier-app-layout .minimal-nav-item.active svg {
+  color: var(--atl-amethyst-light);
+  filter: drop-shadow(0 0 6px rgba(168, 85, 247, 0.6));
+}
+
+.atelier-app-layout .minimal-user-card {
+  border: 1px solid var(--atl-border-subtle);
+  background: rgba(10, 7, 20, 0.5);
+  border-radius: var(--atl-r-md);
+}
+
+.atelier-app-layout .minimal-user-avatar {
+  border: 1.5px solid rgba(168, 85, 247, 0.4);
+  box-shadow: 0 0 10px rgba(147, 51, 234, 0.3);
+}
+
+/* ============================================================================
+   10. CHỮ KÝ NGHỆ THUẬT ĐÁY TRANG (FOOTER SIGNATURE)
+   ============================================================================ */
+.atelier-dashboard-footer {
+  margin-top: 12px;
+  padding-top: 16px;
+  border-top: 1px solid var(--atl-border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.76rem;
+  color: var(--atl-text-tertiary);
+}
+
+.atelier-footer-quote {
+  font-style: italic;
+  color: var(--atl-text-tertiary);
+}
+
+.atelier-footer-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  color: var(--atl-emerald);
+}
+
+.atelier-footer-status span.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--atl-emerald);
+  box-shadow: 0 0 6px var(--atl-emerald);
+}
+
+/* ============================================================================
+   11. NHÃN PHÂN NHÓM SIDEBAR (SIDEBAR SECTION LABELS)
+   ============================================================================ */
+.sidebar-nav-section-label {
+  font-size: 0.64rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: rgba(163, 155, 194, 0.5);
+  padding: 8px 12px 2px;
+}
+
