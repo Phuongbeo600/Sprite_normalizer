@@ -30,6 +30,8 @@ from backend.services.sprite_service import SpriteService
 from backend.services.anatomy_service import AnatomyService
 # resize_image: Thu nhỏ toàn bộ ảnh theo kích thước pixel.
 from backend.core.sprite_editing import recover_native_sprite, resize_sprite as resize_image
+# GodotExportService: Dịch vụ đóng gói tài nguyên nhân vật xuất xưởng cho Godot 4
+from backend.services.godot_export_service import GodotExportService
 
 # ========================================================
 # 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
@@ -181,3 +183,41 @@ async def analyze_character(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lỗi phân tích giải phẫu: {str(e)}")
+
+
+@sprites_router.post("/export-godot")
+def export_godot_package(
+    file: Annotated[UploadFile, File()],
+    rows: Annotated[int, Form(ge=1, le=256)] = 3,
+    columns: Annotated[int, Form(ge=1, le=256)] = 5,
+    fps: Annotated[float, Form(ge=1.0, le=60.0)] = 8.0,
+    move_speed: Annotated[float, Form(ge=10.0, le=1000.0)] = 120.0,
+    character_name: Annotated[str, Form()] = "Player",
+    auto_anchor: Annotated[bool, Form()] = True,
+):
+    """
+    Đóng gói toàn bộ tài nguyên nhân vật cho Godot Engine 4 (PNG, TRES, TSCN, GD) thành file ZIP.
+    Đảm bảo tính chính xác 1:1 tuyệt đối về điểm neo đáy chân, tỷ lệ pixel và hộp va chạm CollisionShape2D.
+    """
+    try:
+        with Image.open(file.file) as source:
+            image = ImageOps.exif_transpose(source)
+            zip_bytes = GodotExportService.export_godot_package(
+                image=image,
+                rows=rows,
+                columns=columns,
+                fps=fps,
+                move_speed=move_speed,
+                character_name=character_name,
+                auto_anchor=auto_anchor
+            )
+            clean_filename = f"{character_name.strip() or 'Player'}_godot4.zip"
+            return Response(
+                zip_bytes,
+                media_type="application/zip",
+                headers={"Content-Disposition": f'attachment; filename="{clean_filename}"'}
+            )
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    except Exception as error:
+        raise HTTPException(status_code=500, detail=f"Lỗi khi đóng gói tài nguyên Godot: {str(error)}") from error

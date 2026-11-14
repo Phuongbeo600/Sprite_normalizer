@@ -21,6 +21,8 @@ import ProjectAnalysis from './pages/ProjectAnalysis';
 import Workspace from './pages/Workspace';
 // ProjectSavedPresets: Màn hình Thư viện Hồ sơ đã lưu của dự án
 import ProjectSavedPresets from './pages/ProjectSavedPresets';
+// GodotTestbed: Màn hình Phòng thử nghiệm chạy thử và xuất chuẩn Godot Engine 4
+import GodotTestbed from './pages/GodotTestbed';
 // ProjectSettings: Màn hình Cài đặt cấu hình API Key riêng của dự án
 import ProjectSettings from './pages/ProjectSettings';
 // Settings: Màn hình Cài đặt chung toàn cục (đã gỡ bỏ ô nhập key)
@@ -35,7 +37,7 @@ import Settings from './pages/Settings';
  * Component gốc điều hướng toàn bộ ứng dụng (App Root Router).
  * Quản lý trạng thái dự án hiện tại (currentProject) và tab đang kích hoạt:
  * - Khi ở ngoài: 'projects' | 'settings'
- * - Khi ở trong dự án: 'analysis' | 'workspace' | 'saved_presets' | 'project_settings'
+ * - Khi ở trong dự án: 'analysis' | 'workspace' | 'saved_presets' | 'godot_testbed' | 'project_settings'
  * 
  * @returns {React.ReactElement} Giao diện chính của ứng dụng.
  */
@@ -126,7 +128,12 @@ export default function App() {
                 />
               </div>
 
-              {/* Mục 4: Cài đặt dự án (Quản lý API Key riêng của dự án này) */}
+              {/* Mục 4: Thử nghiệm Godot Engine 4 (Testbed & Export) */}
+              <div hidden={activeTab !== 'godot_testbed'}>
+                <GodotTestbed currentProject={currentProject} />
+              </div>
+
+              {/* Mục 5: Cài đặt dự án (Quản lý API Key riêng của dự án này) */}
               <div hidden={activeTab !== 'project_settings'}>
                 <ProjectSettings currentProject={currentProject} />
               </div>

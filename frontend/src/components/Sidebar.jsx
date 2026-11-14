@@ -7,7 +7,7 @@ import React from 'react';
 // 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
 // ========================================================
 // lucide-react: Bộ biểu tượng vector SVG cho logo và các mục điều hướng Sidebar
-import { Folder, Settings, Bot, ScanSearch, Image, Bookmark, Sliders } from 'lucide-react';
+import { Folder, Settings, Bot, ScanSearch, Image, Bookmark, Sliders, Gamepad2 } from 'lucide-react';
 
 // ========================================================
 // 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Components & Dữ liệu)
@@ -28,7 +28,8 @@ import { CURRENT_USER, APP_CONFIG } from '../constants/initialProjects';
  *   1. Phân tích & Prompt
  *   2. Xử lý ảnh
  *   3. Hồ sơ đã lưu (Nằm dưới "Xử lý ảnh")
- *   4. Cài đặt dự án (Quản lý API Key riêng của dự án)
+ *   4. Thử nghiệm Godot (Môi trường test nhân vật chuẩn Godot Engine 4)
+ *   5. Cài đặt dự án (Quản lý API Key riêng của dự án)
  * - Khi ở ngoài:
  *   1. Dự án
  *   2. Cài đặt chung (Đã gỡ bỏ ô nhập key theo yêu cầu)
@@ -89,7 +90,16 @@ export default function Sidebar({ activeTab, currentProject, onSelectTab }) {
                 <span>Hồ sơ đã lưu</span>
               </button>
 
-              {/* Mục 4: Cài đặt dự án (Cấu hình API Key riêng cho dự án này) */}
+              {/* Mục 4: Thử nghiệm Godot (Kiểm thử nhân vật & xuất scene Godot 4) */}
+              <button
+                className={`minimal-nav-item ${activeTab === 'godot_testbed' ? 'active' : ''}`}
+                onClick={() => onSelectTab('godot_testbed')}
+              >
+                <Gamepad2 size={18} />
+                <span>Thử nghiệm Godot</span>
+              </button>
+
+              {/* Mục 5: Cài đặt dự án (Cấu hình API Key riêng cho dự án này) */}
               <button
                 className={`minimal-nav-item ${activeTab === 'project_settings' ? 'active' : ''}`}
                 onClick={() => onSelectTab('project_settings')}
