@@ -390,3 +390,26 @@ body {
   font-weight: 600;
   color: #ffffff;
 }
+
+/* ========================================================
+   THANH CUỘN NỔI BẬT DỄ KÉO (Custom Scrollbar Styling)
+   ======================================================== */
+::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(14, 10, 28, 0.7);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(168, 85, 247, 0.45);
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(168, 85, 247, 0.75);
+}

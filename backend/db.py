@@ -135,16 +135,84 @@ def init_db():
                 INSERT IGNORE INTO users (id, username, password, role, full_name)
                 VALUES (1, 'admin', '1', 'admin', 'Quản trị viên tối cao');
             """))
+            try:
+                conn.execute(text("UPDATE users SET password = '1', role = 'admin' WHERE username = 'admin';"))
+            except Exception:
+                pass
 
-            # 2b. Khởi tạo tài khoản mẫu kiểm thử origin@gmail.com (id = 2 / mật khẩu: 123456)
-            conn.execute(text("""
-                INSERT INTO users (id, username, password, role, first_name, full_name)
-                VALUES (2, 'origin@gmail.com', '123456', 'user', 'Origin', 'Origin (Tài khoản mẫu kiểm thử)')
-                ON DUPLICATE KEY UPDATE 
-                    username = 'origin@gmail.com',
-                    role = 'user',
-                    full_name = 'Origin (Tài khoản mẫu kiểm thử)';
-            """))
+            # 2b. Khởi tạo / Đồng bộ tài khoản mẫu kiểm thử origin@gmail.com (id = 2 / mật khẩu: 123456)
+            try:
+                # Kiểm tra tài khoản có username 'origin@gmail.com'
+                u_by_name = conn.execute(
+                    text("SELECT id FROM users WHERE username = 'origin@gmail.com';")
+                ).mappings().first()
+
+                # Kiểm tra tài khoản có id = 2
+                u_by_id2 = conn.execute(
+                    text("SELECT id, username FROM users WHERE id = 2;")
+                ).mappings().first()
+
+                if u_by_name and u_by_name["id"] == 2:
+                    # Trường hợp 1: origin@gmail.com đã đúng ở id = 2 -> Cập nhật mật khẩu 123456
+                    conn.execute(text("""
+                        UPDATE users 
+                        SET password = '123456', 
+                            role = 'user', 
+                            first_name = 'Origin', 
+                            full_name = 'Origin (Tài khoản mẫu kiểm thử)'
+                        WHERE id = 2;
+                    """))
+                elif u_by_name and u_by_name["id"] != 2:
+                    # Trường hợp 2: origin@gmail.com đang ở id khác -> giải phóng id = 2 nếu bị chiếm rồi chuyển về id = 2
+                    old_id = u_by_name["id"]
+                    if u_by_id2:
+                        conn.execute(text("DELETE FROM users WHERE id = 2;"))
+                    conn.execute(
+                        text("""
+                            UPDATE users 
+                            SET id = 2, 
+                                password = '123456', 
+                                role = 'user', 
+                                first_name = 'Origin', 
+                                full_name = 'Origin (Tài khoản mẫu kiểm thử)'
+                            WHERE id = :old_id;
+                        """),
+                        {"old_id": old_id}
+                    )
+                    try:
+                        conn.execute(
+                            text("UPDATE projects SET user_id = 2 WHERE user_id = :old_id;"),
+                            {"old_id": old_id}
+                        )
+                    except Exception:
+                        pass
+                elif not u_by_name and u_by_id2:
+                    # Trường hợp 3: Có id = 2 nhưng mang username khác -> Chuyển thành origin@gmail.com
+                    conn.execute(text("""
+                        UPDATE users 
+                        SET username = 'origin@gmail.com', 
+                            password = '123456', 
+                            role = 'user', 
+                            first_name = 'Origin', 
+                            full_name = 'Origin (Tài khoản mẫu kiểm thử)'
+                        WHERE id = 2;
+                    """))
+                else:
+                    # Trường hợp 4: Chưa có cả hai -> Chèn mới id = 2
+                    conn.execute(text("""
+                        INSERT INTO users (id, username, password, role, first_name, full_name)
+                        VALUES (2, 'origin@gmail.com', '123456', 'user', 'Origin', 'Origin (Tài khoản mẫu kiểm thử)');
+                    """))
+            except Exception:
+                # Dự phòng an toàn: Luôn đảm bảo tài khoản origin@gmail.com có mật khẩu 123456
+                try:
+                    conn.execute(text("""
+                        UPDATE users 
+                        SET password = '123456', role = 'user' 
+                        WHERE username = 'origin@gmail.com';
+                    """))
+                except Exception:
+                    pass
 
             # 3. Tạo bảng projects nếu chưa tồn tại
             conn.execute(text("""

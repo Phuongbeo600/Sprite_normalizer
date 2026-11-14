@@ -1,7 +1,7 @@
 // ========================================================
 // 1. THƯ VIỆN NỀN TẢNG REACT (Quản lý component & trạng thái)
 // ========================================================
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 
 // ========================================================
 // 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
@@ -398,6 +398,9 @@ function PolymorphicBlockRenderer({ block }) {
  * @returns {React.ReactElement} Giao diện trang trung tâm hướng dẫn.
  */
 export default function HelpCenter({ onBack }) {
+  // Tham chiếu vùng cuộn nội dung chính để cuộn lên đầu khi đổi bài
+  const mainScrollRef = useRef(null);
+
   // Trạng thái bài viết đang được mở xem ({ categoryId, articleId }) | null
   const [selectedArticleInfo, setSelectedArticleInfo] = useState(null);
 
@@ -456,13 +459,15 @@ export default function HelpCenter({ onBack }) {
   }, [selectedArticleInfo]);
 
   /**
-   * Mở một bài viết cụ thể
+   * Mở một bài viết cụ thể và tự động cuộn lên đầu bài
    */
   const handleOpenArticle = (categoryId, articleId) => {
     setSelectedArticleInfo({ categoryId, articleId });
     setSearchQuery('');
     setFeedbackGiven(false);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (mainScrollRef.current) {
+      mainScrollRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   };
 
   /**
@@ -471,11 +476,18 @@ export default function HelpCenter({ onBack }) {
   const handleBackToOverview = () => {
     setSelectedArticleInfo(null);
     setSearchQuery('');
+    if (mainScrollRef.current) {
+      mainScrollRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   };
 
   return (
     <div style={{
-      minHeight: '100vh',
+      height: '100vh',
+      maxHeight: '100vh',
+      width: '100vw',
+      maxWidth: '100vw',
+      overflow: 'hidden',
       background: 'linear-gradient(180deg, rgba(15, 11, 30, 0.98) 0%, rgba(9, 6, 20, 0.99) 100%)',
       color: 'var(--text-white)',
       display: 'flex',
@@ -486,6 +498,9 @@ export default function HelpCenter({ onBack }) {
       {/* ======================================================== */}
       <header style={{
         height: '64px',
+        minHeight: '64px',
+        maxHeight: '64px',
+        flexShrink: 0,
         padding: '0 24px',
         borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
         background: 'rgba(18, 13, 36, 0.95)',
@@ -494,8 +509,6 @@ export default function HelpCenter({ onBack }) {
         alignItems: 'center',
         justifyContent: 'space-between',
         gap: '20px',
-        position: 'sticky',
-        top: 0,
         zIndex: 50
       }}>
         {/* Logo Sprite AI | Help Center */}
@@ -659,13 +672,19 @@ export default function HelpCenter({ onBack }) {
       {/* ======================================================== */}
       {/* 2. THÂN GIAO DIỆN CHIA 2 CỘT (Left Sidebar & Main Content) */}
       {/* ======================================================== */}
-      <div style={{ display: 'flex', flex: 1 }}>
+      <div style={{
+        display: 'flex',
+        flex: 1,
+        height: 'calc(100vh - 64px)',
+        overflow: 'hidden'
+      }}>
         {/* CỘT TRÁI: DANH MỤC HƯỚNG DẪN (Browse Guides Sidebar) */}
         <aside style={{
           width: '280px',
+          height: '100%',
           borderRight: '1px solid rgba(255, 255, 255, 0.08)',
           background: 'rgba(14, 10, 28, 0.65)',
-          padding: '24px 16px',
+          padding: '24px 16px 60px 16px',
           overflowY: 'auto',
           flexShrink: 0
         }}>
@@ -779,13 +798,22 @@ export default function HelpCenter({ onBack }) {
           </nav>
         </aside>
 
-        {/* CỘT PHẢI: VÙNG NỘI DUNG CHÍNH (Main Content Area) */}
-        <main style={{ flex: 1, padding: '32px 40px', overflowY: 'auto' }}>
+        {/* CỘT PHẢI: VÙNG NỘI DUNG CHÍNH (Main Content Area - Có thanh cuộn đầy đủ) */}
+        <main
+          ref={mainScrollRef}
+          style={{
+            flex: 1,
+            height: '100%',
+            overflowY: 'auto',
+            padding: '32px 40px 100px 40px',
+            scrollBehavior: 'smooth'
+          }}
+        >
           {activeArticle ? (
             /* ======================================================== */
             /* CHẾ ĐỘ 1: XEM CHI TIẾT BÀI VIẾT (Article Detail View)    */
             /* ======================================================== */
-            <div style={{ maxWidth: '820px', margin: '0 auto' }}>
+            <div style={{ maxWidth: '820px', margin: '0 auto', paddingBottom: '60px' }}>
               {/* Breadcrumb Navigation */}
               <div style={{
                 display: 'flex',
@@ -908,7 +936,7 @@ export default function HelpCenter({ onBack }) {
             /* ======================================================== */
             /* CHẾ ĐỘ 2: TỔNG QUAN HERO + KHU VỰC HƯỚNG DẪN (Ảnh số 2)  */
             /* ======================================================== */
-            <div style={{ maxWidth: '1060px', margin: '0 auto' }}>
+            <div style={{ maxWidth: '1060px', margin: '0 auto', paddingBottom: '60px' }}>
               {/* HERO BANNER: "How can we help?" */}
               <div style={{
                 borderRadius: '16px',
