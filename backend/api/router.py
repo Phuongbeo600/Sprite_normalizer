@@ -28,6 +28,10 @@ from backend.api.v1.image_gen import image_gen_router
 from backend.api.v1.translation import translation_router
 # testbed_router: Phân hệ phòng thử nghiệm Godot Testbed lưu nhân vật, 15 ô rời và map nền (/api/testbed)
 from backend.api.v1.testbed import testbed_router
+# auth_router: Phân hệ xác thực đăng nhập & đăng ký người dùng (/api/auth)
+from backend.api.v1.auth import auth_router
+# users_router: Phân hệ quản trị tài khoản người dùng dành cho Admin (/api/users)
+from backend.api.v1.users import users_router
 
 # ========================================================
 # 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
@@ -37,6 +41,8 @@ from backend.api.v1.testbed import testbed_router
 api_router = APIRouter(prefix="/api")
 
 # Gắn các sub-router phân hệ vào router chính
+api_router.include_router(auth_router)
+api_router.include_router(users_router)
 api_router.include_router(projects_router)
 api_router.include_router(sprites_router)
 api_router.include_router(prompt_router)

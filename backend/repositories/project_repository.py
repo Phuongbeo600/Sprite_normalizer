@@ -32,16 +32,26 @@ class ProjectRepository(BaseRepository):
     giúp Router hoàn toàn tách biệt khỏi câu lệnh SQL.
     """
 
-    def get_all(self, db: Session) -> List[Dict[str, Any]]:
+    def get_all(self, db: Session, user_id: Optional[int] = None, role: Optional[str] = None) -> List[Dict[str, Any]]:
         """
-        Lấy toàn bộ danh sách dự án sắp xếp theo ID giảm dần (mới nhất trước).
+        Lấy danh sách dự án sắp xếp theo ID giảm dần (mới nhất trước):
+        - Nếu là Admin (role = 'admin') hoặc không lọc user: Lấy tất cả dự án.
+        - Nếu là User thường: Chỉ lấy các dự án thuộc quyền sở hữu của user_id đó.
 
         @param {Session} db Phiên làm việc cơ sở dữ liệu.
+        @param {Optional[int]} user_id ID người dùng để lọc (nếu là user thường).
+        @param {Optional[str]} role Vai trò ('admin' hoặc 'user').
         @returns {List[Dict[str, Any]]} Danh sách các dự án.
         """
-        rows = db.execute(
-            text("SELECT id, name, created_at FROM projects ORDER BY id DESC")
-        ).mappings()
+        if role == "admin" or not user_id:
+            rows = db.execute(
+                text("SELECT id, name, user_id, created_at FROM projects ORDER BY id DESC")
+            ).mappings()
+        else:
+            rows = db.execute(
+                text("SELECT id, name, user_id, created_at FROM projects WHERE user_id = :user_id ORDER BY id DESC"),
+                {"user_id": user_id}
+            ).mappings()
         return [dict(row) for row in rows]
 
     def get_by_id(self, db: Session, entity_id: int) -> Optional[Dict[str, Any]]:
@@ -53,27 +63,36 @@ class ProjectRepository(BaseRepository):
         @returns {Optional[Dict[str, Any]]} Bản ghi dự án hoặc None nếu không tồn tại.
         """
         row = db.execute(
-            text("SELECT id, name, created_at FROM projects WHERE id = :id"),
+            text("SELECT id, name, user_id, created_at FROM projects WHERE id = :id"),
             {"id": entity_id}
         ).mappings().first()
         return dict(row) if row else None
 
     def create(self, db: Session, **kwargs) -> Dict[str, Any]:
         """
-        Thêm một dự án mới vào bảng projects.
+        Thêm một dự án mới vào bảng projects có gắn kèm user_id sở hữu.
 
         @param {Session} db Phiên làm việc cơ sở dữ liệu.
         @param {str} kwargs['name'] Tên của dự án mới.
+        @param {Optional[int]} kwargs['user_id'] ID người tạo dự án.
         @returns {Dict[str, Any]} Bản ghi dự án vừa được tạo.
         """
         name = kwargs.get("name", "").strip()
-        result = db.execute(
-            text("INSERT INTO projects (name) VALUES (:name)"),
-            {"name": name}
-        )
+        user_id = kwargs.get("user_id")
+
+        if user_id:
+            result = db.execute(
+                text("INSERT INTO projects (name, user_id) VALUES (:name, :user_id)"),
+                {"name": name, "user_id": user_id}
+            )
+        else:
+            result = db.execute(
+                text("INSERT INTO projects (name) VALUES (:name)"),
+                {"name": name}
+            )
         db.commit()
         new_id = int(result.lastrowid)
-        return {"id": new_id, "name": name}
+        return {"id": new_id, "name": name, "user_id": user_id}
 
     def update(self, db: Session, entity_id: int, name: str) -> bool:
         """

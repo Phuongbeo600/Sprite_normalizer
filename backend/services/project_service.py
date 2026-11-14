@@ -49,22 +49,22 @@ class ProjectService:
         self.repository = repository or ProjectRepository()
         self.preset_repository = preset_repository or CharacterPresetRepository()
 
-    def get_all_projects(self, db: Session) -> List[Dict[str, Any]]:
-        """Lấy toàn bộ danh sách dự án."""
-        return self.repository.get_all(db)
+    def get_all_projects(self, db: Session, user_id: Optional[int] = None, role: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Lấy danh sách dự án (phân quyền theo vai trò hoặc user_id)."""
+        return self.repository.get_all(db, user_id=user_id, role=role)
 
     def get_project_by_id(self, db: Session, project_id: int) -> Optional[Dict[str, Any]]:
         """Lấy thông tin chi tiết của một dự án."""
         return self.repository.get_by_id(db, project_id)
 
-    def create_project(self, db: Session, name: str) -> Dict[str, Any]:
-        """Tạo một dự án mới kèm kiểm tra tính hợp lệ dữ liệu."""
+    def create_project(self, db: Session, name: str, user_id: Optional[int] = None) -> Dict[str, Any]:
+        """Tạo một dự án mới kèm kiểm tra tính hợp lệ dữ liệu và gắn user_id."""
         clean_name = name.strip()
         if not clean_name:
             raise ValueError("Tên dự án không được để trống.")
         if len(clean_name) > 255:
             raise ValueError("Tên dự án không được vượt quá 255 ký tự.")
-        return self.repository.create(db, name=clean_name)
+        return self.repository.create(db, name=clean_name, user_id=user_id)
 
     def update_project(self, db: Session, project_id: int, name: str) -> bool:
         """Cập nhật tên dự án."""

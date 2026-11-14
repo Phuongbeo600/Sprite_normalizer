@@ -57,7 +57,8 @@ def ensure_project_columns(conn_or_session):
         ("gemini_api_key", "TEXT NULL"),
         ("openai_api_key", "TEXT NULL"),
         ("openai_base_url", "VARCHAR(255) DEFAULT 'https://api.openai.com/v1'"),
-        ("ai_enabled", "BOOLEAN DEFAULT TRUE")
+        ("ai_enabled", "BOOLEAN DEFAULT TRUE"),
+        ("user_id", "INT NULL")
     ]
     for col_name, col_type in columns_to_ensure:
         try:
@@ -80,19 +81,77 @@ def ensure_preset_columns(conn_or_session):
         pass
 
 
+def ensure_user_columns(conn_or_session):
+    """
+    Đảm bảo các cột thông tin cá nhân mở rộng tồn tại trong bảng 'users':
+    - Họ, Tên đệm, Tên, Họ tên đầy đủ, và Ảnh đại diện (Avatar Base64/URL).
+
+    @param conn_or_session Kết nối hoặc phiên làm việc CSDL MySQL.
+    """
+    user_cols = [
+        ("last_name", "VARCHAR(50) NULL"),
+        ("middle_name", "VARCHAR(50) NULL"),
+        ("first_name", "VARCHAR(50) NULL"),
+        ("full_name", "VARCHAR(150) NULL"),
+        ("avatar_url", "LONGTEXT NULL")
+    ]
+    for col_name, col_type in user_cols:
+        try:
+            conn_or_session.execute(text(f"ALTER TABLE users ADD COLUMN {col_name} {col_type};"))
+        except Exception:
+            pass
+
+
 def init_db():
     """
     Khởi tạo và tự động cập nhật cấu trúc các bảng trong cơ sở dữ liệu MySQL:
-    1. Bảng projects: Mở rộng các cột lưu API Key và cấu hình AI độc lập cho từng dự án.
-    2. Bảng project_character_presets: Lưu trữ lịch sử chỉ số giải phẫu pixel, prompt và ma trận 15 frame.
+    1. Bảng users: Quản lý tài khoản đăng nhập (Admin tối cao và Người dùng thường, Họ tên, Gmail, Avatar).
+    2. Bảng projects: Mở rộng các cột lưu API Key, AI enabled và user_id sở hữu.
+    3. Bảng project_character_presets: Lưu trữ lịch sử chỉ số giải phẫu pixel, prompt và ma trận 15 frame.
     """
     try:
         with engine.begin() as conn:
-            # 1. Tạo bảng projects nếu chưa tồn tại
+            # 1. Tạo bảng users lưu tài khoản và phân quyền
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS users (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    username VARCHAR(100) NOT NULL UNIQUE,
+                    password VARCHAR(255) NOT NULL,
+                    role VARCHAR(20) NOT NULL DEFAULT 'user',
+                    last_name VARCHAR(50) NULL,
+                    middle_name VARCHAR(50) NULL,
+                    first_name VARCHAR(50) NULL,
+                    full_name VARCHAR(150) NULL,
+                    avatar_url LONGTEXT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+            """))
+
+            # Tự động cập nhật cột nếu bảng users đã tạo từ trước
+            ensure_user_columns(conn)
+
+            # 2. Khởi tạo tài khoản Admin mặc định (admin / mật khẩu: 1)
+            conn.execute(text("""
+                INSERT IGNORE INTO users (id, username, password, role, full_name)
+                VALUES (1, 'admin', '1', 'admin', 'Quản trị viên tối cao');
+            """))
+
+            # 2b. Khởi tạo tài khoản mẫu kiểm thử origin@gmail.com (id = 2 / mật khẩu: 123456)
+            conn.execute(text("""
+                INSERT INTO users (id, username, password, role, first_name, full_name)
+                VALUES (2, 'origin@gmail.com', '123456', 'user', 'Origin', 'Origin (Tài khoản mẫu kiểm thử)')
+                ON DUPLICATE KEY UPDATE 
+                    username = 'origin@gmail.com',
+                    role = 'user',
+                    full_name = 'Origin (Tài khoản mẫu kiểm thử)';
+            """))
+
+            # 3. Tạo bảng projects nếu chưa tồn tại
             conn.execute(text("""
                 CREATE TABLE IF NOT EXISTS projects (
                     id INT AUTO_INCREMENT PRIMARY KEY,
                     name VARCHAR(255) NOT NULL,
+                    user_id INT NULL,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     api_provider VARCHAR(50) DEFAULT 'gemini',
                     gemini_api_key TEXT NULL,
@@ -102,10 +161,22 @@ def init_db():
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
             """))
 
-            # 2. Bổ sung các cột lưu API nếu bảng projects đã tồn tại từ các phiên bản cũ
+            # 4. Bổ sung các cột lưu API và user_id nếu bảng projects đã tồn tại từ các phiên bản cũ
             ensure_project_columns(conn)
 
-            # 3. Tạo bảng project_character_presets liên kết với projects(id)
+            # 5. Gán các dự án cũ chưa có user_id cho tài khoản Admin (id = 1)
+            try:
+                conn.execute(text("UPDATE projects SET user_id = 1 WHERE user_id IS NULL;"))
+            except Exception:
+                pass
+
+            # 5b. Đảm bảo dự án ID 2 thuộc sở hữu của tài khoản kiểm thử origin@gmail.com (user_id = 2)
+            try:
+                conn.execute(text("UPDATE projects SET user_id = 2 WHERE id = 2;"))
+            except Exception:
+                pass
+
+            # 6. Tạo bảng project_character_presets liên kết với projects(id)
             conn.execute(text("""
                 CREATE TABLE IF NOT EXISTS project_character_presets (
                     id INT AUTO_INCREMENT PRIMARY KEY,

@@ -23,14 +23,15 @@ import ProjectRow from '../components/projects/ProjectRow';
 // Kế thừa định dạng Dark UI từ theme.css thông qua index.css
 
 /**
- * Hiển thị danh sách dự án do máy chủ cung cấp.
+ * Hiển thị danh sách dự án do máy chủ cung cấp theo quyền tài khoản.
  * Hỗ trợ tạo mới và xóa dự án trực tiếp khỏi cơ sở dữ liệu MySQL.
  * 
  * @param {Object} props Thuộc tính của màn hình dự án.
  * @param {Function} props.onOpenProject Hàm nhận dự án được chọn để mở.
+ * @param {Object|null} [props.currentUser] Thông tin tài khoản người dùng đang đăng nhập.
  * @returns {React.ReactElement} Giao diện danh sách và các nút thao tác.
  */
-export default function Projects({ onOpenProject }) {
+export default function Projects({ onOpenProject, currentUser }) {
   const [projects, setProjects] = useState([]);
 
   useEffect(() => {
@@ -39,7 +40,12 @@ export default function Projects({ onOpenProject }) {
     /** @returns {Promise<void>} Cập nhật danh sách sau khi tải từ máy chủ. */
     async function loadProjects() {
       try {
-        const response = await fetch('/api/projects', { signal: controller.signal });
+        const queryParams = new URLSearchParams();
+        if (currentUser?.id) queryParams.append('user_id', currentUser.id);
+        if (currentUser?.role) queryParams.append('role', currentUser.role);
+
+        const url = `/api/projects${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+        const response = await fetch(url, { signal: controller.signal });
         if (!response.ok) {
           throw new Error('Không tải được danh sách dự án.');
         }
@@ -47,12 +53,7 @@ export default function Projects({ onOpenProject }) {
         const { data } = await response.json();
         if (controller.signal.aborted) return;
 
-        // Giữ các dự án vừa tạo nếu yêu cầu tải danh sách vẫn đang chạy.
-        const loadedIds = new Set(data.map((project) => project.id));
-        setProjects((currentProjects) => [
-          ...currentProjects.filter((project) => !loadedIds.has(project.id)),
-          ...data,
-        ]);
+        setProjects(data || []);
       } catch {
         if (!controller.signal.aborted) {
           alert('Không tải được danh sách dự án. Hãy kiểm tra máy chủ rồi tải lại trang.');
@@ -62,7 +63,7 @@ export default function Projects({ onOpenProject }) {
 
     loadProjects();
     return () => controller.abort();
-  }, []);
+  }, [currentUser?.id, currentUser?.role]);
 
   /**
    * Thêm dự án vào danh sách sau khi máy chủ MySQL lưu thành công.
@@ -78,6 +79,9 @@ export default function Projects({ onOpenProject }) {
 
     const body = new FormData();
     body.append('name', name);
+    if (currentUser?.id) {
+      body.append('user_id', currentUser.id);
+    }
 
     try {
       const response = await fetch('/api/projects', { method: 'POST', body });

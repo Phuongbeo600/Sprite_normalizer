@@ -58,17 +58,25 @@ class SaveCharacterPresetRequest(BaseModel):
 
 
 @projects_router.get("")
-def list_projects(db: Session = Depends(get_db)):
-    """Đọc danh sách dự án từ MySQL và trả về dự án mới nhất trước."""
-    projects = project_service.get_all_projects(db)
+def list_projects(
+    user_id: Optional[int] = None,
+    role: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """Đọc danh sách dự án từ MySQL theo phân quyền người dùng/admin."""
+    projects = project_service.get_all_projects(db, user_id=user_id, role=role)
     return {"status": "success", "data": projects}
 
 
 @projects_router.post("")
-def create_project(name: str = Form(...), db: Session = Depends(get_db)):
-    """Tạo một dự án mới trong MySQL."""
+def create_project(
+    name: str = Form(...),
+    user_id: Optional[int] = Form(None),
+    db: Session = Depends(get_db)
+):
+    """Tạo một dự án mới trong MySQL có gắn quyền sở hữu của user_id."""
     try:
-        new_project = project_service.create_project(db, name)
+        new_project = project_service.create_project(db, name, user_id=user_id)
         return {
             "status": "success",
             "message": "Tạo dự án thành công!",
