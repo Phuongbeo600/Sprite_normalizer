@@ -94,6 +94,9 @@ export default function Sidebar({
         <nav className="minimal-nav">
           {currentProject ? (
             <>
+              {/* Nhóm 1: Công cụ sáng tạo & Xử lý */}
+              <div className="sidebar-nav-section-label">CÔNG CỤ SÁNG TẠO</div>
+
               {/* Mục 1: Phân tích & Prompt */}
               <button
                 className={`minimal-nav-item ${activeTab === 'analysis' ? 'active' : ''}`}
@@ -151,7 +154,10 @@ export default function Sidebar({
                 <span>Kho tài nguyên</span>
               </button>
 
-              {/* Mục 4: Thử nghiệm Godot (Kiểm thử nhân vật & xuất scene Godot 4) */}
+              {/* Nhóm 2: Kiểm thử & Cấu hình xuất bản */}
+              <div className="sidebar-nav-section-label" style={{ marginTop: '14px' }}>KIỂM THỬ &amp; XUẤT</div>
+
+              {/* Mục 5: Thử nghiệm Godot (Kiểm thử nhân vật & xuất scene Godot 4) */}
               <button
                 className={`minimal-nav-item ${activeTab === 'godot_testbed' ? 'active' : ''}`}
                 onClick={() => onSelectTab('godot_testbed')}
@@ -160,7 +166,7 @@ export default function Sidebar({
                 <span>Thử nghiệm Godot</span>
               </button>
 
-              {/* Mục 5: Cài đặt dự án (Cấu hình API Key riêng cho dự án này) */}
+              {/* Mục 6: Cài đặt dự án (Cấu hình API Key riêng cho dự án này) */}
               <button
                 className={`minimal-nav-item ${activeTab === 'project_settings' ? 'active' : ''}`}
                 onClick={() => onSelectTab('project_settings')}

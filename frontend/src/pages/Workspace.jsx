@@ -1,27 +1,53 @@
-// 1. THƯ VIỆN NỀN TẢNG REACT
-// Hook quản lý trạng thái, kích thước vùng xem và tài nguyên ảnh.
+// ========================================================
+// 1. THƯ VIỆN NỀN TẢNG REACT (Quản lý component & trạng thái)
+// ========================================================
+// React quản lý vòng đời, trạng thái bàn vẽ, kích thước vùng xem và tài nguyên ảnh.
 import { useEffect, useRef, useState } from 'react';
 
-// 2. THƯ VIỆN BÊN NGOÀI
-// lucide-react: Biểu tượng cho thao tác mở, thu phóng và xuất ảnh.
-import { Download, FolderOpen, Grid2X2, Image as ImageIcon, LoaderCircle, Minus, Pause, Play, Plus } from 'lucide-react';
+// ========================================================
+// 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
+// ========================================================
+// lucide-react: Bộ icon vector cho mở ảnh, thu phóng, hoạt họa, cắt khung và tải về
+import {
+  Download,
+  FolderOpen,
+  Grid2X2,
+  Image as ImageIcon,
+  LoaderCircle,
+  Minus,
+  Pause,
+  Play,
+  Plus,
+  Sliders,
+  Sparkles,
+  Layers,
+  ZoomIn,
+  CheckCircle2,
+  AlertCircle
+} from 'lucide-react';
 
-// 3. THÀNH PHẦN NỘI BỘ DỰ ÁN
-// Không có phụ thuộc nội bộ.
+// ========================================================
+// 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Components & Dữ liệu)
+// ========================================================
+// (Không có component nội bộ phụ thuộc)
 
-// 4. ĐỊNH DẠNG GIAO DIỆN VÀ MÀU SẮC
-// Các kiểu trình bày được nạp từ theme.css.
+// ========================================================
+// 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
+// ========================================================
+// Kế thừa phong cách Dark Fantasy Atelier chuyên biệt cho bàn làm việc Workspace
+import '../styles/workspace-atelier.css';
 
 const MAX_FRAMES = 256;
 const FPS_OPTIONS = [3, 4, 6, 8, 12];
 
 /**
- * Gửi ảnh và thông số xử lý đến backend.
- * @param {File} file Ảnh nguồn.
- * @param {string} route Tên tuyến xử lý ảnh.
- * @param {Object} fields Thông số của thao tác được chọn.
- * @param {AbortSignal} [signal] Tín hiệu hủy khi ảnh nguồn thay đổi.
- * @returns {Promise<Response>} Phản hồi chứa ảnh hoặc kết quả cắt.
+ * Gửi ảnh và thông số xử lý đến backend FastAPI.
+ * 
+ * @param {File} file Ảnh nguồn cần xử lý.
+ * @param {string} route Tuyến API backend xử lý ảnh.
+ * @param {Object} fields Thông số cấu hình của thao tác.
+ * @param {AbortSignal} [signal] Tín hiệu hủy yêu cầu khi ảnh nguồn thay đổi.
+ * @returns {Promise<Response>} Phản hồi từ máy chủ chứa ảnh hoặc kết quả phân tách frame.
  */
 async function processImage(file, route, fields, signal) {
   const body = new FormData();
@@ -30,52 +56,91 @@ async function processImage(file, route, fields, signal) {
   const response = await fetch(`/api/${route}`, { method: 'POST', body, signal });
   if (!response.ok) {
     const payload = await response.json().catch(() => null);
-    throw new Error(typeof payload?.detail === 'string' ? payload.detail : 'Không xử lý được ảnh. Kiểm tra thông số và kết nối backend.');
+    throw new Error(
+      typeof payload?.detail === 'string'
+        ? payload.detail
+        : 'Không xử lý được ảnh. Kiểm tra thông số và kết nối backend.'
+    );
   }
   return response;
 }
 
 /**
- * Quản lý bàn chỉnh ảnh, lưới cắt và kết quả xuất PNG.
- * @param {Object} [props] Thuộc tính truyền vào.
+ * Bàn làm việc Xử lý & Chuẩn hóa Sprite (Dark Fantasy Atelier Workspace).
+ * Cung cấp đầy đủ công cụ studio chuyên nghiệp:
+ * - Chuẩn hóa ảnh đơn (Resize, Anchor, Bounding Box).
+ * - Phân tách Sprite Sheet (Cắt lưới ma trận, Căn tâm & neo chân).
+ * - Dò lưới pixel tự động và phục hồi độ phân giải gốc.
+ * - Trình phát thử hoạt họa (Animation Timeline Player) điều chỉnh FPS.
+ * - Xuất tệp PNG đơn lẻ hoặc gói nén ZIP chuẩn Godot Engine 4.3.
+ * - Tự động lưu trữ lịch sử ảnh vào cơ sở dữ liệu MySQL.
+ * 
+ * @param {Object} props Thuộc tính truyền vào component.
  * @param {Object} [props.currentProject] Dự án hiện tại đang mở.
- * @param {File|null} [props.incomingFile] Tệp ảnh được chuyển tiếp từ mục Tạo ảnh AI.
- * @returns {React.ReactElement} Trang xử lý sprite.
+ * @param {File|null} [props.incomingFile] Tệp ảnh được chuyển tiếp từ màn hình Tạo ảnh AI.
+ * @returns {React.ReactElement} Giao diện bàn làm việc chuẩn hóa sprite.
  */
 export default function Workspace({ currentProject, incomingFile = null }) {
+  // Chế độ làm việc: 'single' (Ảnh đơn) | 'sheet' (Sprite Sheet hoạt họa)
   const [mode, setMode] = useState('single');
+  // Dữ liệu ảnh nguồn ban đầu
   const [source, setSource] = useState(null);
+  // Dữ liệu ảnh sau khi xử lý
   const [result, setResult] = useState(null);
+  // Hiển thị kết quả hay ảnh gốc (ở chế độ so sánh)
   const [showResult, setShowResult] = useState(true);
+  // Kích thước mục tiêu cần co giãn
   const [target, setTarget] = useState({ width: 64, height: 64 });
+  // Khóa tỉ lệ khung hình (Keep aspect ratio)
   const [keepRatio, setKeepRatio] = useState(true);
+  // Lệnh xử lý ảnh đơn: 'resize' (Thu nhỏ) | 'normalize' (Chuẩn hóa khung & neo)
   const [command, setCommand] = useState('resize');
+  // Điểm neo cố định: 'bottom_center' | 'center' | 'top_left'
   const [anchor, setAnchor] = useState('bottom_center');
+  // Số hàng và số cột khi cắt Sprite Sheet
   const [rows, setRows] = useState(3);
   const [columns, setColumns] = useState(5);
+  // Tự động căn tâm & neo chân (Bottom-Center)
   const [autoAnchor, setAutoAnchor] = useState(false);
+  // Dữ liệu Sprite Sheet sau khi bóc tách frame
   const [sheet, setSheet] = useState(null);
+  // Vị trí frame đang được chọn xem
   const [frameIndex, setFrameIndex] = useState(null);
+  // Tốc độ khung hình hoạt họa (Frames per second)
   const [fps, setFps] = useState(6);
+  // Trạng thái phát hoạt họa tự động
   const [playing, setPlaying] = useState(false);
+  // Hệ số thu phóng vùng xem (Zoom scale)
   const [zoom, setZoom] = useState(null);
+  // Kích thước thực tế của vùng xem viewport
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
+  // Thông báo trạng thái xử lý đang chạy
   const [busy, setBusy] = useState('');
+  // Thông báo lỗi nếu xảy ra sự cố
   const [error, setError] = useState('');
+  // Lưới pixel tự nhiên được nhận diện
   const [nativeGrid, setNativeGrid] = useState(null);
+  // Trạng thái đang dò lưới pixel tự động
   const [detectingGrid, setDetectingGrid] = useState(false);
+  // Lỗi khi dò lưới pixel
   const [gridError, setGridError] = useState('');
-  // Mã ID của bản ghi sprite đang xử lý trong bảng project_sprites của MySQL
+  // Mã định danh bản ghi sprite trong CSDL MySQL
   const [spriteDbId, setSpriteDbId] = useState(null);
+
+  // Tham chiếu DOM đến vùng xem và tọa độ kéo chuột
   const viewport = useRef(null);
   const drag = useRef(null);
   const uploadVersion = useRef(0);
 
+  // Tính toán các giá trị phái sinh
   const dimensions = source?.dimensions;
   const sourceFile = source?.file;
   const resizeSource = nativeGrid || dimensions;
-  const restoringGrid = command === 'resize' && nativeGrid?.scale > 1
-    && Number(target.width) === nativeGrid.width && Number(target.height) === nativeGrid.height;
+  const restoringGrid =
+    command === 'resize' &&
+    nativeGrid?.scale > 1 &&
+    Number(target.width) === nativeGrid.width &&
+    Number(target.height) === nativeGrid.height;
   const sheetMode = mode === 'sheet';
   const frame = !sheetMode || frameIndex === null ? null : sheet?.frames[frameIndex];
   const preview = sheetMode ? frame || dimensions : (showResult && result) || dimensions;
@@ -88,16 +153,27 @@ export default function Workspace({ currentProject, incomingFile = null }) {
   const remainderY = dimensions ? dimensions.height % numRows : 0;
   const marginX = Math.floor(remainderX / 2);
   const marginY = Math.floor(remainderY / 2);
-  const gridValid = dimensions && Number.isInteger(Number(rows)) && Number.isInteger(Number(columns))
-    && Number(rows) > 0 && Number(columns) > 0 && gridCount <= MAX_FRAMES
-    && cellWidth >= 1 && cellHeight >= 1;
+  const gridValid =
+    dimensions &&
+    Number.isInteger(Number(rows)) &&
+    Number.isInteger(Number(columns)) &&
+    Number(rows) > 0 &&
+    Number(columns) > 0 &&
+    gridCount <= MAX_FRAMES &&
+    cellWidth >= 1 &&
+    cellHeight >= 1;
   const fitZoom = preview
-    ? Math.max(0.01, Math.min((viewportSize.width - 32) / preview.width, (viewportSize.height - 32) / preview.height, 16))
+    ? Math.max(
+        0.01,
+        Math.min((viewportSize.width - 32) / preview.width, (viewportSize.height - 32) / preview.height, 16)
+      )
     : 1;
   const activeZoom = zoom ?? fitZoom;
   const nameStem = source?.file.name.replace(/\.[^.]+$/, '') || 'sprite';
 
+  // Lắng nghe thay đổi kích thước khung nhìn để tính toán zoom vừa vặn
   useEffect(() => {
+    if (!viewport.current) return;
     const observer = new ResizeObserver(([entry]) => {
       setViewportSize({ width: entry.contentRect.width, height: entry.contentRect.height });
     });
@@ -105,11 +181,13 @@ export default function Workspace({ currentProject, incomingFile = null }) {
     return () => observer.disconnect();
   }, []);
 
+  // Thu hồi bộ nhớ URL Blob khi ảnh bị thay đổi hoặc hủy
   const sourceUrl = source?.url;
   const resultUrl = result?.url;
   useEffect(() => () => { if (sourceUrl) URL.revokeObjectURL(sourceUrl); }, [sourceUrl]);
   useEffect(() => () => { if (resultUrl) URL.revokeObjectURL(resultUrl); }, [resultUrl]);
 
+  // Tự động dò độ phân giải lưới pixel khi nạp ảnh nguồn
   useEffect(() => {
     if (!dimensions || !sourceFile) return;
     const controller = new AbortController();
@@ -133,6 +211,7 @@ export default function Workspace({ currentProject, incomingFile = null }) {
     return () => controller.abort();
   }, [dimensions, sourceFile]);
 
+  // Cập nhật kích thước mục tiêu theo lệnh thao tác
   useEffect(() => {
     if (command === 'normalize') {
       setTarget({ width: 64, height: 64 });
@@ -141,6 +220,7 @@ export default function Workspace({ currentProject, incomingFile = null }) {
     }
   }, [command, resizeSource]);
 
+  // Vòng lặp phát thử hoạt họa cho Sprite Sheet theo FPS
   useEffect(() => {
     if (!playing || !sheet || !sheetMode) return;
     const timer = setInterval(() => {
@@ -149,6 +229,9 @@ export default function Workspace({ currentProject, incomingFile = null }) {
     return () => clearInterval(timer);
   }, [playing, sheet, sheetMode, fps]);
 
+  /**
+   * Chuyển đổi giữa chế độ Xử lý ảnh đơn và Cắt Sprite Sheet
+   */
   function selectMode(next) {
     setMode(next);
     setPlaying(false);
@@ -156,6 +239,9 @@ export default function Workspace({ currentProject, incomingFile = null }) {
     setError('');
   }
 
+  /**
+   * Mở ảnh từ ổ cứng thông qua thẻ input file
+   */
   function openImage(event) {
     const file = event.target.files[0];
     event.target.value = '';
@@ -175,7 +261,7 @@ export default function Workspace({ currentProject, incomingFile = null }) {
     setError('');
     setShowResult(true);
 
-    // Tự động lưu ảnh thô ban đầu vào MySQL (bảng project_sprites, cột raw_image_data)
+    // Tự động lưu ảnh thô ban đầu vào CSDL MySQL
     if (currentProject?.id) {
       const form = new FormData();
       form.append('file', file);
@@ -199,7 +285,9 @@ export default function Workspace({ currentProject, incomingFile = null }) {
       setSource({ file, url, dimensions: { width, height, url } });
     };
     image.onerror = () => {
-      if (version === uploadVersion.current) setError('Không đọc được ảnh. Hãy chọn tệp PNG, JPEG hoặc WebP hợp lệ.');
+      if (version === uploadVersion.current) {
+        setError('Không đọc được ảnh. Hãy chọn tệp PNG, JPEG hoặc WebP hợp lệ.');
+      }
     };
     image.src = url;
   }
@@ -222,7 +310,7 @@ export default function Workspace({ currentProject, incomingFile = null }) {
     setError('');
     setShowResult(true);
 
-    // Tự động lưu ảnh thô ban đầu chuyển tiếp từ AI vào MySQL
+    // Tự động lưu ảnh gốc AI vào MySQL
     if (currentProject?.id) {
       const form = new FormData();
       form.append('file', incomingFile);
@@ -246,20 +334,28 @@ export default function Workspace({ currentProject, incomingFile = null }) {
       setSource({ file: incomingFile, url, dimensions: { width, height, url } });
     };
     image.onerror = () => {
-      if (version === uploadVersion.current) setError('Không đọc được ảnh chuyển từ Tạo ảnh AI.');
+      if (version === uploadVersion.current) {
+        setError('Không đọc được ảnh chuyển từ Tạo ảnh AI.');
+      }
     };
     image.src = url;
   }, [incomingFile]);
 
+  /**
+   * Thay đổi kích thước mục tiêu với tùy chọn khóa tỷ lệ
+   */
   function changeTarget(axis, value) {
     const next = { ...target, [axis]: value };
     if (command === 'resize' && keepRatio && resizeSource && Number(value) > 0) {
       const other = axis === 'width' ? 'height' : 'width';
-      next[other] = Math.max(1, Math.round(Number(value) * resizeSource[other] / resizeSource[axis]));
+      next[other] = Math.max(1, Math.round((Number(value) * resizeSource[other]) / resizeSource[axis]));
     }
     setTarget(next);
   }
 
+  /**
+   * Thực thi áp dụng chỉnh sửa (Cắt Sheet hoặc Chuẩn hóa ảnh đơn)
+   */
   async function applyEdit(event) {
     event.preventDefault();
     if (!dimensions || busy || (sheetMode ? !gridValid : detectingGrid)) return;
@@ -269,12 +365,19 @@ export default function Workspace({ currentProject, incomingFile = null }) {
     setPlaying(false);
     try {
       if (sheetMode) {
-        const response = await processImage(source.file, 'slice-sheet', { rows, columns, auto_anchor: autoAnchor });
+        const response = await processImage(source.file, 'slice-sheet', {
+          rows,
+          columns,
+          auto_anchor: autoAnchor,
+        });
         const { frames } = await response.json();
         setSheet({
           rows,
           columns,
-          frames: frames.map(({ png, ...details }) => ({ ...details, url: `data:image/png;base64,${png}` })),
+          frames: frames.map(({ png, ...details }) => ({
+            ...details,
+            url: `data:image/png;base64,${png}`,
+          })),
         });
         setFrameIndex(0);
       } else {
@@ -283,10 +386,14 @@ export default function Workspace({ currentProject, incomingFile = null }) {
         const file = command === 'resize' ? nativeGrid?.file || source.file : source.file;
         const response = await processImage(file, command, fields);
         const blob = await response.blob();
-        setResult({ url: URL.createObjectURL(blob), width: Number(target.width), height: Number(target.height) });
+        setResult({
+          url: URL.createObjectURL(blob),
+          width: Number(target.width),
+          height: Number(target.height),
+        });
         setShowResult(true);
 
-        // Tự động lưu ảnh đã xử lý/chuẩn hóa vào MySQL (bảng project_sprites, cột processed_image_data)
+        // Lưu ảnh đã chuẩn hóa vào MySQL
         if (currentProject?.id && spriteDbId) {
           const form = new FormData();
           form.append('file', blob, 'processed.png');
@@ -303,13 +410,19 @@ export default function Workspace({ currentProject, incomingFile = null }) {
     }
   }
 
+  /**
+   * Xuất toàn bộ các frame đã cắt thành file ZIP
+   */
   async function exportSheet() {
     if (!sheet || busy) return;
     setBusy('Đang tạo ZIP…');
     setError('');
     try {
       const response = await processImage(source.file, 'slice-sheet', {
-        rows: sheet.rows, columns: sheet.columns, output: 'zip', auto_anchor: autoAnchor,
+        rows: sheet.rows,
+        columns: sheet.columns,
+        output: 'zip',
+        auto_anchor: autoAnchor,
       });
       const url = URL.createObjectURL(await response.blob());
       const link = document.createElement('a');
@@ -324,12 +437,18 @@ export default function Workspace({ currentProject, incomingFile = null }) {
     }
   }
 
+  /**
+   * Chọn xem một frame cụ thể trong danh sách
+   */
   function selectFrame(index) {
     setPlaying(false);
     setFrameIndex(index);
     setZoom(null);
   }
 
+  /**
+   * Cập nhật thông số hàng/cột của lưới cắt
+   */
   function changeGrid(setValue, value) {
     setValue(value);
     setSheet(null);
@@ -337,6 +456,9 @@ export default function Workspace({ currentProject, incomingFile = null }) {
     setError('');
   }
 
+  /**
+   * Bắt đầu kéo trượt (Pan) trên canvas
+   */
   function startPan(event) {
     if (event.button !== 0 || !preview) return;
     const node = event.currentTarget;
@@ -345,189 +467,532 @@ export default function Workspace({ currentProject, incomingFile = null }) {
     node.classList.add('is-panning');
   }
 
+  /**
+   * Di chuyển trượt (Pan)
+   */
   function movePan(event) {
     if (!drag.current) return;
     event.currentTarget.scrollLeft = drag.current.x - event.clientX;
     event.currentTarget.scrollTop = drag.current.y - event.clientY;
   }
 
+  /**
+   * Kết thúc kéo trượt
+   */
   function stopPan(event) {
     drag.current = null;
     event.currentTarget.classList.remove('is-panning');
   }
 
   return (
-    <section className="sprite-editor" aria-labelledby="sprite-editor-heading">
-      <header className="sprite-editor-header">
-        <div className="sprite-editor-title">
-          <h2 id="sprite-editor-heading">Xử lý ảnh</h2>
-          {source && <span title={source.file.name}>{source.file.name}</span>}
+    <div className="atelier-workspace-root" aria-label="Bàn làm việc chuẩn hóa sprite">
+      {/* ================================================================ */}
+      {/* 1. THANH CÔNG CỤ ĐỈNH WORKSPACE (STUDIO HEADER TOOLBAR)          */}
+      {/* ================================================================ */}
+      <header className="atelier-ws-header">
+        <div className="atelier-ws-title-group">
+          <h2 className="atelier-ws-title">
+            <Sliders size={18} color="#c084fc" />
+            <span>Xử lý &amp; Chuẩn hóa Sprite</span>
+          </h2>
+          {source && (
+            <span className="atelier-ws-file-pill" title={source.file.name}>
+              {source.file.name}
+            </span>
+          )}
         </div>
-        <div className="sprite-editor-toolbar">
-          <label className="btn-secondary-studio studio-file-button">
-            <FolderOpen size={16} /> Mở ảnh
-            <input type="file" accept="image/png,image/jpeg,image/webp" aria-label="Mở ảnh" disabled={Boolean(busy)} onChange={openImage} />
+
+        <div className="atelier-ws-toolbar-actions">
+          {/* Nút Mở Ảnh Nguồn */}
+          <label className="atelier-ws-btn-upload">
+            <FolderOpen size={15} />
+            <span>Mở ảnh</span>
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              aria-label="Mở ảnh"
+              disabled={Boolean(busy)}
+              onChange={openImage}
+            />
           </label>
-          <div className="sprite-editor-switch" role="group" aria-label="Chế độ xử lý">
-            <button className="btn-ghost-studio" type="button" aria-pressed={!sheetMode} disabled={Boolean(busy)} onClick={() => selectMode('single')}>
-              <ImageIcon size={16} /> Ảnh đơn
+
+          {/* Segmented Control Chọn Chế Độ Làm Việc */}
+          <div className="atelier-ws-mode-switch" role="group" aria-label="Chế độ xử lý">
+            <button
+              type="button"
+              className={`atelier-ws-mode-btn ${!sheetMode ? 'active' : ''}`}
+              disabled={Boolean(busy)}
+              onClick={() => selectMode('single')}
+            >
+              <ImageIcon size={14} />
+              <span>Ảnh đơn</span>
             </button>
-            <button className="btn-ghost-studio" type="button" aria-pressed={sheetMode} disabled={Boolean(busy)} onClick={() => selectMode('sheet')}>
-              <Grid2X2 size={16} /> Sprite sheet
+            <button
+              type="button"
+              className={`atelier-ws-mode-btn ${sheetMode ? 'active' : ''}`}
+              disabled={Boolean(busy)}
+              onClick={() => selectMode('sheet')}
+            >
+              <Grid2X2 size={14} />
+              <span>Sprite Sheet</span>
             </button>
           </div>
-          <div className="sprite-editor-zoom" role="group" aria-label="Thu phóng ảnh xem trước">
-            <button type="button" className="btn-ghost-studio" disabled={!preview} onClick={() => setZoom(null)}>Vừa khung</button>
-            <button type="button" className="btn-ghost-studio" aria-label="Thu nhỏ vùng xem" disabled={!preview || activeZoom <= 0.05} onClick={() => setZoom(Math.max(0.05, activeZoom / 1.5))}><Minus size={16} /></button>
-            <output>{preview ? `${Math.round(activeZoom * 100)}%` : '—'}</output>
-            <button type="button" className="btn-ghost-studio" aria-label="Phóng to vùng xem" disabled={!preview || activeZoom >= 32} onClick={() => setZoom(Math.min(32, activeZoom * 1.5))}><Plus size={16} /></button>
+
+          {/* Cụm Thu Phóng Canvas (Zoom Controls) */}
+          <div className="atelier-ws-zoom-cluster" role="group" aria-label="Thu phóng vùng xem">
+            <button
+              type="button"
+              className="atelier-ws-zoom-btn"
+              disabled={!preview}
+              onClick={() => setZoom(null)}
+              title="Khôi phục kích thước vừa khung nhìn"
+            >
+              Vừa khung
+            </button>
+            <button
+              type="button"
+              className="atelier-ws-zoom-btn"
+              aria-label="Thu nhỏ vùng xem"
+              disabled={!preview || activeZoom <= 0.05}
+              onClick={() => setZoom(Math.max(0.05, activeZoom / 1.5))}
+            >
+              <Minus size={14} />
+            </button>
+            <span className="atelier-ws-zoom-readout">
+              {preview ? `${Math.round(activeZoom * 100)}%` : '—'}
+            </span>
+            <button
+              type="button"
+              className="atelier-ws-zoom-btn"
+              aria-label="Phóng to vùng xem"
+              disabled={!preview || activeZoom >= 32}
+              onClick={() => setZoom(Math.min(32, activeZoom * 1.5))}
+            >
+              <Plus size={14} />
+            </button>
           </div>
         </div>
       </header>
 
-      <div className="sprite-editor-body">
-        <div className="sprite-editor-stage">
-          <div className="sprite-editor-viewport" ref={viewport} aria-label="Bàn chỉnh sprite"
-            onPointerDown={startPan} onPointerMove={movePan} onPointerUp={stopPan} onLostPointerCapture={stopPan}>
+      {/* ================================================================ */}
+      {/* 2. THÂN WORKSPACE: VÙNG CANVAS (TRÁI) & BẢNG THÔNG SỐ (PHẢI)      */}
+      {/* ================================================================ */}
+      <div className="atelier-ws-body">
+        {/* CỘT TRÁI: BÀN CHỈNH CANVAS & THANH TRẠNG THÁI */}
+        <div className="atelier-ws-stage">
+          <div
+            className="atelier-ws-viewport"
+            ref={viewport}
+            aria-label="Bàn vẽ canvas sprite"
+            onPointerDown={startPan}
+            onPointerMove={movePan}
+            onPointerUp={stopPan}
+            onLostPointerCapture={stopPan}
+          >
             {preview ? (
-              <div className="sprite-editor-canvas" style={{ width: preview.width * activeZoom, height: preview.height * activeZoom }}>
-                <img src={preview.url} alt={frame?.name || source.file.name} draggable={false} />
+              <div
+                className="atelier-ws-canvas"
+                style={{
+                  width: preview.width * activeZoom,
+                  height: preview.height * activeZoom,
+                }}
+              >
+                <img
+                  src={preview.url}
+                  alt={frame?.name || source.file.name}
+                  draggable={false}
+                />
                 {sheetMode && frameIndex === null && gridValid && (
-                  <div className="sprite-editor-grid" aria-hidden="true" style={{
-                    position: 'absolute',
-                    left: marginX * activeZoom,
-                    top: marginY * activeZoom,
-                    width: cellWidth * numCols * activeZoom,
-                    height: cellHeight * numRows * activeZoom,
-                    gridTemplateColumns: `repeat(${columns}, 1fr)`,
-                    gridTemplateRows: `repeat(${rows}, 1fr)`,
-                  }}>
-                    {Array.from({ length: gridCount }, (_, index) => <span key={index} />)}
+                  <div
+                    className="atelier-ws-grid"
+                    aria-hidden="true"
+                    style={{
+                      left: marginX * activeZoom,
+                      top: marginY * activeZoom,
+                      width: cellWidth * numCols * activeZoom,
+                      height: cellHeight * numRows * activeZoom,
+                      gridTemplateColumns: `repeat(${columns}, 1fr)`,
+                      gridTemplateRows: `repeat(${rows}, 1fr)`,
+                    }}
+                  >
+                    {Array.from({ length: gridCount }, (_, index) => (
+                      <span key={index} />
+                    ))}
                   </div>
                 )}
               </div>
             ) : (
-              <div className="sprite-editor-empty"><ImageIcon size={30} aria-hidden="true" /><p>Mở ảnh để bắt đầu</p><span>PNG, JPEG hoặc WebP</span></div>
+              <div className="atelier-ws-empty">
+                <div className="atelier-ws-empty-icon">
+                  <ImageIcon size={30} />
+                </div>
+                <h4>Chưa có ảnh sprite nào được mở</h4>
+                <p>Bấm nút "Mở ảnh" ở trên hoặc kéo thả tệp PNG, JPEG, WebP vào bàn vẽ để bắt đầu chuẩn hóa.</p>
+              </div>
             )}
           </div>
-          <div className="sprite-editor-status">
-            <span>{preview ? `${preview.width} × ${preview.height} px` : 'Chưa có ảnh'}</span>
-            {frame && <span>Frame {frameIndex + 1} / {sheet.frames.length}</span>}
-            <span role="status">{(busy || detectingGrid) && <><LoaderCircle size={15} className="sprite-editor-spinner" /> {busy || 'Đang dò lưới pixel…'}</>}</span>
+
+          {/* Thanh trạng thái dưới Canvas */}
+          <div className="atelier-ws-status-bar">
+            <div className="atelier-ws-status-left">
+              <span className="atelier-ws-status-pill">
+                {preview ? `${preview.width} × ${preview.height} px` : 'Chưa có ảnh'}
+              </span>
+              {frame && (
+                <span style={{ color: '#c084fc' }}>
+                  Frame {frameIndex + 1} / {sheet.frames.length}
+                </span>
+              )}
+            </div>
+
+            <div role="status">
+              {(busy || detectingGrid) && (
+                <span className="atelier-ws-status-spinner">
+                  <LoaderCircle size={14} className="atelier-ws-spinner-icon" />
+                  <span>{busy || 'Đang dò lưới pixel tự nhiên…'}</span>
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
-        <form className="sprite-editor-options" onSubmit={applyEdit}>
-          {dimensions && <p>Kích thước tệp: {dimensions.width} × {dimensions.height} px</p>}
-          {nativeGrid && (
-            <p>{nativeGrid.scale > 1
-              ? `Lưới pixel nhận diện: ${nativeGrid.width} × ${nativeGrid.height} px (~${nativeGrid.scale}×)`
-              : 'Chưa phát hiện lưới phóng to. Dùng kích thước tệp.'}</p>
+        {/* CỘT PHẢI: BẢNG THÔNG SỐ & THIẾT LẬP (INSPECTOR PANEL) */}
+        <form className="atelier-ws-inspector" onSubmit={applyEdit}>
+          {dimensions && (
+            <div className="atelier-inspector-info-card">
+              <p>Kích thước gốc: {dimensions.width} × {dimensions.height} px</p>
+              {nativeGrid && (
+                <span>
+                  {nativeGrid.scale > 1
+                    ? `Lưới pixel nhận diện: ${nativeGrid.width} × ${nativeGrid.height} px (~${nativeGrid.scale}×)`
+                    : 'Chưa phát hiện lưới phóng to. Dùng kích thước tệp.'}
+                </span>
+              )}
+            </div>
           )}
-          {gridError && <p className="studio-reference-error">Không dò được lưới pixel. Dùng kích thước tệp.</p>}
+
+          {gridError && (
+            <p className="atelier-ws-error">
+              Không dò được lưới pixel. Dùng kích thước tệp.
+            </p>
+          )}
+
           {sheetMode ? (
+            /* THIẾT LẬP CHẾ ĐỘ SPRITE SHEET */
             <>
-              <h3>Cắt sprite sheet</h3>
-              <div className="sprite-editor-fields">
-                <label>Số hàng<input type="number" min="1" max={MAX_FRAMES} required value={rows} disabled={Boolean(busy)} onChange={(event) => changeGrid(setRows, event.target.value)} /></label>
-                <label>Số cột<input type="number" min="1" max={MAX_FRAMES} required value={columns} disabled={Boolean(busy)} onChange={(event) => changeGrid(setColumns, event.target.value)} /></label>
+              <h3 className="atelier-inspector-section-title">
+                <Grid2X2 size={16} />
+                <span>Cắt Sprite Sheet</span>
+              </h3>
+
+              <div className="atelier-inspector-grid-inputs">
+                <div className="atelier-inspector-field">
+                  <label className="atelier-inspector-label">Số hàng</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max={MAX_FRAMES}
+                    required
+                    value={rows}
+                    disabled={Boolean(busy)}
+                    className="atelier-inspector-input"
+                    onChange={(event) => changeGrid(setRows, event.target.value)}
+                  />
+                </div>
+                <div className="atelier-inspector-field">
+                  <label className="atelier-inspector-label">Số cột</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max={MAX_FRAMES}
+                    required
+                    value={columns}
+                    disabled={Boolean(busy)}
+                    className="atelier-inspector-input"
+                    onChange={(event) => changeGrid(setColumns, event.target.value)}
+                  />
+                </div>
               </div>
-              <label className="sprite-editor-checkbox" style={{ margin: '6px 0', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-                <input type="checkbox" checked={autoAnchor} onChange={(e) => setAutoAnchor(e.target.checked)} disabled={Boolean(busy)} />
+
+              <label className="atelier-inspector-checkbox">
+                <input
+                  type="checkbox"
+                  checked={autoAnchor}
+                  onChange={(e) => setAutoAnchor(e.target.checked)}
+                  disabled={Boolean(busy)}
+                />
                 <span>Căn tâm &amp; neo chân (Bottom-Center)</span>
               </label>
+
               {gridValid && (
-                <div style={{ margin: '4px 0 8px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                  <p style={{ margin: '0 0 2px' }}>{gridCount} frame · {cellWidth} × {cellHeight} px mỗi ô</p>
+                <div className="atelier-inspector-info-card">
+                  <p>{gridCount} frame · {cellWidth} × {cellHeight} px mỗi ô</p>
                   {(remainderX > 0 || remainderY > 0) && (
-                    <span style={{ fontSize: '0.725rem', color: 'var(--accent-purple-glow, #a78bfa)' }}>
-                      ✓ Đã tự động căn giữa lưới (bỏ {remainderX}px viền ngang, {remainderY}px viền dọc).
+                    <span>
+                      ✓ Tự động căn giữa lưới (bỏ {remainderX}px viền ngang, {remainderY}px viền dọc).
                     </span>
                   )}
                 </div>
               )}
+
               {dimensions && !gridValid && (
-                <p className="studio-reference-error">
+                <p className="atelier-ws-error">
                   Dùng lưới tối đa {MAX_FRAMES} ô. Kích thước ảnh phải đủ lớn cho số hàng và số cột.
                 </p>
               )}
-              <button className="btn-primary-studio" type="submit" disabled={!gridValid || Boolean(busy)}>{busy === 'Đang cắt frame…' ? busy : 'Cắt frame'}</button>
+
+              <button
+                className="atelier-btn-primary-action"
+                type="submit"
+                disabled={!gridValid || Boolean(busy)}
+              >
+                {busy === 'Đang cắt frame…' ? (
+                  <>
+                    <LoaderCircle size={15} className="atelier-ws-spinner-icon" />
+                    <span>Đang cắt frame…</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles size={15} />
+                    <span>Cắt frame hoạt họa</span>
+                  </>
+                )}
+              </button>
+
               {sheet && (
-                <>
-                  <button className="btn-secondary-studio" type="button" onClick={() => selectFrame(null)}>Xem sheet gốc</button>
-                  {frame && <a className="btn-secondary-studio sprite-editor-download" href={frame.url} download={frame.name}><Download size={16} /> Tải frame PNG</a>}
-                  <button className="btn-secondary-studio" type="button" disabled={Boolean(busy)} onClick={exportSheet}><Download size={16} /> {busy === 'Đang tạo ZIP…' ? busy : 'Tải tất cả (ZIP)'}</button>
-                </>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '6px' }}>
+                  <button
+                    className="atelier-btn-secondary-action"
+                    type="button"
+                    onClick={() => selectFrame(null)}
+                  >
+                    Xem sheet gốc
+                  </button>
+
+                  {frame && (
+                    <a
+                      className="atelier-btn-secondary-action"
+                      href={frame.url}
+                      download={frame.name}
+                    >
+                      <Download size={14} />
+                      <span>Tải frame PNG</span>
+                    </a>
+                  )}
+
+                  <button
+                    className="atelier-btn-secondary-action"
+                    type="button"
+                    disabled={Boolean(busy)}
+                    onClick={exportSheet}
+                  >
+                    <Download size={14} />
+                    <span>{busy === 'Đang tạo ZIP…' ? busy : 'Tải tất cả (ZIP)'}</span>
+                  </button>
+                </div>
               )}
             </>
           ) : (
+            /* THIẾT LẬP CHẾ ĐỘ ẢNH ĐƠN */
             <>
-              <h3>Ảnh đơn</h3>
-              <label>Thao tác
-                <select value={command} disabled={Boolean(busy) || detectingGrid} onChange={(event) => setCommand(event.target.value)}>
-                  <option value="resize">Thu nhỏ ảnh</option>
-                  <option value="normalize">Chuẩn hóa khung và điểm neo</option>
+              <h3 className="atelier-inspector-section-title">
+                <Sliders size={16} />
+                <span>Thao tác ảnh đơn</span>
+              </h3>
+
+              <div className="atelier-inspector-field">
+                <label className="atelier-inspector-label">Loại thao tác</label>
+                <select
+                  value={command}
+                  disabled={Boolean(busy) || detectingGrid}
+                  className="atelier-inspector-select"
+                  onChange={(event) => setCommand(event.target.value)}
+                >
+                  <option value="resize">Thu nhỏ ảnh (Resize)</option>
+                  <option value="normalize">Chuẩn hóa khung và điểm neo (Normalize)</option>
                 </select>
-              </label>
-              <div className="sprite-editor-fields">
-                <label>Rộng (px)<input type="number" min="1" max={command === 'resize' ? resizeSource?.width : 512} required value={target.width} onChange={(event) => changeTarget('width', event.target.value)} disabled={Boolean(busy) || detectingGrid} /></label>
-                <label>Cao (px)<input type="number" min="1" max={command === 'resize' ? resizeSource?.height : 512} required value={target.height} onChange={(event) => changeTarget('height', event.target.value)} disabled={Boolean(busy) || detectingGrid} /></label>
               </div>
+
+              <div className="atelier-inspector-grid-inputs">
+                <div className="atelier-inspector-field">
+                  <label className="atelier-inspector-label">Rộng (px)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max={command === 'resize' ? resizeSource?.width : 512}
+                    required
+                    value={target.width}
+                    onChange={(event) => changeTarget('width', event.target.value)}
+                    disabled={Boolean(busy) || detectingGrid}
+                    className="atelier-inspector-input"
+                  />
+                </div>
+                <div className="atelier-inspector-field">
+                  <label className="atelier-inspector-label">Cao (px)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max={command === 'resize' ? resizeSource?.height : 512}
+                    required
+                    value={target.height}
+                    onChange={(event) => changeTarget('height', event.target.value)}
+                    disabled={Boolean(busy) || detectingGrid}
+                    className="atelier-inspector-input"
+                  />
+                </div>
+              </div>
+
               {command === 'resize' ? (
-                <label className="sprite-editor-checkbox"><input type="checkbox" checked={keepRatio} onChange={(event) => {
-                  setKeepRatio(event.target.checked);
-                  if (event.target.checked && resizeSource && Number(target.width) > 0) {
-                    setTarget({ ...target, height: Math.max(1, Math.round(target.width * resizeSource.height / resizeSource.width)) });
-                  }
-                }} disabled={Boolean(busy) || detectingGrid} /> Khóa tỷ lệ</label>
+                <label className="atelier-inspector-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={keepRatio}
+                    onChange={(event) => {
+                      setKeepRatio(event.target.checked);
+                      if (event.target.checked && resizeSource && Number(target.width) > 0) {
+                        setTarget({
+                          ...target,
+                          height: Math.max(1, Math.round((target.width * resizeSource.height) / resizeSource.width)),
+                        });
+                      }
+                    }}
+                    disabled={Boolean(busy) || detectingGrid}
+                  />
+                  <span>Khóa tỷ lệ khung hình</span>
+                </label>
               ) : (
-                <label>Điểm neo<select value={anchor} onChange={(event) => setAnchor(event.target.value)} disabled={Boolean(busy)}>
-                  <option value="bottom_center">Dưới và giữa</option>
-                  <option value="center">Chính giữa</option>
-                  <option value="top_left">Góc trên bên trái</option>
-                </select></label>
+                <div className="atelier-inspector-field">
+                  <label className="atelier-inspector-label">Điểm neo (Anchor)</label>
+                  <select
+                    value={anchor}
+                    onChange={(event) => setAnchor(event.target.value)}
+                    disabled={Boolean(busy)}
+                    className="atelier-inspector-select"
+                  >
+                    <option value="bottom_center">Dưới và giữa (Bottom-Center: Chuẩn game)</option>
+                    <option value="center">Chính giữa (Center)</option>
+                    <option value="top_left">Góc trên bên trái (Top-Left)</option>
+                  </select>
+                </div>
               )}
-              <button className="btn-primary-studio" type="submit" disabled={!dimensions || Boolean(busy) || detectingGrid}>
-                {busy || (command === 'resize' && (restoringGrid ? 'Khôi phục độ phân giải thật' : 'Thu nhỏ')) || 'Chuẩn hóa'}
+
+              <button
+                className="atelier-btn-primary-action"
+                type="submit"
+                disabled={!dimensions || Boolean(busy) || detectingGrid}
+              >
+                {busy ||
+                  (command === 'resize' &&
+                    (restoringGrid ? 'Khôi phục độ phân giải thật' : 'Thu nhỏ')) ||
+                  'Chuẩn hóa ảnh'}
               </button>
+
               {result && (
-                <>
-                  <div className="sprite-editor-switch" role="group" aria-label="So sánh ảnh">
-                    <button className="btn-ghost-studio" type="button" aria-pressed={!showResult} onClick={() => { setShowResult(false); setZoom(null); }}>Gốc</button>
-                    <button className="btn-ghost-studio" type="button" aria-pressed={showResult} onClick={() => { setShowResult(true); setZoom(null); }}>Kết quả</button>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '6px' }}>
+                  <div
+                    className="atelier-ws-mode-switch"
+                    role="group"
+                    aria-label="So sánh ảnh"
+                    style={{ width: '100%', boxSizing: 'border-box' }}
+                  >
+                    <button
+                      type="button"
+                      style={{ flex: 1 }}
+                      className={`atelier-ws-mode-btn ${!showResult ? 'active' : ''}`}
+                      onClick={() => {
+                        setShowResult(false);
+                        setZoom(null);
+                      }}
+                    >
+                      Ảnh gốc
+                    </button>
+                    <button
+                      type="button"
+                      style={{ flex: 1 }}
+                      className={`atelier-ws-mode-btn ${showResult ? 'active' : ''}`}
+                      onClick={() => {
+                        setShowResult(true);
+                        setZoom(null);
+                      }}
+                    >
+                      Kết quả
+                    </button>
                   </div>
-                  <a className="btn-secondary-studio sprite-editor-download" href={result.url} download={`${nameStem}-processed.png`}><Download size={16} /> Tải PNG</a>
-                </>
+
+                  <a
+                    className="atelier-btn-secondary-action"
+                    href={result.url}
+                    download={`${nameStem}-processed.png`}
+                  >
+                    <Download size={14} />
+                    <span>Tải ảnh PNG</span>
+                  </a>
+                </div>
               )}
             </>
           )}
-          {error && <p className="studio-reference-error" role="alert">{error}</p>}
+
+          {error && <p className="atelier-ws-error" role="alert">{error}</p>}
         </form>
       </div>
 
+      {/* ================================================================ */}
+      {/* 3. DẢI TIMELINE PHÁT HOẠT HỌA (ANIMATION TIMELINE REEL)          */}
+      {/* ================================================================ */}
       {sheetMode && sheet && (
-        <section className="sprite-editor-timeline" aria-label="Các frame đã cắt">
-          <div className="sprite-editor-toolbar">
-            <button className="btn-secondary-studio" type="button" disabled={sheet.frames.length < 2 || Boolean(busy)} onClick={() => {
-              if (!playing && frameIndex === null) setFrameIndex(0);
-              setPlaying(!playing);
-            }}>
-              {playing ? <Pause size={15} /> : <Play size={15} />} {playing ? 'Tạm dừng' : 'Phát thử'}
-            </button>
-            <label>Tốc độ <select value={fps} onChange={(event) => setFps(Number(event.target.value))}>
-              {FPS_OPTIONS.map((rate) => <option key={rate} value={rate}>{rate} FPS</option>)}
-            </select></label>
-            <span>{sheet.frames.length} frame · lưới {sheet.rows} × {sheet.columns}</span>
+        <section className="atelier-ws-timeline" aria-label="Các frame hoạt họa đã cắt">
+          <div className="atelier-timeline-bar">
+            <div className="atelier-timeline-controls">
+              <button
+                className="atelier-btn-play"
+                type="button"
+                disabled={sheet.frames.length < 2 || Boolean(busy)}
+                onClick={() => {
+                  if (!playing && frameIndex === null) setFrameIndex(0);
+                  setPlaying(!playing);
+                }}
+              >
+                {playing ? <Pause size={14} /> : <Play size={14} />}
+                <span>{playing ? 'Tạm dừng' : 'Phát thử'}</span>
+              </button>
+
+              <div className="atelier-fps-selector">
+                <span>Tốc độ:</span>
+                <select
+                  value={fps}
+                  onChange={(event) => setFps(Number(event.target.value))}
+                >
+                  {FPS_OPTIONS.map((rate) => (
+                    <option key={rate} value={rate}>
+                      {rate} FPS
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div style={{ fontSize: '0.78rem', color: '#c084fc', fontWeight: 600 }}>
+              {sheet.frames.length} frame · lưới {sheet.rows} × {sheet.columns}
+            </div>
           </div>
-          <div className="sprite-editor-frames">
+
+          <div className="atelier-timeline-reel">
             {sheet.frames.map((item, index) => (
-              <button className="btn-ghost-studio" type="button" key={item.name} aria-pressed={frameIndex === index} aria-label={`Frame ${index + 1}`} onClick={() => selectFrame(index)}>
-                <img src={item.url} alt="" loading="lazy" /> <span>{index + 1}</span>
+              <button
+                className={`atelier-frame-thumb-btn ${frameIndex === index ? 'active' : ''}`}
+                type="button"
+                key={item.name}
+                aria-pressed={frameIndex === index}
+                aria-label={`Frame ${index + 1}`}
+                onClick={() => selectFrame(index)}
+              >
+                <img src={item.url} alt="" loading="lazy" />
+                <span>#{index + 1}</span>
               </button>
             ))}
           </div>
         </section>
       )}
-    </section>
+    </div>
   );
 }
