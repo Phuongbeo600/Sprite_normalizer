@@ -7,7 +7,7 @@ import React from 'react';
 // 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
 // ========================================================
 // lucide-react: Bộ biểu tượng vector SVG cho logo và các mục điều hướng Sidebar
-import { Folder, Settings, Bot, ScanSearch, Image, Bookmark, Sliders, Gamepad2 } from 'lucide-react';
+import { Folder, Settings, Bot, ScanSearch, Image, Bookmark, Sliders, Gamepad2, Sparkles } from 'lucide-react';
 
 // ========================================================
 // 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Components & Dữ liệu)
@@ -72,7 +72,16 @@ export default function Sidebar({ activeTab, currentProject, onSelectTab }) {
                 <span>Phân tích &amp; Prompt</span>
               </button>
 
-              {/* Mục 2: Xử lý ảnh */}
+              {/* Mục 2: Tạo ảnh AI */}
+              <button
+                className={`minimal-nav-item ${activeTab === 'image_gen' ? 'active' : ''}`}
+                onClick={() => onSelectTab('image_gen')}
+              >
+                <Sparkles size={18} />
+                <span>Tạo ảnh AI</span>
+              </button>
+
+              {/* Mục 3: Xử lý ảnh */}
               <button
                 className={`minimal-nav-item ${activeTab === 'workspace' ? 'active' : ''}`}
                 onClick={() => onSelectTab('workspace')}

@@ -97,9 +97,10 @@ function collectPythonMeasurements({ palette, pixelReport, metrics, profileData 
  * @param {Object} props.currentProject Dự án hiện tại đang mở (chứa id, name).
  * @param {Object|null} props.loadedPresetData Bản ghi preset được nạp từ trang Thư viện Presets.
  * @param {boolean} props.isActive Studio đang được hiển thị trong dự án.
+ * @param {Function} [props.onSendPromptToImageGen] Hàm chuyển tiếp prompt sang màn hình Tạo ảnh AI.
  * @returns {React.ReactElement} Giao diện Creative Workspace hoàn chỉnh.
  */
-export default function ProjectAnalysis({ currentProject, loadedPresetData, isActive = true }) {
+export default function ProjectAnalysis({ currentProject, loadedPresetData, isActive = true, onSendPromptToImageGen = null }) {
   // ========================================================
   // TRẠNG THÁI ẢNH THAM CHIẾU & LỚP PHỦ GIẢI PHẪU
   // ========================================================
@@ -499,6 +500,7 @@ export default function ProjectAnalysis({ currentProject, loadedPresetData, isAc
           savingPreset={savingPreset}
           saveSuccessMsg={saveSuccessMsg}
           initialConfig={loadedPresetConfig}
+          onSendPromptToImageGen={onSendPromptToImageGen}
         />
       </div>
 

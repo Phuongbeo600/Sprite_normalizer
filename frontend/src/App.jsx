@@ -17,6 +17,8 @@ import Sidebar from './components/Sidebar';
 import Projects from './pages/Projects';
 // ProjectAnalysis: Màn hình Studio phân tích mẫu và sinh prompt
 import ProjectAnalysis from './pages/ProjectAnalysis';
+// ImageGeneration: Màn hình Tạo ảnh AI từ mô tả văn bản bằng Gemini Imagen 3 hoặc OpenAI
+import ImageGeneration from './pages/ImageGeneration';
 // Workspace: Màn hình xử lý và chuẩn hóa ảnh sprite
 import Workspace from './pages/Workspace';
 // ProjectSavedPresets: Màn hình Thư viện Hồ sơ đã lưu của dự án
@@ -46,6 +48,45 @@ export default function App() {
   const [currentProject, setCurrentProject] = useState(null);
   // Dữ liệu preset nạp từ thư viện sang Studio
   const [loadedPresetData, setLoadedPresetData] = useState(null);
+
+  // Dữ liệu prompt & negative prompt chuyển từ Studio sang Tạo ảnh AI
+  const [imageGenPrompt, setImageGenPrompt] = useState('');
+  const [imageGenNegativePrompt, setImageGenNegativePrompt] = useState('');
+  // Tệp ảnh được chuyển tiếp từ Tạo ảnh AI sang Workspace hoặc Godot
+  const [transferredImageForWorkspace, setTransferredImageForWorkspace] = useState(null);
+  const [transferredImageForGodot, setTransferredImageForGodot] = useState(null);
+
+  /**
+   * Chuyển prompt và negative prompt từ màn hình Phân tích sang màn hình Tạo ảnh AI.
+   * 
+   * @param {string} promptText Nội dung prompt cần tạo ảnh.
+   * @param {string} [negativePromptText] Nội dung lệnh cấm cần loại trừ.
+   */
+  const handleSendPromptToImageGen = (promptText, negativePromptText = '') => {
+    setImageGenPrompt(promptText);
+    setImageGenNegativePrompt(negativePromptText || '');
+    setActiveTab('image_gen');
+  };
+
+  /**
+   * Chuyển tệp ảnh vừa sinh từ Tạo ảnh AI sang Workspace để cắt viền và chuẩn hóa.
+   * 
+   * @param {File} imageFile Tệp ảnh sinh ra từ AI.
+   */
+  const handleTransferToWorkspace = (imageFile) => {
+    setTransferredImageForWorkspace(imageFile);
+    setActiveTab('workspace');
+  };
+
+  /**
+   * Chuyển tệp ảnh vừa sinh từ Tạo ảnh AI sang Thử nghiệm Godot để test nhịp chạy.
+   * 
+   * @param {File} imageFile Tệp ảnh sinh ra từ AI.
+   */
+  const handleTransferToGodot = (imageFile) => {
+    setTransferredImageForGodot(imageFile);
+    setActiveTab('godot_testbed');
+  };
 
   /**
    * Mở mục phân tích của dự án được chọn từ danh sách.
@@ -112,15 +153,31 @@ export default function App() {
                   currentProject={currentProject}
                   loadedPresetData={loadedPresetData}
                   isActive={activeTab === 'analysis'}
+                  onSendPromptToImageGen={handleSendPromptToImageGen}
                 />
               </div>
 
-              {/* Mục 2: Xử lý ảnh Sprite */}
-              <div hidden={activeTab !== 'workspace'}>
-                <Workspace currentProject={currentProject} />
+              {/* Mục 2: Tạo ảnh AI (Google Imagen 3 / OpenAI DALL-E) */}
+              <div hidden={activeTab !== 'image_gen'}>
+                <ImageGeneration
+                  currentProject={currentProject}
+                  incomingPrompt={imageGenPrompt}
+                  incomingNegativePrompt={imageGenNegativePrompt}
+                  onSelectTab={setActiveTab}
+                  onTransferToWorkspace={handleTransferToWorkspace}
+                  onTransferToGodot={handleTransferToGodot}
+                />
               </div>
 
-              {/* Mục 3: Hồ sơ đã lưu (Nằm dưới "Xử lý ảnh") */}
+              {/* Mục 3: Xử lý ảnh Sprite */}
+              <div hidden={activeTab !== 'workspace'}>
+                <Workspace
+                  currentProject={currentProject}
+                  incomingFile={transferredImageForWorkspace}
+                />
+              </div>
+
+              {/* Mục 4: Hồ sơ đã lưu (Nằm dưới "Xử lý ảnh") */}
               <div hidden={activeTab !== 'saved_presets'}>
                 <ProjectSavedPresets
                   currentProject={currentProject}
@@ -128,12 +185,15 @@ export default function App() {
                 />
               </div>
 
-              {/* Mục 4: Thử nghiệm Godot Engine 4 (Testbed & Export) */}
+              {/* Mục 5: Thử nghiệm Godot Engine 4 (Testbed & Export) */}
               <div hidden={activeTab !== 'godot_testbed'}>
-                <GodotTestbed currentProject={currentProject} />
+                <GodotTestbed
+                  currentProject={currentProject}
+                  incomingFile={transferredImageForGodot}
+                />
               </div>
 
-              {/* Mục 5: Cài đặt dự án (Quản lý API Key riêng của dự án này) */}
+              {/* Mục 6: Cài đặt dự án (Quản lý API Key riêng của dự án này) */}
               <div hidden={activeTab !== 'project_settings'}>
                 <ProjectSettings currentProject={currentProject} />
               </div>

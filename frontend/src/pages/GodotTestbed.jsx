@@ -313,9 +313,10 @@ function extractSlotsFromSheet(charObj) {
  * 
  * @param {Object} props Thuộc tính của component.
  * @param {Object|null} props.currentProject Dự án hiện tại đang mở.
+ * @param {File|null} [props.incomingFile] Tệp ảnh được chuyển tiếp từ mục Tạo ảnh AI.
  * @returns {React.ReactElement} Màn hình phòng thử nghiệm.
  */
-export default function GodotTestbed({ currentProject }) {
+export default function GodotTestbed({ currentProject, incomingFile = null }) {
   // ========================================================
   // TRẠNG THÁI BẢN ĐỒ NỀN (BACKGROUND MAP)
   // ========================================================
@@ -445,6 +446,54 @@ export default function GodotTestbed({ currentProject }) {
       });
     }
   }, [groundY]);
+
+  // Tự động nạp nhân vật mới khi có tệp được chuyển từ Tạo ảnh AI
+  useEffect(() => {
+    if (!incomingFile) return;
+    const url = URL.createObjectURL(incomingFile);
+    const img = new Image();
+    img.onload = () => {
+      const defaultRows = 3;
+      const defaultCols = 5;
+      const cWidth = Math.floor(img.naturalWidth / defaultCols);
+      const cHeight = Math.floor(img.naturalHeight / defaultRows);
+
+      const newId = `char_${Date.now()}`;
+      const cleanName = incomingFile.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+      const newChar = {
+        id: newId,
+        name: cleanName.charAt(0).toUpperCase() + cleanName.slice(1),
+        icon: '✨',
+        sheetImage: img,
+        sheetUrl: url,
+        sheetFileName: incomingFile.name,
+        rows: defaultRows,
+        columns: defaultCols,
+        fps: 8,
+        moveSpeed: 130,
+        cellWidth: cWidth > 0 ? cWidth : 64,
+        cellHeight: cHeight > 0 ? cHeight : 64,
+        scale: 1.0,
+        isCustom: true
+      };
+
+      const newX = 160 + characters.length * 90;
+      rosterStateRef.current.push({
+        x: Math.min(1150, newX),
+        y: groundY,
+        direction: 'down',
+        facingLeft: false,
+        animTime: 0,
+        animFrameIdx: 0,
+        isMoving: false
+      });
+
+      setCharacters((prev) => [...prev, newChar]);
+      setActiveCharIdx(characters.length);
+      setErrorMsg('');
+    };
+    img.src = url;
+  }, [incomingFile]);
 
   // Xử lý nạp bản đồ nền
   const handleUploadMap = (event) => {

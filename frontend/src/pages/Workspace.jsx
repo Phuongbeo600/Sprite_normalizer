@@ -37,9 +37,12 @@ async function processImage(file, route, fields, signal) {
 
 /**
  * Quản lý bàn chỉnh ảnh, lưới cắt và kết quả xuất PNG.
+ * @param {Object} [props] Thuộc tính truyền vào.
+ * @param {Object} [props.currentProject] Dự án hiện tại đang mở.
+ * @param {File|null} [props.incomingFile] Tệp ảnh được chuyển tiếp từ mục Tạo ảnh AI.
  * @returns {React.ReactElement} Trang xử lý sprite.
  */
-export default function Workspace() {
+export default function Workspace({ currentProject, incomingFile = null }) {
   const [mode, setMode] = useState('single');
   const [source, setSource] = useState(null);
   const [result, setResult] = useState(null);
@@ -181,6 +184,36 @@ export default function Workspace() {
     };
     image.src = url;
   }
+
+  // Tự động nạp tệp ảnh được chuyển tiếp từ mục Tạo ảnh AI
+  useEffect(() => {
+    if (!incomingFile) return;
+    const version = ++uploadVersion.current;
+    const url = URL.createObjectURL(incomingFile);
+    const image = new Image();
+    setNativeGrid(null);
+    setGridError('');
+    setDetectingGrid(false);
+    setSource({ file: incomingFile, url, dimensions: null });
+    setResult(null);
+    setSheet(null);
+    setFrameIndex(null);
+    setPlaying(false);
+    setZoom(null);
+    setError('');
+    setShowResult(true);
+    image.onload = () => {
+      if (version !== uploadVersion.current) return;
+      const width = image.naturalWidth;
+      const height = image.naturalHeight;
+      setDetectingGrid(true);
+      setSource({ file: incomingFile, url, dimensions: { width, height, url } });
+    };
+    image.onerror = () => {
+      if (version === uploadVersion.current) setError('Không đọc được ảnh chuyển từ Tạo ảnh AI.');
+    };
+    image.src = url;
+  }, [incomingFile]);
 
   function changeTarget(axis, value) {
     const next = { ...target, [axis]: value };

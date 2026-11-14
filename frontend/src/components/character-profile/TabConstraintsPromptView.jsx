@@ -60,7 +60,8 @@ export default function TabConstraintsPromptView({
   onSavePreset,
   savingPreset,
   saveSuccessMsg,
-  initialConfig
+  initialConfig,
+  onSendPromptToImageGen
 }) {
   // Trạng thái các trường thông tin của NHÂN VẬT MỚI (Tự do sáng tạo)
   const [concept, setConcept] = useState(initialConfig?.new_character_concept || 'Nữ pháp sư bóng đêm bí ẩn');
@@ -374,26 +375,41 @@ export default function TabConstraintsPromptView({
                 )}
               </div>
 
-              <button
-                type="button"
-                className="btn-primary-studio"
-                disabled={savingPreset}
-                onClick={() => onSavePreset({
-                  name: `${concept} (Lưới 3x5 - 15 Frames)`,
-                  new_character_concept: concept,
-                  outfit_and_colors: outfitAndColors,
-                  weapons_and_props: weaponsAndProps,
-                  stature_rule: statureRule,
-                  target_direction: targetDir,
-                  frame_actions_data: frameActions,
-                  positive_prompt: livePositivePrompt,
-                  negative_prompt: DEFAULT_NEGATIVE_PROMPT
-                })}
-                style={{ minHeight: '34px', fontSize: '0.8rem', padding: '6px 16px', gap: '6px', whiteSpace: 'nowrap' }}
-              >
-                <Bookmark size={14} className={savingPreset ? 'spin' : ''} />
-                {savingPreset ? 'Đang lưu vào MySQL…' : 'Lưu vào Dự án'}
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {onSendPromptToImageGen && (
+                  <button
+                    type="button"
+                    className="btn-secondary-studio"
+                    onClick={() => onSendPromptToImageGen(livePositivePrompt, DEFAULT_NEGATIVE_PROMPT)}
+                    title="Gửi câu Prompt kèm trọn bộ Lệnh cấm sang mục Tạo ảnh AI để sinh ảnh trực tiếp"
+                    style={{ minHeight: '34px', fontSize: '0.8rem', padding: '6px 14px', gap: '6px', whiteSpace: 'nowrap' }}
+                  >
+                    <Sparkles size={14} color="#facc15" />
+                    <span>Gửi sang Tạo ảnh AI</span>
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  className="btn-primary-studio"
+                  disabled={savingPreset}
+                  onClick={() => onSavePreset({
+                    name: `${concept} (Lưới 3x5 - 15 Frames)`,
+                    new_character_concept: concept,
+                    outfit_and_colors: outfitAndColors,
+                    weapons_and_props: weaponsAndProps,
+                    stature_rule: statureRule,
+                    target_direction: targetDir,
+                    frame_actions_data: frameActions,
+                    positive_prompt: livePositivePrompt,
+                    negative_prompt: DEFAULT_NEGATIVE_PROMPT
+                  })}
+                  style={{ minHeight: '34px', fontSize: '0.8rem', padding: '6px 16px', gap: '6px', whiteSpace: 'nowrap' }}
+                >
+                  <Bookmark size={14} className={savingPreset ? 'spin' : ''} />
+                  {savingPreset ? 'Đang lưu vào MySQL…' : 'Lưu vào Dự án'}
+                </button>
+              </div>
             </div>
           )}
         </div>

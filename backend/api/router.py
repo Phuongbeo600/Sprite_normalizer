@@ -22,6 +22,8 @@ from backend.api.v1.prompt import prompt_router
 from backend.api.v1.settings import settings_router
 # character_analysis_router: Phân hệ phân tích hồ sơ nhân vật tham chiếu theo Tab (/api/character-profile)
 from backend.api.v1.character_analysis import character_analysis_router
+# image_gen_router: Phân hệ tạo ảnh nhân vật / sprite bằng mô hình AI (/api/image-gen)
+from backend.api.v1.image_gen import image_gen_router
 
 # ========================================================
 # 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
@@ -36,6 +38,7 @@ api_router.include_router(sprites_router)
 api_router.include_router(prompt_router)
 api_router.include_router(settings_router)
 api_router.include_router(character_analysis_router)
+api_router.include_router(image_gen_router)
 
 
 @api_router.get("/health", tags=["Health Check"])
