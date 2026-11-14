@@ -1,34 +1,151 @@
-# Python
+# ========================================================
+# 1. BẢO MẬT & MÃ KHOÁ TRUY CẬP (Credentials & Secret Keys)
+# ========================================================
+# Tập tin cấu hình môi trường chứa mật khẩu, API key bí mật
+.env
+.env.*
+*.env
+*.env.*
+!.env.example
+
+# Chứng chỉ SSL và khoá mã hoá riêng tư
+*.pem
+*.key
+*.cert
+*.crt
+
+# ========================================================
+# 2. MÔI TRƯỜNG & CACHE PYTHON (Python VirtualEnv & Cache)
+# ========================================================
+# Bytecode và bộ nhớ đệm biên dịch Python
 __pycache__/
 *.py[cod]
 *$py.class
+
+# Môi trường ảo Python (Virtual Environments)
 .venv/
 venv/
 ENV/
 env/
-*.env
-*.env.*
 
-# Node / Frontend
+# Cache kiểm thử và phân tích kiểu dữ liệu
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+*.egg-info/
+build/
+
+# ========================================================
+# 3. NODE.JS & GIAO DIỆN FRONTEND (Frontend Dependencies & Build)
+# ========================================================
+# Thư viện phụ thuộc Node.js
+node_modules/
 frontend/node_modules/
-frontend/dist/
-frontend/.cache/
-frontend/*.local
 
-# Logs and runtime data
+# Thư mục đóng gói thành phẩm (Production build artifacts)
+dist/
+frontend/dist/
+
+# Bộ nhớ đệm tạm của Vite và các công cụ phát triển
+.vite/
+frontend/.cache/
+*.local
+
+# Nhật ký lỗi trình quản lý gói
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# ========================================================
+# 4. NHẬT KÝ, CƠ SỞ DỮ LIỆU & DỮ LIỆU TẠM (Logs, DB & Runtime Data)
+# ========================================================
+# Tệp nhật ký hệ thống
 *.log
+
+# Dữ liệu ảnh tải lên và thành phẩm sinh ra trong quá trình chạy
 uploads/
 outputs/
 temp/
 
-# IDE / OS
+# Cơ sở dữ liệu SQLite cục bộ và bản xuất dump dữ liệu
+*.sqlite
+*.sqlite3
+*.db
+*.sql
+
+# ========================================================
+# 5. CẤU HÌNH TRÌNH SOẠN THẢO & HỆ ĐIỀU HÀNH (IDE & OS Files)
+# ========================================================
+# Cấu hình IDE cá nhân (VSCode, JetBrains)
 .vscode/
 .idea/
+
+# Tập tin rác do hệ điều hành tự động tạo (macOS, Windows)
 .DS_Store
 Thumbs.db
+Desktop.ini
+*.swp
+*.swo
+*~
+*.tmp
+*.temp
 
-# AI Assistant Rules & Local Instructions
+# ========================================================
+# 6. QUY TẮC AGENT & CÁC BẢN SAO SKILLS TRÙNG LẶP (AI Agent Skills Mirrors)
+# ========================================================
+# Quy tắc riêng của trợ lý AI và thư mục skills chính thức của dự án
 GEMINI.md
 AGENTS.md
 .agents/
 
+# 48 thư mục bản sao tự động sinh bởi CLI quản lý skills (tránh phình dung lượng repository)
+.adal/
+.aider*/
+.augment/
+.bob/
+.claude/
+.codeartsdoer/
+.codebuddy/
+.codemaker/
+.codestudio/
+.continue/
+.cortex/
+.crush/
+.devin/
+.forge/
+.goose/
+.grok/
+.hermes/
+.iflow/
+.inferencesh/
+.jazz/
+.junie/
+.kimchi/
+.kiro/
+.kode/
+.lingma/
+.mcpjam/
+.minimax/
+.moxby/
+.mux/
+.neovate/
+.ona/
+.openhands/
+.pochi/
+.posit/
+.qoder/
+.qwen/
+.reasonix/
+.roo/
+.rovodev/
+.tabnine/
+.terramind/
+.tinycloud/
+.trae/
+.vibe/
+.windsurf/
+.zcode/
+.zencoder/
+skills/
+data/skills/
