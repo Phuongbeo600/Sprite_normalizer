@@ -545,102 +545,6 @@ export default function HelpCenter({ onBack }) {
           </div>
         </div>
 
-        {/* Thanh Ô Tìm Kiếm Nhanh (Top Search Bar) */}
-        <div style={{ flex: 1, maxWidth: '520px', position: 'relative' }}>
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            background: 'rgba(255, 255, 255, 0.06)',
-            border: '1px solid rgba(255, 255, 255, 0.12)',
-            borderRadius: '20px',
-            padding: '6px 14px',
-            gap: '8px'
-          }}>
-            <Search size={15} color="#94a3b8" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Tìm kiếm tài liệu, khái niệm, phím tắt, thuật toán..."
-              style={{
-                width: '100%',
-                background: 'transparent',
-                border: 'none',
-                color: 'var(--text-white)',
-                fontSize: '0.825rem',
-                outline: 'none'
-              }}
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery('')}
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  color: '#94a3b8',
-                  cursor: 'pointer',
-                  fontSize: '0.75rem',
-                  padding: '2px 6px'
-                }}
-              >
-                ✕
-              </button>
-            )}
-          </div>
-
-          {/* Hộp Gợi Ý Kết Quả Tìm Kiếm Thả Xuống (Search Dropdown) */}
-          {searchQuery.trim() && (
-            <div style={{
-              position: 'absolute',
-              top: '100%',
-              left: 0,
-              right: 0,
-              marginTop: '6px',
-              background: '#1a1333',
-              border: '1px solid rgba(168, 85, 247, 0.35)',
-              borderRadius: '12px',
-              boxShadow: '0 12px 30px rgba(0, 0, 0, 0.65)',
-              maxHeight: '340px',
-              overflowY: 'auto',
-              zIndex: 100,
-              padding: '8px'
-            }}>
-              {searchResults.length === 0 ? (
-                <div style={{ padding: '12px 14px', fontSize: '0.8rem', color: 'var(--text-muted)', textAlign: 'center' }}>
-                  Không tìm thấy bài viết nào khớp với "{searchQuery}".
-                </div>
-              ) : (
-                searchResults.map(({ categoryId, categoryTitle, article }) => (
-                  <div
-                    key={article.id}
-                    onClick={() => handleOpenArticle(categoryId, article.id)}
-                    style={{
-                      padding: '10px 12px',
-                      borderRadius: '8px',
-                      cursor: 'pointer',
-                      borderBottom: '1px solid rgba(255, 255, 255, 0.04)',
-                      transition: 'background 0.2s ease'
-                    }}
-                    onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.06)'; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
-                  >
-                    <div style={{ fontSize: '0.7rem', color: '#c084fc', fontWeight: 600, textTransform: 'uppercase' }}>
-                      {categoryTitle}
-                    </div>
-                    <div style={{ fontWeight: 600, fontSize: '0.85rem', color: '#ffffff', marginTop: '2px' }}>
-                      {article.title}
-                    </div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: '2px' }}>
-                      {article.summary}
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          )}
-        </div>
-
         {/* Nút Quay Lại Sprite AI (Return to Sprite AI) */}
         <button
           type="button"
@@ -982,48 +886,128 @@ export default function HelpCenter({ onBack }) {
                 </p>
 
                 {/* Ô tìm kiếm lớn ở giữa Hero */}
-                <div style={{
-                  maxWidth: '520px',
-                  margin: '0 auto',
-                  display: 'flex',
-                  alignItems: 'center',
-                  background: 'rgba(0, 0, 0, 0.4)',
-                  border: '1px solid rgba(255, 255, 255, 0.15)',
-                  borderRadius: '30px',
-                  padding: '4px 6px 4px 16px',
-                  boxShadow: '0 4px 16px rgba(0, 0, 0, 0.3)'
-                }}>
-                  <Search size={17} color="#94a3b8" />
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Tìm kiếm tài liệu, ma trận 15 frame, Bounding box..."
-                    style={{
-                      flex: 1,
-                      background: 'transparent',
-                      border: 'none',
-                      color: '#ffffff',
-                      fontSize: '0.85rem',
-                      outline: 'none',
-                      padding: '8px 12px'
+                <div style={{ maxWidth: '560px', margin: '0 auto', position: 'relative' }}>
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      if (searchResults.length > 0) {
+                        handleOpenArticle(searchResults[0].categoryId, searchResults[0].article.id);
+                      }
                     }}
-                  />
-                  <button
-                    type="button"
                     style={{
-                      background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                      border: 'none',
-                      color: '#ffffff',
-                      padding: '8px 18px',
-                      borderRadius: '20px',
-                      fontWeight: 600,
-                      fontSize: '0.8rem',
-                      cursor: 'pointer'
+                      display: 'flex',
+                      alignItems: 'center',
+                      background: 'rgba(0, 0, 0, 0.45)',
+                      border: '1px solid rgba(255, 255, 255, 0.18)',
+                      borderRadius: '30px',
+                      padding: '4px 6px 4px 16px',
+                      boxShadow: '0 6px 20px rgba(0, 0, 0, 0.35)',
+                      transition: 'border-color 0.2s ease'
                     }}
                   >
-                    Tìm kiếm
-                  </button>
+                    <Search size={17} color="#94a3b8" />
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Tìm kiếm tài liệu, ma trận 15 frame, Bounding box..."
+                      style={{
+                        flex: 1,
+                        background: 'transparent',
+                        border: 'none',
+                        color: '#ffffff',
+                        fontSize: '0.85rem',
+                        outline: 'none',
+                        padding: '8px 12px'
+                      }}
+                    />
+                    {searchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setSearchQuery('')}
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          color: '#94a3b8',
+                          cursor: 'pointer',
+                          fontSize: '0.8rem',
+                          padding: '4px 8px',
+                          marginRight: '4px'
+                        }}
+                        title="Xóa tìm kiếm"
+                      >
+                        ✕
+                      </button>
+                    )}
+                    <button
+                      type="submit"
+                      style={{
+                        background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                        border: 'none',
+                        color: '#ffffff',
+                        padding: '8px 20px',
+                        borderRadius: '20px',
+                        fontWeight: 600,
+                        fontSize: '0.8rem',
+                        cursor: 'pointer',
+                        boxShadow: '0 2px 8px rgba(16, 185, 129, 0.35)'
+                      }}
+                    >
+                      Tìm kiếm
+                    </button>
+                  </form>
+
+                  {/* Hộp Gợi Ý Kết Quả Tìm Kiếm Thả Xuống Ngay Dưới Ô Tìm Kiếm Hero */}
+                  {searchQuery.trim() && (
+                    <div style={{
+                      position: 'absolute',
+                      top: '100%',
+                      left: 0,
+                      right: 0,
+                      marginTop: '8px',
+                      background: 'rgba(26, 19, 51, 0.98)',
+                      border: '1px solid rgba(168, 85, 247, 0.45)',
+                      borderRadius: '14px',
+                      boxShadow: '0 16px 40px rgba(0, 0, 0, 0.75)',
+                      maxHeight: '340px',
+                      overflowY: 'auto',
+                      zIndex: 100,
+                      padding: '8px',
+                      textAlign: 'left'
+                    }}>
+                      {searchResults.length === 0 ? (
+                        <div style={{ padding: '14px', fontSize: '0.825rem', color: 'var(--text-muted)', textAlign: 'center' }}>
+                          Không tìm thấy tài liệu hướng dẫn nào khớp với "{searchQuery}".
+                        </div>
+                      ) : (
+                        searchResults.map(({ categoryId, categoryTitle, article }) => (
+                          <div
+                            key={article.id}
+                            onClick={() => handleOpenArticle(categoryId, article.id)}
+                            style={{
+                              padding: '10px 14px',
+                              borderRadius: '8px',
+                              cursor: 'pointer',
+                              borderBottom: '1px solid rgba(255, 255, 255, 0.04)',
+                              transition: 'background 0.2s ease'
+                            }}
+                            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.07)'; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                          >
+                            <div style={{ fontSize: '0.675rem', color: '#c084fc', fontWeight: 600, textTransform: 'uppercase' }}>
+                              {categoryTitle}
+                            </div>
+                            <div style={{ fontWeight: 600, fontSize: '0.875rem', color: '#ffffff', marginTop: '2px' }}>
+                              {article.title}
+                            </div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: '2px' }}>
+                              {article.summary}
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 
