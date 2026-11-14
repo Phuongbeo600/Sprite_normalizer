@@ -1832,44 +1832,24 @@ export default function GodotTestbed({
     <div className="atelier-godot-root">
       {/* 1. Thanh tiêu đề phòng thử nghiệm */}
       <div className="atelier-godot-header">
-        <div>
-          <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '10px', color: '#f5f3ff', fontWeight: 700 }}>
+        <div className="atelier-godot-header-title">
+          <h2 className="atelier-godot-title-heading">
             <Gamepad2 size={24} color="#c084fc" />
             Thử nghiệm Asset Godot Engine 4 (Đa Nhân Vật 1:1)
           </h2>
-          <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: 'var(--atl-text-secondary, #a39bc2)' }}>
+          <p className="atelier-godot-title-subtext">
             Đặt nhân vật mới đứng cạnh nhân vật cũ trên cùng sàn đất để so sánh tỉ lệ pixel, chiều cao và nhịp chạy trước khi đưa vào game.
           </p>
 
           {/* Huy hiệu hiển thị khi đang nạp đội hình được chọn lọc từ Kho tài nguyên */}
           {Array.isArray(deployedCharacterIds) && deployedCharacterIds.length > 0 && (
-            <div style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              background: 'rgba(147, 51, 234, 0.16)',
-              border: '1px solid rgba(168, 85, 247, 0.35)',
-              borderRadius: '20px',
-              padding: '3px 12px',
-              fontSize: '0.75rem',
-              color: '#d8b4fe',
-              marginTop: '6px'
-            }}>
+            <div className="atelier-godot-filter-badge">
               <span>🎮 Đang nạp {characters.length} nhân vật từ Kho tài nguyên</span>
               {onResetDeployedFilter && (
                 <button
                   type="button"
                   onClick={onResetDeployedFilter}
-                  style={{
-                    background: 'transparent',
-                    border: 'none',
-                    color: '#c084fc',
-                    textDecoration: 'underline',
-                    cursor: 'pointer',
-                    fontSize: '0.75rem',
-                    padding: 0,
-                    marginLeft: '4px'
-                  }}
+                  className="atelier-godot-filter-btn-reset"
                   title="Hiển thị tất cả nhân vật có trong MySQL"
                 >
                   (Hiện tất cả)
@@ -1879,7 +1859,7 @@ export default function GodotTestbed({
           )}
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+        <div className="atelier-godot-header-actions">
           {/* Nút tải Map nền */}
           <label className="atelier-godot-btn-sub" style={{ cursor: 'pointer' }}>
             <ImageIcon size={15} color="#c084fc" /> Tải Map nền
@@ -1904,7 +1884,7 @@ export default function GodotTestbed({
           )}
 
           {/* MENU 2 CHỨC NĂNG: THÊM NHÂN VẬT (SPRITE SHEET HOẶC KHUNG Ô ẢNH RỜI) */}
-          <div style={{ position: 'relative' }} ref={dropdownRef}>
+          <div className="atelier-godot-dropdown-container" ref={dropdownRef}>
             <button
               type="button"
               className="atelier-godot-btn-sub"
@@ -1920,48 +1900,12 @@ export default function GodotTestbed({
             </button>
 
             {addMenuOpen && (
-              <div style={{
-                position: 'absolute',
-                top: 'calc(100% + 6px)',
-                right: 0,
-                background: 'rgba(18, 13, 34, 0.98)',
-                backdropFilter: 'blur(20px)',
-                WebkitBackdropFilter: 'blur(20px)',
-                border: '1px solid rgba(168, 85, 247, 0.28)',
-                borderRadius: '10px',
-                padding: '6px',
-                minWidth: '260px',
-                zIndex: 60,
-                boxShadow: '0 12px 32px rgba(0,0,0,0.7), 0 0 16px rgba(147, 51, 234, 0.2)',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '4px'
-              }}>
-                <label
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '10px',
-                    padding: '8px 12px',
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                    color: '#f5f3ff',
-                    fontSize: '0.8rem',
-                    transition: 'all 0.15s ease'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = 'rgba(147, 51, 234, 0.22)';
-                    e.currentTarget.style.color = '#ffffff';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'transparent';
-                    e.currentTarget.style.color = '#f5f3ff';
-                  }}
-                >
+              <div className="atelier-godot-dropdown-menu">
+                <label className="atelier-godot-dropdown-item">
                   <Layers size={18} color="#c084fc" />
                   <div>
-                    <div style={{ fontWeight: 600 }}>1. Nhập từ Sprite Sheet</div>
-                    <div style={{ fontSize: '0.7rem', color: 'var(--atl-text-muted, #716b89)' }}>1 tệp ảnh lưới chia hàng × cột</div>
+                    <div className="atelier-godot-dropdown-item-title">1. Nhập từ Sprite Sheet</div>
+                    <div className="atelier-godot-dropdown-item-desc">1 tệp ảnh lưới chia hàng × cột</div>
                   </div>
                   <input
                     type="file"
@@ -1975,31 +1919,13 @@ export default function GodotTestbed({
                 </label>
 
                 <div
+                  className="atelier-godot-dropdown-item"
                   onClick={handleOpenSlotTemplateModal}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '10px',
-                    padding: '8px 12px',
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                    color: '#f5f3ff',
-                    fontSize: '0.8rem',
-                    transition: 'all 0.15s ease'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = 'rgba(147, 51, 234, 0.22)';
-                    e.currentTarget.style.color = '#ffffff';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'transparent';
-                    e.currentTarget.style.color = '#f5f3ff';
-                  }}
                 >
                   <FolderOpen size={18} color="#c084fc" />
                   <div>
-                    <div style={{ fontWeight: 600 }}>2. Nhập từ Ảnh rời (Khung Ô có nhãn)</div>
-                    <div style={{ fontSize: '0.7rem', color: 'var(--atl-text-muted, #716b89)' }}>Chọn từng ô: idle, walk_0..3 theo nhãn</div>
+                    <div className="atelier-godot-dropdown-item-title">2. Nhập từ Ảnh rời (Khung Ô có nhãn)</div>
+                    <div className="atelier-godot-dropdown-item-desc">Chọn từng ô: idle, walk_0..3 theo nhãn</div>
                   </div>
                 </div>
               </div>

@@ -26,6 +26,8 @@
    2. THANH TIÊU ĐỀ PHÒNG THỬ NGHIỆM (HEADER BANNER)
    ============================================================================ */
 .atelier-godot-header {
+  position: relative;
+  z-index: 30;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -69,23 +71,23 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: rgba(16, 185, 129, 0.12);
-  border: 1px solid rgba(16, 185, 129, 0.3);
+  background: rgba(147, 51, 234, 0.16);
+  border: 1px solid rgba(168, 85, 247, 0.35);
   border-radius: 20px;
-  padding: 3px 10px;
-  font-size: 0.74rem;
+  padding: 3px 12px;
+  font-size: 0.75rem;
   font-weight: 600;
-  color: #34d399;
-  margin-top: 4px;
+  color: #d8b4fe;
+  margin-top: 6px;
 }
 
 .atelier-godot-filter-btn-reset {
   background: transparent;
   border: none;
-  color: #ffffff;
+  color: #c084fc;
   text-decoration: underline;
   cursor: pointer;
-  font-size: 0.725rem;
+  font-size: 0.75rem;
   padding: 0;
   margin-left: 4px;
 }
@@ -95,6 +97,58 @@
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
+}
+
+/* Khung chứa menu thả xuống Thêm nhân vật */
+.atelier-godot-dropdown-container {
+  position: relative;
+}
+
+/* Hộp danh sách lựa chọn thả xuống - hiển thị nổi bật trên cùng không bị che */
+.atelier-godot-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  background: rgba(18, 13, 34, 0.98);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(168, 85, 247, 0.28);
+  border-radius: 10px;
+  padding: 6px;
+  min-width: 260px;
+  z-index: 60;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.7), 0 0 16px rgba(147, 51, 234, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Từng mục lựa chọn trong menu thả xuống */
+.atelier-godot-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  color: #f5f3ff;
+  font-size: 0.8rem;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.atelier-godot-dropdown-item:hover {
+  background: rgba(147, 51, 234, 0.22);
+  color: #ffffff;
+}
+
+.atelier-godot-dropdown-item-title {
+  font-weight: 600;
+}
+
+.atelier-godot-dropdown-item-desc {
+  font-size: 0.7rem;
+  color: var(--atl-text-muted, #716b89);
 }
 
 /* ============================================================================
@@ -174,6 +228,7 @@
    ============================================================================ */
 .atelier-godot-canvas-card {
   position: relative;
+  z-index: 1;
   background: #04020a;
   border: 1px solid var(--atl-border-amethyst, rgba(168, 85, 247, 0.25));
   border-radius: 14px;
