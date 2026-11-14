@@ -33,6 +33,8 @@ import MasterColorSpecCard from './MasterColorSpecCard';
 import PromptOutputCard from './PromptOutputCard';
 // translateBatch: Hàm gọi API dịch thuật offline không tốn API key
 import { translateBatch } from '../../utils/translationApi';
+// PixelArtIcons: Biểu tượng hoa văn rune cổ và hình bóng lâu đài pixel
+import { PixelCastleWatermark, PixelRune } from '../common/PixelArtIcons';
 // promptDefaults: Hằng số Negative Prompt và các hàm biên dịch prompt
 import {
   DEFAULT_NEGATIVE_PROMPT,
@@ -269,7 +271,11 @@ export default function TabConstraintsPromptView({
       {/* ========================================================
           1. PHÒNG TẠO PROMPT AI CHO NHÂN VẬT MỚI (PROMPT STUDIO)
           ======================================================== */}
-      <section className="atelier-prompt-studio-card">
+      <section className="atelier-prompt-studio-card" style={{ position: 'relative', overflow: 'hidden' }}>
+        {/* Dấu ấn Pixel Art: Ký tự Rune ma thuật góc card & Hình bóng lâu đài chìm hậu cảnh */}
+        <PixelRune size={18} className="pixel-corner-rune pixel-corner-top-right" />
+        <PixelCastleWatermark width={220} height={110} style={{ position: 'absolute', bottom: '12px', right: '16px', opacity: 0.045, pointerEvents: 'none' }} />
+
         {/* Tiêu đề & mô tả phân hệ tạo prompt */}
         <div className="atelier-prompt-card-header">
           <div>

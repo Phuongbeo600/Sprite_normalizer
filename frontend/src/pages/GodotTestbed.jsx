@@ -101,28 +101,28 @@ function createDemoSpriteSheet(type = 'knight') {
 
   const palettes = {
     knight: {
-      armor: '#cbd5e1',
-      armorDark: '#64748b',
-      helm: '#94a3b8',
-      visor: '#0284c7',
-      cape: '#e11d48',
-      skin: '#fde047'
+      armor: '#475569',
+      armorDark: '#1e293b',
+      helm: '#64748b',
+      visor: '#38bdf8',
+      cape: '#581c87',
+      skin: '#fcd34d'
     },
     mage: {
-      armor: '#7c3aed',
-      armorDark: '#4c1d95',
-      helm: '#5b21b6',
+      armor: '#6b21a8',
+      armorDark: '#3b0764',
+      helm: '#581c87',
       visor: '#fbbf24',
-      cape: '#8b5cf6',
+      cape: '#7e22ce',
       skin: '#fed7aa'
     },
     fox: {
-      armor: '#ea580c',
-      armorDark: '#9a3412',
-      helm: '#ffedd5',
+      armor: '#9a3412',
+      armorDark: '#451a03',
+      helm: '#c2410c',
       visor: '#10b981',
-      cape: '#f97316',
-      skin: '#fff7ed'
+      cape: '#7c2d12',
+      skin: '#ffedd5'
     }
   };
 
@@ -1609,7 +1609,7 @@ export default function GodotTestbed({
       }
 
       if (showGroundLine) {
-        ctx.strokeStyle = 'rgba(56, 189, 248, 0.6)';
+        ctx.strokeStyle = 'rgba(168, 85, 247, 0.7)';
         ctx.setLineDash([6, 6]);
         ctx.lineWidth = 1.5;
         ctx.beginPath();
@@ -1618,7 +1618,7 @@ export default function GodotTestbed({
         ctx.stroke();
         ctx.setLineDash([]);
 
-        ctx.fillStyle = '#38bdf8';
+        ctx.fillStyle = '#d8b4fe';
         ctx.font = 'bold 11px monospace';
         ctx.fillText(`MẶT ĐẤT Y = ${groundY} px (Chân tiếp xúc 1:1 • Kéo thả chuột để dời vị trí)`, 14, groundY - 8);
       }
@@ -1644,15 +1644,15 @@ export default function GodotTestbed({
 
         if (isCurrentActive) {
           ctx.save();
-          ctx.fillStyle = 'rgba(250, 204, 21, 0.25)';
-          ctx.strokeStyle = '#facc15';
+          ctx.fillStyle = 'rgba(192, 132, 252, 0.22)';
+          ctx.strokeStyle = '#c084fc';
           ctx.lineWidth = 2;
           ctx.beginPath();
           ctx.ellipse(px, py, drawW * 0.35, drawW * 0.18, 0, 0, Math.PI * 2);
           ctx.fill();
           ctx.stroke();
 
-          ctx.fillStyle = '#facc15';
+          ctx.fillStyle = '#c084fc';
           ctx.beginPath();
           ctx.moveTo(px, py - drawH - 16);
           ctx.lineTo(px - 6, py - drawH - 24);
@@ -1702,15 +1702,15 @@ export default function GodotTestbed({
           const colX = Math.round(px - colW / 2);
           const colY = Math.round(py - colH);
 
-          ctx.fillStyle = isCurrentActive ? 'rgba(239, 68, 68, 0.25)' : 'rgba(56, 189, 248, 0.18)';
+          ctx.fillStyle = isCurrentActive ? 'rgba(239, 68, 68, 0.22)' : 'rgba(168, 85, 247, 0.14)';
           ctx.fillRect(colX, colY, colW, colH);
-          ctx.strokeStyle = isCurrentActive ? '#ef4444' : '#38bdf8';
+          ctx.strokeStyle = isCurrentActive ? '#ef4444' : 'rgba(168, 85, 247, 0.4)';
           ctx.lineWidth = 1.5;
           ctx.strokeRect(colX, colY, colW, colH);
         }
 
         if (showOrigin) {
-          ctx.strokeStyle = '#f59e0b';
+          ctx.strokeStyle = '#fbbf24';
           ctx.lineWidth = 1.5;
           ctx.beginPath();
           ctx.moveTo(px - 6, py);
@@ -1720,12 +1720,12 @@ export default function GodotTestbed({
           ctx.stroke();
         }
 
-        ctx.fillStyle = isCurrentActive ? '#facc15' : '#e2e8f0';
+        ctx.fillStyle = isCurrentActive ? '#ffffff' : '#a39bc2';
         ctx.font = 'bold 11px sans-serif';
         ctx.textAlign = 'center';
         ctx.fillText(`[${idx + 1}] ${charObj.name}`, px, py + 16);
 
-        ctx.fillStyle = '#94a3b8';
+        ctx.fillStyle = isCurrentActive ? '#d8b4fe' : '#716b89';
         ctx.font = '9px monospace';
         const scaleTxt = charObj.scale && charObj.scale !== 1.0 ? ` (x${charObj.scale})` : '';
         ctx.fillText(`${charObj.cellWidth}×${charObj.cellHeight} px${scaleTxt}`, px, py + 28);
@@ -1738,7 +1738,7 @@ export default function GodotTestbed({
         const actH = Math.round(actChar.cellHeight * effZoom);
         const headY = Math.round(actState.y - actH);
 
-        ctx.strokeStyle = 'rgba(250, 204, 21, 0.8)';
+        ctx.strokeStyle = 'rgba(251, 191, 36, 0.75)';
         ctx.setLineDash([4, 4]);
         ctx.lineWidth = 1.5;
         ctx.beginPath();
@@ -1747,7 +1747,7 @@ export default function GodotTestbed({
         ctx.stroke();
         ctx.setLineDash([]);
 
-        ctx.fillStyle = '#facc15';
+        ctx.fillStyle = '#fbbf24';
         ctx.font = 'bold 10px monospace';
         ctx.textAlign = 'left';
         ctx.fillText(`ĐỈNH ĐẦU: Cao ${Math.round(actChar.cellHeight * (actChar.scale || 1.0))}px (Tỉ lệ thực)`, 14, headY - 4);
@@ -1833,11 +1833,11 @@ export default function GodotTestbed({
       {/* 1. Thanh tiêu đề phòng thử nghiệm */}
       <div className="atelier-godot-header">
         <div>
-          <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-white)' }}>
-            <Gamepad2 size={24} color="#38bdf8" />
+          <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '10px', color: '#f5f3ff', fontWeight: 700 }}>
+            <Gamepad2 size={24} color="#c084fc" />
             Thử nghiệm Asset Godot Engine 4 (Đa Nhân Vật 1:1)
           </h2>
-          <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+          <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: 'var(--atl-text-secondary, #a39bc2)' }}>
             Đặt nhân vật mới đứng cạnh nhân vật cũ trên cùng sàn đất để so sánh tỉ lệ pixel, chiều cao và nhịp chạy trước khi đưa vào game.
           </p>
 
@@ -1847,12 +1847,12 @@ export default function GodotTestbed({
               display: 'inline-flex',
               alignItems: 'center',
               gap: '6px',
-              background: 'rgba(16, 185, 129, 0.15)',
-              border: '1px solid rgba(16, 185, 129, 0.3)',
+              background: 'rgba(147, 51, 234, 0.16)',
+              border: '1px solid rgba(168, 85, 247, 0.35)',
               borderRadius: '20px',
-              padding: '3px 10px',
+              padding: '3px 12px',
               fontSize: '0.75rem',
-              color: '#34d399',
+              color: '#d8b4fe',
               marginTop: '6px'
             }}>
               <span>🎮 Đang nạp {characters.length} nhân vật từ Kho tài nguyên</span>
@@ -1863,7 +1863,7 @@ export default function GodotTestbed({
                   style={{
                     background: 'transparent',
                     border: 'none',
-                    color: '#fff',
+                    color: '#c084fc',
                     textDecoration: 'underline',
                     cursor: 'pointer',
                     fontSize: '0.75rem',
@@ -1881,8 +1881,8 @@ export default function GodotTestbed({
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
           {/* Nút tải Map nền */}
-          <label className="btn-secondary-studio" style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-            <ImageIcon size={16} color="#38bdf8" /> Tải Map nền
+          <label className="atelier-godot-btn-sub" style={{ cursor: 'pointer' }}>
+            <ImageIcon size={15} color="#c084fc" /> Tải Map nền
             <input
               type="file"
               accept="image/png,image/jpeg,image/webp"
@@ -1894,7 +1894,7 @@ export default function GodotTestbed({
           {mapImage && (
             <button
               type="button"
-              className="btn-ghost-studio"
+              className="atelier-godot-btn-sub"
               onClick={handleResetMap}
               title="Quay lại cảnh đêm trăng mặc định"
               style={{ fontSize: '0.75rem' }}
@@ -1907,11 +1907,14 @@ export default function GodotTestbed({
           <div style={{ position: 'relative' }} ref={dropdownRef}>
             <button
               type="button"
-              className="btn-secondary-studio"
+              className="atelier-godot-btn-sub"
               onClick={() => setAddMenuOpen(!addMenuOpen)}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: addMenuOpen ? 'rgba(56, 189, 248, 0.2)' : undefined }}
+              style={{
+                background: addMenuOpen ? 'rgba(147, 51, 234, 0.28)' : undefined,
+                borderColor: addMenuOpen ? '#c084fc' : undefined
+              }}
             >
-              <Plus size={16} color="#10b981" />
+              <Plus size={15} color="#c084fc" />
               <span>Thêm Nhân Vật</span>
               <ChevronDown size={14} style={{ transform: addMenuOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s ease' }} />
             </button>
@@ -1919,15 +1922,17 @@ export default function GodotTestbed({
             {addMenuOpen && (
               <div style={{
                 position: 'absolute',
-                top: 'calc(100% + 4px)',
+                top: 'calc(100% + 6px)',
                 right: 0,
-                background: '#161e2e',
-                border: '1px solid var(--border-card)',
-                borderRadius: '8px',
+                background: 'rgba(18, 13, 34, 0.98)',
+                backdropFilter: 'blur(20px)',
+                WebkitBackdropFilter: 'blur(20px)',
+                border: '1px solid rgba(168, 85, 247, 0.28)',
+                borderRadius: '10px',
                 padding: '6px',
-                minWidth: '250px',
+                minWidth: '260px',
                 zIndex: 60,
-                boxShadow: '0 8px 24px rgba(0,0,0,0.6)',
+                boxShadow: '0 12px 32px rgba(0,0,0,0.7), 0 0 16px rgba(147, 51, 234, 0.2)',
                 display: 'flex',
                 flexDirection: 'column',
                 gap: '4px'
@@ -1937,20 +1942,26 @@ export default function GodotTestbed({
                     display: 'flex',
                     alignItems: 'center',
                     gap: '10px',
-                    padding: '8px 10px',
-                    borderRadius: '6px',
+                    padding: '8px 12px',
+                    borderRadius: '8px',
                     cursor: 'pointer',
-                    color: '#e2e8f0',
+                    color: '#f5f3ff',
                     fontSize: '0.8rem',
-                    transition: 'background 0.15s'
+                    transition: 'all 0.15s ease'
                   }}
-                  onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(56, 189, 248, 0.15)'}
-                  onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'rgba(147, 51, 234, 0.22)';
+                    e.currentTarget.style.color = '#ffffff';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'transparent';
+                    e.currentTarget.style.color = '#f5f3ff';
+                  }}
                 >
-                  <Layers size={18} color="#38bdf8" />
+                  <Layers size={18} color="#c084fc" />
                   <div>
                     <div style={{ fontWeight: 600 }}>1. Nhập từ Sprite Sheet</div>
-                    <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>1 tệp ảnh lưới chia hàng × cột</div>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--atl-text-muted, #716b89)' }}>1 tệp ảnh lưới chia hàng × cột</div>
                   </div>
                   <input
                     type="file"
@@ -1969,20 +1980,26 @@ export default function GodotTestbed({
                     display: 'flex',
                     alignItems: 'center',
                     gap: '10px',
-                    padding: '8px 10px',
-                    borderRadius: '6px',
+                    padding: '8px 12px',
+                    borderRadius: '8px',
                     cursor: 'pointer',
-                    color: '#e2e8f0',
+                    color: '#f5f3ff',
                     fontSize: '0.8rem',
-                    transition: 'background 0.15s'
+                    transition: 'all 0.15s ease'
                   }}
-                  onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(16, 185, 129, 0.15)'}
-                  onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'rgba(147, 51, 234, 0.22)';
+                    e.currentTarget.style.color = '#ffffff';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'transparent';
+                    e.currentTarget.style.color = '#f5f3ff';
+                  }}
                 >
-                  <FolderOpen size={18} color="#10b981" />
+                  <FolderOpen size={18} color="#c084fc" />
                   <div>
                     <div style={{ fontWeight: 600 }}>2. Nhập từ Ảnh rời (Khung Ô có nhãn)</div>
-                    <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>Chọn từng ô: idle, walk_0..3 theo nhãn</div>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--atl-text-muted, #716b89)' }}>Chọn từng ô: idle, walk_0..3 theo nhãn</div>
                   </div>
                 </div>
               </div>
@@ -1992,12 +2009,11 @@ export default function GodotTestbed({
           {/* Nút xuất Godot 4 */}
           <button
             type="button"
-            className="btn-primary-studio"
+            className="atelier-godot-btn-export-zip"
             disabled={!activeChar || exporting}
             onClick={handleExportActiveGodotZip}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
           >
-            {exportSuccess ? <Check size={16} color="#10b981" /> : <Download size={16} />}
+            {exportSuccess ? <Check size={16} color="#fbbf24" /> : <Download size={16} />}
             {exporting ? 'Đang xuất ZIP…' : exportSuccess ? 'Đã tải Godot 4!' : `Xuất [${activeChar?.name || 'Nhân vật'}] (.ZIP)`}
           </button>
         </div>
@@ -2010,56 +2026,34 @@ export default function GodotTestbed({
       )}
 
       {/* 2. Cửa sổ Viewport Canvas mô phỏng Godot Debug */}
-      <div style={{
-        background: '#0d121f',
-        border: '1px solid var(--border-card)',
-        borderRadius: '8px',
-        overflow: 'hidden',
-        boxShadow: '0 8px 24px rgba(0, 0, 0, 0.5)'
-      }}>
-        <div style={{
-          background: '#161e2e',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-          padding: '8px 14px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '10px'
-        }}>
+      <div className="atelier-godot-canvas-card">
+        <div className="atelier-godot-debug-bar">
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '1rem' }}>🤖</span>
-            <span style={{ color: '#e2e8f0', fontSize: '0.825rem', fontWeight: 600 }}>
+            <Gamepad2 size={16} color="#c084fc" />
+            <span style={{ color: '#f5f3ff', fontSize: '0.825rem', fontWeight: 600 }}>
               Thử nghiệm asset (DEBUG) - Godot Engine 4
             </span>
-            <span style={{ fontSize: '0.75rem', color: '#64748b', marginLeft: '6px' }}>1280×720</span>
+            <span style={{ fontSize: '0.72rem', color: 'var(--atl-text-muted, #716b89)', marginLeft: '4px' }}>1280×720</span>
           </div>
 
-          <div style={{
-            background: 'rgba(15, 23, 42, 0.8)',
-            border: '1px solid rgba(56, 189, 248, 0.3)',
-            borderRadius: '6px',
-            padding: '4px 12px',
-            textAlign: 'center',
-            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.4)'
-          }}>
-            <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#facc15', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+          <div className="atelier-godot-active-pill">
+            <div style={{ fontSize: '0.84rem', fontWeight: 700, color: '#f5f3ff', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
               <span>🎮 Đang chọn:</span>
-              <span>{activeChar?.icon || '⚔️'} {activeChar?.name || 'Player'}</span>
-              <span style={{ color: '#94a3b8', fontSize: '0.75rem' }}>[{activeCharIdx + 1} / {characters.length}]</span>
+              <span style={{ color: '#c084fc' }}>{activeChar?.icon || '⚔️'} {activeChar?.name || 'Player'}</span>
+              <span style={{ color: '#fbbf24', fontSize: '0.75rem', fontWeight: 600 }}>[{activeCharIdx + 1} / {characters.length}]</span>
             </div>
-            <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '2px' }}>
+            <div style={{ fontSize: '0.68rem', color: 'var(--atl-text-muted, #716b89)', marginTop: '2px' }}>
               ■ Nhấn <strong>[TAB]</strong> để đổi nhân vật • Phím <strong>[1, 2...]</strong> chọn nhanh • <strong>[WASD]</strong> Di chuyển • <strong>Kéo chuột</strong> để dời vị trí
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <button
               type="button"
-              className="btn-ghost-studio"
+              className="atelier-godot-btn-sub"
               onClick={handleResetPartyPositions}
               title="Đặt lại đội hình đứng dàn hàng ngang"
-              style={{ fontSize: '0.75rem', padding: '4px 8px', gap: '4px' }}
+              style={{ fontSize: '0.74rem', padding: '4px 10px' }}
             >
               <RotateCcw size={13} /> Dàn hàng ngang
             </button>
@@ -2067,7 +2061,8 @@ export default function GodotTestbed({
             <select
               value={pixelZoom}
               onChange={(e) => setPixelZoom(Number(e.target.value))}
-              style={{ background: '#111827', border: '1px solid var(--border-card)', color: '#fff', borderRadius: '4px', padding: '3px 8px', fontSize: '0.75rem' }}
+              className="atelier-godot-input"
+              style={{ width: 'auto', padding: '4px 10px', fontSize: '0.74rem', cursor: 'pointer' }}
             >
               <option value={1}>Thu phóng 1x (Gốc)</option>
               <option value={2}>Thu phóng 2x (Chuẩn)</option>
@@ -2111,21 +2106,13 @@ export default function GodotTestbed({
       {/* 3. Bảng điều khiển phía dưới: Danh sách nhân vật (Slot 1..9) & Chỉnh sửa vị trí / thay ảnh */}
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(400px, 1fr) 340px', gap: '14px', alignItems: 'start' }}>
         {/* CỘT TRÁI: DANH SÁCH NHÂN VẬT & BẢNG CHỈNH SỬA / THAY ẢNH */}
-        <div style={{
-          background: '#0d121f',
-          border: '1px solid var(--border-card)',
-          borderRadius: '8px',
-          padding: '14px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '12px'
-        }}>
+        <div className="atelier-godot-roster-box">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
-            <h4 style={{ margin: 0, color: 'var(--text-white)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem' }}>
-              <Users size={16} color="#38bdf8" />
+            <h4 style={{ margin: 0, color: '#f5f3ff', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem', fontWeight: 700 }}>
+              <Users size={16} color="#c084fc" />
               Đội hình so sánh ({characters.length} nhân vật)
             </h4>
-            <span style={{ fontSize: '0.725rem', color: 'var(--text-dim)' }}>
+            <span style={{ fontSize: '0.725rem', color: 'var(--atl-text-muted, #716b89)' }}>
               Nhấp vào thẻ hoặc <strong>kéo thả chuột trực tiếp trên ảnh</strong> để dời vị trí
             </span>
           </div>
@@ -2137,35 +2124,14 @@ export default function GodotTestbed({
                 <div
                   key={charItem.id}
                   onClick={() => setActiveCharIdx(idx)}
-                  style={{
-                    background: isSelected ? 'rgba(56, 189, 248, 0.12)' : '#111827',
-                    border: isSelected ? '1.5px solid #38bdf8' : '1px solid var(--border-card)',
-                    borderRadius: '6px',
-                    padding: '8px 10px',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '6px',
-                    transition: 'all 0.15s ease'
-                  }}
+                  className={`atelier-godot-char-card ${isSelected ? 'active' : ''}`}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <span style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        width: '20px',
-                        height: '20px',
-                        background: isSelected ? '#38bdf8' : '#1e293b',
-                        color: isSelected ? '#000' : '#fff',
-                        borderRadius: '4px',
-                        fontWeight: 700,
-                        fontSize: '0.75rem'
-                      }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span className={`atelier-godot-char-card-num ${isSelected ? 'active' : ''}`}>
                         {idx + 1}
                       </span>
-                      <div style={{ fontSize: '0.8rem', fontWeight: 600, color: isSelected ? '#facc15' : '#e2e8f0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '130px' }}>
+                      <div className="atelier-godot-card-name">
                         {charItem.name}
                       </div>
                     </div>
@@ -2179,7 +2145,7 @@ export default function GodotTestbed({
                           handleEditCharacterSlots(idx);
                         }}
                         title="Sửa / Đổi khung ảnh nhân vật này"
-                        style={{ background: 'transparent', border: 'none', color: '#38bdf8', cursor: 'pointer', padding: '2px' }}
+                        style={{ background: 'transparent', border: 'none', color: isSelected ? '#c084fc' : '#a39bc2', cursor: 'pointer', padding: '3px' }}
                       >
                         <Pencil size={13} />
                       </button>
@@ -2191,7 +2157,7 @@ export default function GodotTestbed({
                             handleRemoveCharacter(idx);
                           }}
                           title="Gỡ khỏi phòng thử nghiệm"
-                          style={{ background: 'transparent', border: 'none', color: '#64748b', cursor: 'pointer', padding: '2px' }}
+                          style={{ background: 'transparent', border: 'none', color: '#716b89', cursor: 'pointer', padding: '3px' }}
                         >
                           <Trash2 size={13} />
                         </button>
@@ -2199,15 +2165,15 @@ export default function GodotTestbed({
                     </div>
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.7rem', color: '#94a3b8' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.7rem', color: 'var(--atl-text-secondary, #a39bc2)' }}>
                     <span>{charItem.cellWidth}×{charItem.cellHeight} px</span>
-                    <span style={{ color: charItem.scale && charItem.scale !== 1.0 ? '#38bdf8' : undefined }}>
+                    <span style={{ color: charItem.scale && charItem.scale !== 1.0 ? '#c084fc' : undefined, fontWeight: 600 }}>
                       Tỉ lệ: {(charItem.scale || 1.0).toFixed(2)}x
                     </span>
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '4px', marginTop: '2px' }}>
-                    <span style={{ fontSize: '0.675rem', color: '#64748b' }}>Đổi thứ tự:</span>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid rgba(168, 85, 247, 0.15)', paddingTop: '6px', marginTop: '2px' }}>
+                    <span style={{ fontSize: '0.675rem', color: 'var(--atl-text-muted, #716b89)' }}>Đổi thứ tự:</span>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                       <button
                         type="button"
@@ -2217,7 +2183,14 @@ export default function GodotTestbed({
                           handleSwapCharacterOrder(idx, -1);
                         }}
                         title="Dịch thẻ sang trái"
-                        style={{ background: '#1e293b', border: 'none', color: idx === 0 ? '#475569' : '#fff', cursor: idx === 0 ? 'default' : 'pointer', borderRadius: '3px', padding: '2px 5px' }}
+                        style={{
+                          background: 'rgba(22, 16, 40, 0.8)',
+                          border: '1px solid rgba(168, 85, 247, 0.2)',
+                          color: idx === 0 ? '#475569' : '#d8b4fe',
+                          cursor: idx === 0 ? 'default' : 'pointer',
+                          borderRadius: '4px',
+                          padding: '2px 6px'
+                        }}
                       >
                         <ArrowLeft size={11} />
                       </button>
@@ -2229,7 +2202,14 @@ export default function GodotTestbed({
                           handleSwapCharacterOrder(idx, 1);
                         }}
                         title="Dịch thẻ sang phải"
-                        style={{ background: '#1e293b', border: 'none', color: idx === characters.length - 1 ? '#475569' : '#fff', cursor: idx === characters.length - 1 ? 'default' : 'pointer', borderRadius: '3px', padding: '2px 5px' }}
+                        style={{
+                          background: 'rgba(22, 16, 40, 0.8)',
+                          border: '1px solid rgba(168, 85, 247, 0.2)',
+                          color: idx === characters.length - 1 ? '#475569' : '#d8b4fe',
+                          cursor: idx === characters.length - 1 ? 'default' : 'pointer',
+                          borderRadius: '4px',
+                          padding: '2px 6px'
+                        }}
                       >
                         <ArrowRight size={11} />
                       </button>
@@ -2242,18 +2222,9 @@ export default function GodotTestbed({
 
           {/* BẢNG CHỈNH SỬA CHI TIẾT & THAY ĐỔI KHUNG ẢNH */}
           {activeChar && (
-            <div style={{
-              background: '#161e2e',
-              border: '1px solid rgba(56, 189, 248, 0.3)',
-              borderRadius: '8px',
-              padding: '12px 14px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '10px',
-              marginTop: '4px'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
-                <span style={{ fontSize: '0.825rem', fontWeight: 700, color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div className="atelier-godot-edit-panel">
+              <div className="atelier-godot-edit-header">
+                <span className="atelier-godot-edit-title">
                   <Pencil size={15} />
                   Chỉnh sửa nhân vật [{activeCharIdx + 1}]: {activeChar.name}
                 </span>
@@ -2262,19 +2233,18 @@ export default function GodotTestbed({
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <button
                     type="button"
-                    className="btn-secondary-studio"
+                    className="atelier-godot-btn-sub"
                     onClick={() => handleEditCharacterSlots(activeCharIdx)}
-                    style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', padding: '5px 12px' }}
                   >
-                    <RefreshCw size={13} color="#10b981" /> Sửa / Thay đổi khung ảnh Sprite…
+                    <RefreshCw size={13} color="#c084fc" /> Sửa / Thay đổi khung ảnh Sprite…
                   </button>
 
                   <label
-                    className="btn-ghost-studio"
+                    className="atelier-godot-btn-sub"
                     title="Nạp đè bằng một file ảnh Sprite Sheet khác nếu bạn có sẵn file gộp"
-                    style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '0.725rem', padding: '5px 8px' }}
+                    style={{ background: 'rgba(255, 255, 255, 0.05)', borderColor: 'rgba(255, 255, 255, 0.12)', color: 'var(--atl-text-secondary, #a39bc2)' }}
                   >
-                    <Layers size={13} color="#38bdf8" /> Nạp đè Sheet
+                    <Layers size={13} color="#a855f7" /> Nạp đè Sheet
                     <input
                       type="file"
                       accept="image/png,image/jpeg,image/webp"
@@ -2286,20 +2256,21 @@ export default function GodotTestbed({
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <label style={{ fontSize: '0.775rem', color: 'var(--text-dim)' }}>
+                <label style={{ fontSize: '0.775rem', color: 'var(--atl-text-secondary, #a39bc2)' }}>
                   Đổi tên nhân vật:
                   <input
                     type="text"
                     value={activeChar.name}
                     onChange={(e) => handleUpdateActiveChar({ name: e.target.value })}
-                    style={{ width: '100%', marginTop: '3px', padding: '5px 8px', borderRadius: '4px', background: '#0f172a', border: '1px solid var(--border-card)', color: '#fff', fontSize: '0.8rem' }}
+                    className="atelier-godot-input"
+                    style={{ marginTop: '4px' }}
                   />
                 </label>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.775rem', color: 'var(--text-dim)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.775rem', color: 'var(--atl-text-secondary, #a39bc2)' }}>
                     <span>Tỉ lệ thu nhỏ riêng:</span>
-                    <strong style={{ color: '#facc15' }}>{(activeChar.scale || 1.0).toFixed(2)}x</strong>
+                    <strong style={{ color: '#fbbf24' }}>{(activeChar.scale || 1.0).toFixed(2)}x</strong>
                   </div>
                   <input
                     type="range"
@@ -2308,22 +2279,22 @@ export default function GodotTestbed({
                     step={0.05}
                     value={activeChar.scale || 1.0}
                     onChange={(e) => handleUpdateActiveChar({ scale: Number(e.target.value) })}
-                    style={{ width: '100%', marginTop: '4px' }}
+                    style={{ width: '100%', marginTop: '4px', accentColor: '#c084fc' }}
                   />
-                  <div style={{ display: 'flex', gap: '4px', marginTop: '2px' }}>
-                    <button type="button" onClick={() => handleUpdateActiveChar({ scale: 0.35 })} style={{ fontSize: '0.65rem', background: '#0f172a', border: '1px solid var(--border-card)', color: '#94a3b8', borderRadius: '3px', padding: '1px 6px', cursor: 'pointer' }}>0.35x (Chibi)</button>
-                    <button type="button" onClick={() => handleUpdateActiveChar({ scale: 0.5 })} style={{ fontSize: '0.65rem', background: '#0f172a', border: '1px solid var(--border-card)', color: '#94a3b8', borderRadius: '3px', padding: '1px 6px', cursor: 'pointer' }}>0.5x</button>
-                    <button type="button" onClick={() => handleUpdateActiveChar({ scale: 1.0 })} style={{ fontSize: '0.65rem', background: '#0f172a', border: '1px solid var(--border-card)', color: '#94a3b8', borderRadius: '3px', padding: '1px 6px', cursor: 'pointer' }}>1.0x (Gốc)</button>
-                    <button type="button" onClick={() => handleUpdateActiveChar({ scale: 1.5 })} style={{ fontSize: '0.65rem', background: '#0f172a', border: '1px solid var(--border-card)', color: '#94a3b8', borderRadius: '3px', padding: '1px 6px', cursor: 'pointer' }}>1.5x</button>
+                  <div style={{ display: 'flex', gap: '4px', marginTop: '4px' }}>
+                    <button type="button" onClick={() => handleUpdateActiveChar({ scale: 0.35 })} className="atelier-godot-scale-btn">0.35x (Chibi)</button>
+                    <button type="button" onClick={() => handleUpdateActiveChar({ scale: 0.5 })} className="atelier-godot-scale-btn">0.5x</button>
+                    <button type="button" onClick={() => handleUpdateActiveChar({ scale: 1.0 })} className="atelier-godot-scale-btn">1.0x (Gốc)</button>
+                    <button type="button" onClick={() => handleUpdateActiveChar({ scale: 1.5 })} className="atelier-godot-scale-btn">1.5x</button>
                   </div>
                 </div>
               </div>
 
               {activeState && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '6px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-dim)' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', borderTop: '1px solid rgba(168, 85, 247, 0.15)', paddingTop: '8px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--atl-text-secondary, #a39bc2)' }}>
                     <span>Vị trí đứng ngang (Toạ độ X trên sàn):</span>
-                    <strong style={{ color: '#38bdf8' }}>{Math.round(activeState.x)} px</strong>
+                    <strong style={{ color: '#c084fc' }}>{Math.round(activeState.x)} px</strong>
                   </div>
                   <input
                     type="range"
@@ -2337,9 +2308,9 @@ export default function GodotTestbed({
                         rosterStateRef.current[activeCharIdx].x = newX;
                       }
                     }}
-                    style={{ width: '100%' }}
+                    style={{ width: '100%', accentColor: '#c084fc' }}
                   />
-                  <span style={{ fontSize: '0.675rem', color: '#64748b' }}>
+                  <span style={{ fontSize: '0.675rem', color: 'var(--atl-text-muted, #716b89)' }}>
                     Mẹo: Bạn có thể <strong>nhấp giữ chuột và kéo thả trực tiếp</strong> nhân vật trên ảnh để dời vị trí tức thì!
                   </span>
                 </div>
@@ -2349,24 +2320,16 @@ export default function GodotTestbed({
         </div>
 
         {/* CỘT PHẢI: ĐIỀU CHỈNH MẶT ĐẤT VÀ TÙY CHỌN SO SÁNH 1:1 */}
-        <div style={{
-          background: '#0d121f',
-          border: '1px solid var(--border-card)',
-          borderRadius: '8px',
-          padding: '14px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '12px'
-        }}>
-          <h4 style={{ margin: 0, color: 'var(--text-white)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem' }}>
-            <Sliders size={16} color="var(--accent-purple)" />
+        <div className="atelier-godot-ground-panel">
+          <h4 style={{ margin: 0, color: '#f5f3ff', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem', fontWeight: 700 }}>
+            <Sliders size={16} color="#c084fc" />
             Đồng bộ Mặt đất &amp; Tỷ lệ 1:1
           </h4>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.775rem', color: 'var(--text-dim)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.775rem', color: 'var(--atl-text-secondary, #a39bc2)' }}>
               <span>Độ cao Mặt đất (Y):</span>
-              <strong style={{ color: '#38bdf8' }}>{groundY} px</strong>
+              <strong style={{ color: '#c084fc' }}>{groundY} px</strong>
             </div>
             <input
               type="range"
@@ -2375,14 +2338,14 @@ export default function GodotTestbed({
               step={2}
               value={groundY}
               onChange={(e) => setGroundY(Number(e.target.value))}
-              style={{ width: '100%' }}
+              style={{ width: '100%', accentColor: '#c084fc' }}
             />
-            <span style={{ fontSize: '0.7rem', color: '#64748b' }}>
+            <span style={{ fontSize: '0.7rem', color: 'var(--atl-text-muted, #716b89)' }}>
               Kéo thanh trượt để chỉnh mép vách đá/mặt cỏ khớp với Map bạn tự vẽ.
             </span>
           </div>
 
-          <hr style={{ border: 'none', borderTop: '1px solid var(--border-card)', margin: '2px 0' }} />
+          <hr style={{ border: 'none', borderTop: '1px solid rgba(168, 85, 247, 0.15)', margin: '2px 0' }} />
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.8rem' }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
@@ -2390,6 +2353,7 @@ export default function GodotTestbed({
                 type="checkbox"
                 checked={showGuidelines}
                 onChange={(e) => setShowGuidelines(e.target.checked)}
+                style={{ accentColor: '#c084fc' }}
               />
               <span style={{ color: '#facc15', display: 'flex', alignItems: 'center', gap: '4px' }}>
                 <Ruler size={13} /> Thước gióng chiều cao (So sánh tỉ lệ)
@@ -2401,8 +2365,9 @@ export default function GodotTestbed({
                 type="checkbox"
                 checked={showCollision}
                 onChange={(e) => setShowCollision(e.target.checked)}
+                style={{ accentColor: '#c084fc' }}
               />
-              <span style={{ color: '#ef4444', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <span style={{ color: '#f87171', display: 'flex', alignItems: 'center', gap: '4px' }}>
                 <Shield size={13} /> Khung va chạm đỏ (CollisionShape2D)
               </span>
             </label>
@@ -2412,6 +2377,7 @@ export default function GodotTestbed({
                 type="checkbox"
                 checked={showOrigin}
                 onChange={(e) => setShowOrigin(e.target.checked)}
+                style={{ accentColor: '#c084fc' }}
               />
               <span style={{ color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '4px' }}>
                 <Move size={13} /> Điểm neo chân chạm đất (Origin 0, 0)
@@ -2423,21 +2389,22 @@ export default function GodotTestbed({
                 type="checkbox"
                 checked={showFloorGrid}
                 onChange={(e) => setShowFloorGrid(e.target.checked)}
+                style={{ accentColor: '#c084fc' }}
               />
-              <span>Lưới Tilemap 32px</span>
+              <span style={{ color: 'var(--atl-text-secondary, #a39bc2)' }}>Lưới Tilemap 32px</span>
             </label>
           </div>
 
-          <hr style={{ border: 'none', borderTop: '1px solid var(--border-card)', margin: '2px 0' }} />
+          <hr style={{ border: 'none', borderTop: '1px solid rgba(168, 85, 247, 0.15)', margin: '2px 0' }} />
 
           {activeChar && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.775rem' }}>
-              <span style={{ fontWeight: 600, color: '#e2e8f0' }}>
+              <span style={{ fontWeight: 600, color: '#f5f3ff' }}>
                 Cấu hình: {activeChar.name}
               </span>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                <label style={{ color: 'var(--text-dim)' }}>
+                <label style={{ color: 'var(--atl-text-secondary, #a39bc2)' }}>
                   FPS ({activeChar.fps}):
                   <input
                     type="range"
@@ -2448,11 +2415,11 @@ export default function GodotTestbed({
                       const newFps = Number(e.target.value);
                       setCharacters((prev) => prev.map((c, i) => i === activeCharIdx ? { ...c, fps: newFps } : c));
                     }}
-                    style={{ width: '100%', marginTop: '2px' }}
+                    style={{ width: '100%', marginTop: '2px', accentColor: '#c084fc' }}
                   />
                 </label>
 
-                <label style={{ color: 'var(--text-dim)' }}>
+                <label style={{ color: 'var(--atl-text-secondary, #a39bc2)' }}>
                   Tốc độ ({activeChar.moveSpeed} px/s):
                   <input
                     type="range"
@@ -2464,7 +2431,7 @@ export default function GodotTestbed({
                       const newSpeed = Number(e.target.value);
                       setCharacters((prev) => prev.map((c, i) => i === activeCharIdx ? { ...c, moveSpeed: newSpeed } : c));
                     }}
-                    style={{ width: '100%', marginTop: '2px' }}
+                    style={{ width: '100%', marginTop: '2px', accentColor: '#c084fc' }}
                   />
                 </label>
               </div>
@@ -2477,45 +2444,19 @@ export default function GodotTestbed({
           4. MODAL KHUNG Ô CHỌN / SỬA ẢNH (SLOT TEMPLATE MODAL)
          ======================================================== */}
       {isSlotModalOpen && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0, 0, 0, 0.8)',
-          backdropFilter: 'blur(5px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 100,
-          padding: '16px'
-        }}>
-          <div style={{
-            background: '#0f172a',
-            border: '1px solid var(--border-card)',
-            borderRadius: '12px',
-            width: '100%',
-            maxWidth: '920px',
-            maxHeight: '90vh',
-            overflowY: 'auto',
-            padding: '20px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '16px',
-            boxShadow: '0 25px 50px rgba(0, 0, 0, 0.7)'
-          }}>
+        <div className="atelier-godot-modal-overlay">
+          <div className="atelier-godot-modal-box">
             {/* Header Modal */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '12px' }}>
+            <div className="atelier-godot-modal-header">
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <FolderOpen size={22} color="#10b981" />
+                <FolderOpen size={24} color="#c084fc" />
                 <div>
-                  <h3 style={{ margin: 0, fontSize: '1.1rem', color: '#fff' }}>
+                  <h3 style={{ margin: 0, fontSize: '1.15rem', color: '#f5f3ff', fontWeight: 700 }}>
                     {editingCharIdx !== null
                       ? `Chỉnh Sửa Khung Ảnh: ${stagedCharName}`
                       : 'Ghép & Nạp Nhân Vật từ Khung Ô Ảnh Rời'}
                   </h3>
-                  <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--atl-text-secondary, #a39bc2)' }}>
                     {editingCharIdx !== null
                       ? 'Nhấp vào ô bạn đã đặt nhầm để thay đổi, kéo thả file mới vào ô đó hoặc xóa đi chọn lại.'
                       : 'Nhấp vào từng ô hoặc kéo thả file ảnh từ máy tính vào đúng ô có nhãn tên tương ứng.'}
@@ -2529,38 +2470,41 @@ export default function GodotTestbed({
                   setIsSlotModalOpen(false);
                   setEditingCharIdx(null);
                 }}
-                style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '4px' }}
+                className="atelier-dialog-close"
+                style={{ background: 'transparent', border: 'none', color: '#a39bc2', cursor: 'pointer', padding: '6px' }}
               >
                 <X size={20} />
               </button>
             </div>
 
             {/* Thanh công cụ tiện ích ở đầu modal */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px', background: '#161e2e', padding: '10px 14px', borderRadius: '8px' }}>
+            <div className="atelier-godot-modal-toolbar">
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
                 {/* Chọn chế độ 3 hàng hoặc 1 hàng */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem', color: '#e2e8f0' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem', color: '#f5f3ff' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer' }}>
                     <input
                       type="radio"
                       name="slotMode"
                       checked={slotMode === '3_rows'}
                       onChange={() => setSlotMode('3_rows')}
+                      style={{ accentColor: '#c084fc' }}
                     />
-                    <strong style={{ color: slotMode === '3_rows' ? '#38bdf8' : undefined }}>Bộ đầy đủ 3 hướng (15 ô)</strong>
+                    <strong style={{ color: slotMode === '3_rows' ? '#c084fc' : undefined }}>Bộ đầy đủ 3 hướng (15 ô)</strong>
                   </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', marginLeft: '8px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer', marginLeft: '8px' }}>
                     <input
                       type="radio"
                       name="slotMode"
                       checked={slotMode === '1_row'}
                       onChange={() => setSlotMode('1_row')}
+                      style={{ accentColor: '#c084fc' }}
                     />
-                    <strong style={{ color: slotMode === '1_row' ? '#38bdf8' : undefined }}>Bộ 1 hướng đơn giản (5 ô)</strong>
+                    <strong style={{ color: slotMode === '1_row' ? '#c084fc' : undefined }}>Bộ 1 hướng đơn giản (5 ô)</strong>
                   </label>
                 </div>
 
-                <div style={{ width: '1px', height: '20px', background: 'rgba(255,255,255,0.1)' }} />
+                <div style={{ width: '1px', height: '20px', background: 'rgba(168, 85, 247, 0.2)' }} />
 
                 {/* Tên nhân vật & FPS */}
                 <input
@@ -2568,11 +2512,12 @@ export default function GodotTestbed({
                   value={stagedCharName}
                   onChange={(e) => setStagedCharName(e.target.value)}
                   placeholder="Tên nhân vật (VD: Hero, Mage)"
-                  style={{ width: '160px', padding: '4px 8px', borderRadius: '4px', background: '#0f172a', border: '1px solid var(--border-card)', color: '#fff', fontSize: '0.775rem' }}
+                  className="atelier-godot-input"
+                  style={{ width: '160px', padding: '5px 10px', fontSize: '0.78rem' }}
                 />
 
-                <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
-                  FPS: <strong>{stagedFps}</strong>
+                <span style={{ fontSize: '0.75rem', color: 'var(--atl-text-secondary, #a39bc2)' }}>
+                  FPS: <strong style={{ color: '#c084fc' }}>{stagedFps}</strong>
                 </span>
                 <input
                   type="range"
@@ -2580,13 +2525,13 @@ export default function GodotTestbed({
                   max={20}
                   value={stagedFps}
                   onChange={(e) => setStagedFps(Number(e.target.value))}
-                  style={{ width: '80px' }}
+                  style={{ width: '80px', accentColor: '#c084fc' }}
                 />
               </div>
 
               {/* Nút nạp nhanh tự động & nút xóa */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <label className="btn-secondary-studio" style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.725rem', padding: '4px 8px' }}>
+                <label className="atelier-godot-btn-sub" style={{ cursor: 'pointer' }}>
                   <Zap size={14} color="#facc15" /> ⚡ Nạp nhanh cả thư mục
                   <input
                     type="file"
@@ -2600,11 +2545,11 @@ export default function GodotTestbed({
                 {Object.keys(slotsData).length > 0 && (
                   <button
                     type="button"
-                    className="btn-ghost-studio"
+                    className="atelier-godot-row-action-btn"
                     onClick={() => setSlotsData({})}
-                    style={{ fontSize: '0.725rem', padding: '4px 8px', color: '#ef4444' }}
+                    style={{ color: '#f87171', borderColor: 'rgba(239, 68, 68, 0.35)', padding: '5px 10px' }}
                   >
-                    <Trash2 size={13} /> Xóa hết ô
+                    <Trash2 size={13} style={{ verticalAlign: 'middle' }} /> Xóa hết ô
                   </button>
                 )}
               </div>
@@ -2613,13 +2558,13 @@ export default function GodotTestbed({
             {/* BẢNG CÁC KHUNG Ô THEO HÀNG VỚI NHÃN RÕ RÀNG */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               {/* NHÓM 1: HƯỚNG NHÌN XUỐNG (MẶT TRƯỚC - DOWN) */}
-              <div style={{ background: '#131b2e', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '12px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
+              <div className="atelier-godot-slot-row-card">
+                <div className="atelier-godot-slot-row-header">
                   <div>
                     <span style={{ fontSize: '0.825rem', fontWeight: 700, color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '6px' }}>
                       ⬇️ HÀNG 1: HƯỚNG NHÌN XUỐNG (MẶT TRƯỚC - DOWN)
                     </span>
-                    <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--atl-text-muted, #716b89)' }}>
                       Dùng khi bấm phím <strong>[S]</strong> hoặc Mũi tên xuống. <em>(Có thể kéo thả ảnh giữa các ô để đổi chỗ)</em>
                     </span>
                   </div>
@@ -2630,7 +2575,7 @@ export default function GodotTestbed({
                       type="button"
                       title="Dịch vòng các ô sang trái 1 bước (nếu đặt nhầm lệch thứ tự)"
                       onClick={() => handleShiftRow('down', -1)}
-                      style={{ background: '#1e293b', border: '1px solid var(--border-card)', color: '#94a3b8', borderRadius: '4px', padding: '3px 7px', fontSize: '0.7rem', cursor: 'pointer' }}
+                      className="atelier-godot-row-action-btn"
                     >
                       ← Dịch
                     </button>
@@ -2638,7 +2583,7 @@ export default function GodotTestbed({
                       type="button"
                       title="Dịch vòng các ô sang phải 1 bước"
                       onClick={() => handleShiftRow('down', 1)}
-                      style={{ background: '#1e293b', border: '1px solid var(--border-card)', color: '#94a3b8', borderRadius: '4px', padding: '3px 7px', fontSize: '0.7rem', cursor: 'pointer' }}
+                      className="atelier-godot-row-action-btn"
                     >
                       Dịch →
                     </button>
@@ -2649,7 +2594,8 @@ export default function GodotTestbed({
                           type="button"
                           title="Hoán đổi toàn bộ 5 ô Hàng 1 với Hàng 2 (Đi ngang)"
                           onClick={() => handleSwapRows('down', 'side')}
-                          style={{ background: '#1e293b', border: '1px solid rgba(16,185,129,0.35)', color: '#10b981', borderRadius: '4px', padding: '3px 7px', fontSize: '0.7rem', cursor: 'pointer' }}
+                          className="atelier-godot-row-action-btn"
+                          style={{ borderColor: 'rgba(16, 185, 129, 0.35)', color: '#10b981' }}
                         >
                           ⇄ Đổi với Hàng Ngang
                         </button>
@@ -2657,7 +2603,8 @@ export default function GodotTestbed({
                           type="button"
                           title="Hoán đổi toàn bộ 5 ô Hàng 1 với Hàng 3 (Sau lưng)"
                           onClick={() => handleSwapRows('down', 'up')}
-                          style={{ background: '#1e293b', border: '1px solid rgba(245,158,11,0.35)', color: '#f59e0b', borderRadius: '4px', padding: '3px 7px', fontSize: '0.7rem', cursor: 'pointer' }}
+                          className="atelier-godot-row-action-btn"
+                          style={{ borderColor: 'rgba(245, 158, 11, 0.35)', color: '#f59e0b' }}
                         >
                           ⇄ Đổi với Hàng Sau Lưng
                         </button>
@@ -2668,7 +2615,8 @@ export default function GodotTestbed({
                       type="button"
                       title="Xóa hết ảnh hàng này"
                       onClick={() => handleClearRow('down')}
-                      style={{ background: '#1e293b', border: '1px solid rgba(239,68,68,0.35)', color: '#ef4444', borderRadius: '4px', padding: '3px 7px', fontSize: '0.7rem', cursor: 'pointer' }}
+                      className="atelier-godot-row-action-btn"
+                      style={{ borderColor: 'rgba(239, 68, 68, 0.35)', color: '#f87171' }}
                     >
                       <Trash2 size={11} style={{ verticalAlign: 'middle' }} /> Xóa hàng
                     </button>
@@ -2703,27 +2651,13 @@ export default function GodotTestbed({
                           const file = e.dataTransfer.files[0];
                           if (file) handleSetSlotImage(slotDef.id, file);
                         }}
-                        style={{
-                          background: slotData ? 'rgba(56, 189, 248, 0.12)' : isOver ? 'rgba(16, 185, 129, 0.2)' : '#090d16',
-                          border: isOver ? '2px dashed #10b981' : slotData ? '1.5px solid #38bdf8' : '1.5px dashed rgba(255, 255, 255, 0.15)',
-                          borderRadius: '8px',
-                          padding: '8px',
-                          minHeight: '115px',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          cursor: 'pointer',
-                          position: 'relative',
-                          textAlign: 'center',
-                          transition: 'all 0.15s ease'
-                        }}
+                        className={`atelier-godot-slot-cell ${slotData ? 'filled' : ''} ${isOver ? 'drag-over' : ''}`}
                       >
                         <div style={{ width: '100%' }}>
                           <span style={{ fontSize: '0.725rem', fontWeight: 700, color: slotData ? '#38bdf8' : '#e2e8f0', display: 'block' }}>
                             {slotDef.label}
                           </span>
-                          <span style={{ fontSize: '0.65rem', color: slotDef.role === 'idle' ? '#facc15' : '#94a3b8' }}>
+                          <span style={{ fontSize: '0.65rem', color: slotDef.role === 'idle' ? '#facc15' : 'var(--atl-text-muted, #716b89)' }}>
                             {slotDef.desc}
                           </span>
                         </div>
@@ -2766,13 +2700,13 @@ export default function GodotTestbed({
                             </button>
                           </div>
                         ) : (
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', color: '#64748b', margin: '6px 0' }}>
-                            <Plus size={20} color="var(--accent-purple)" />
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', color: 'var(--atl-text-muted, #716b89)', margin: '6px 0' }}>
+                            <Plus size={20} color="#a855f7" />
                             <span style={{ fontSize: '0.65rem' }}>Thả ảnh vào</span>
                           </div>
                         )}
 
-                        <span style={{ fontSize: '0.625rem', color: slotData ? '#94a3b8' : '#475569', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '90px' }}>
+                        <span style={{ fontSize: '0.625rem', color: slotData ? 'var(--atl-text-secondary, #a39bc2)' : '#475569', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '90px' }}>
                           {slotData ? slotData.name : 'Chưa có'}
                         </span>
 
@@ -2794,13 +2728,13 @@ export default function GodotTestbed({
 
               {/* NHÓM 2: HƯỚNG NHÌN NGANG (ĐI NGHIÊNG - SIDE) */}
               {slotMode === '3_rows' && (
-                <div style={{ background: '#131b2e', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '12px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
+                <div className="atelier-godot-slot-row-card">
+                  <div className="atelier-godot-slot-row-header">
                     <div>
                       <span style={{ fontSize: '0.825rem', fontWeight: 700, color: '#10b981', display: 'flex', alignItems: 'center', gap: '6px' }}>
                         ➡️ HÀNG 2: HƯỚNG NHÌN NGANG (ĐI NGHIÊNG - SIDE)
                       </span>
-                      <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>
+                      <span style={{ fontSize: '0.7rem', color: 'var(--atl-text-muted, #716b89)' }}>
                         Đi sang phải [D]. <em>(Khi đi sang trái [A], app sẽ tự lật ngược hình lại)</em>
                       </span>
                     </div>
@@ -2811,7 +2745,7 @@ export default function GodotTestbed({
                         type="button"
                         title="Dịch vòng các ô sang trái 1 bước (nếu đặt nhầm lệch thứ tự)"
                         onClick={() => handleShiftRow('side', -1)}
-                        style={{ background: '#1e293b', border: '1px solid var(--border-card)', color: '#94a3b8', borderRadius: '4px', padding: '3px 7px', fontSize: '0.7rem', cursor: 'pointer' }}
+                        className="atelier-godot-row-action-btn"
                       >
                         ← Dịch
                       </button>
@@ -2819,7 +2753,7 @@ export default function GodotTestbed({
                         type="button"
                         title="Dịch vòng các ô sang phải 1 bước"
                         onClick={() => handleShiftRow('side', 1)}
-                        style={{ background: '#1e293b', border: '1px solid var(--border-card)', color: '#94a3b8', borderRadius: '4px', padding: '3px 7px', fontSize: '0.7rem', cursor: 'pointer' }}
+                        className="atelier-godot-row-action-btn"
                       >
                         Dịch →
                       </button>
@@ -2828,7 +2762,8 @@ export default function GodotTestbed({
                         type="button"
                         title="Hoán đổi toàn bộ 5 ô Hàng 2 với Hàng 1 (Nhìn xuống)"
                         onClick={() => handleSwapRows('side', 'down')}
-                        style={{ background: '#1e293b', border: '1px solid rgba(56,189,248,0.35)', color: '#38bdf8', borderRadius: '4px', padding: '3px 7px', fontSize: '0.7rem', cursor: 'pointer' }}
+                        className="atelier-godot-row-action-btn"
+                        style={{ borderColor: 'rgba(56, 189, 248, 0.35)', color: '#38bdf8' }}
                       >
                         ⇄ Đổi với Hàng Xuống
                       </button>
@@ -2836,7 +2771,8 @@ export default function GodotTestbed({
                         type="button"
                         title="Hoán đổi toàn bộ 5 ô Hàng 2 với Hàng 3 (Sau lưng)"
                         onClick={() => handleSwapRows('side', 'up')}
-                        style={{ background: '#1e293b', border: '1px solid rgba(245,158,11,0.35)', color: '#f59e0b', borderRadius: '4px', padding: '3px 7px', fontSize: '0.7rem', cursor: 'pointer' }}
+                        className="atelier-godot-row-action-btn"
+                        style={{ borderColor: 'rgba(245, 158, 11, 0.35)', color: '#f59e0b' }}
                       >
                         ⇄ Đổi với Hàng Sau Lưng
                       </button>
@@ -2845,7 +2781,8 @@ export default function GodotTestbed({
                         type="button"
                         title="Xóa hết ảnh hàng này"
                         onClick={() => handleClearRow('side')}
-                        style={{ background: '#1e293b', border: '1px solid rgba(239,68,68,0.35)', color: '#ef4444', borderRadius: '4px', padding: '3px 7px', fontSize: '0.7rem', cursor: 'pointer' }}
+                        className="atelier-godot-row-action-btn"
+                        style={{ borderColor: 'rgba(239, 68, 68, 0.35)', color: '#f87171' }}
                       >
                         <Trash2 size={11} style={{ verticalAlign: 'middle' }} /> Xóa hàng
                       </button>
@@ -2880,27 +2817,13 @@ export default function GodotTestbed({
                             const file = e.dataTransfer.files[0];
                             if (file) handleSetSlotImage(slotDef.id, file);
                           }}
-                          style={{
-                            background: slotData ? 'rgba(16, 185, 129, 0.12)' : isOver ? 'rgba(16, 185, 129, 0.2)' : '#090d16',
-                            border: isOver ? '2px dashed #10b981' : slotData ? '1.5px solid #10b981' : '1.5px dashed rgba(255, 255, 255, 0.15)',
-                            borderRadius: '8px',
-                            padding: '8px',
-                            minHeight: '115px',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            cursor: 'pointer',
-                            position: 'relative',
-                            textAlign: 'center',
-                            transition: 'all 0.15s ease'
-                          }}
+                          className={`atelier-godot-slot-cell ${slotData ? 'filled' : ''} ${isOver ? 'drag-over' : ''}`}
                         >
                           <div style={{ width: '100%' }}>
                             <span style={{ fontSize: '0.725rem', fontWeight: 700, color: slotData ? '#10b981' : '#e2e8f0', display: 'block' }}>
                               {slotDef.label}
                             </span>
-                            <span style={{ fontSize: '0.65rem', color: slotDef.role === 'idle' ? '#facc15' : '#94a3b8' }}>
+                            <span style={{ fontSize: '0.65rem', color: slotDef.role === 'idle' ? '#facc15' : 'var(--atl-text-muted, #716b89)' }}>
                               {slotDef.desc}
                             </span>
                           </div>
@@ -2943,13 +2866,13 @@ export default function GodotTestbed({
                               </button>
                             </div>
                           ) : (
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', color: '#64748b', margin: '6px 0' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', color: 'var(--atl-text-muted, #716b89)', margin: '6px 0' }}>
                               <Plus size={20} color="#10b981" />
                               <span style={{ fontSize: '0.65rem' }}>Thả ảnh vào</span>
                             </div>
                           )}
 
-                          <span style={{ fontSize: '0.625rem', color: slotData ? '#94a3b8' : '#475569', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '90px' }}>
+                          <span style={{ fontSize: '0.625rem', color: slotData ? 'var(--atl-text-secondary, #a39bc2)' : '#475569', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '90px' }}>
                             {slotData ? slotData.name : 'Chưa có'}
                           </span>
 
@@ -2972,13 +2895,13 @@ export default function GodotTestbed({
 
               {/* NHÓM 3: HƯỚNG NHÌN LÊN (SAU LƯNG - UP) */}
               {slotMode === '3_rows' && (
-                <div style={{ background: '#131b2e', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '12px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
+                <div className="atelier-godot-slot-row-card">
+                  <div className="atelier-godot-slot-row-header">
                     <div>
                       <span style={{ fontSize: '0.825rem', fontWeight: 700, color: '#f59e0b', display: 'flex', alignItems: 'center', gap: '6px' }}>
                         ⬆️ HÀNG 3: HƯỚNG NHÌN LÊN (SAU LƯNG - UP)
                       </span>
-                      <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>
+                      <span style={{ fontSize: '0.7rem', color: 'var(--atl-text-muted, #716b89)' }}>
                         Dùng khi bấm phím <strong>[W]</strong> hoặc Mũi tên lên
                       </span>
                     </div>
@@ -2989,7 +2912,7 @@ export default function GodotTestbed({
                         type="button"
                         title="Dịch vòng các ô sang trái 1 bước (nếu đặt nhầm lệch thứ tự)"
                         onClick={() => handleShiftRow('up', -1)}
-                        style={{ background: '#1e293b', border: '1px solid var(--border-card)', color: '#94a3b8', borderRadius: '4px', padding: '3px 7px', fontSize: '0.7rem', cursor: 'pointer' }}
+                        className="atelier-godot-row-action-btn"
                       >
                         ← Dịch
                       </button>
@@ -2997,7 +2920,7 @@ export default function GodotTestbed({
                         type="button"
                         title="Dịch vòng các ô sang phải 1 bước"
                         onClick={() => handleShiftRow('up', 1)}
-                        style={{ background: '#1e293b', border: '1px solid var(--border-card)', color: '#94a3b8', borderRadius: '4px', padding: '3px 7px', fontSize: '0.7rem', cursor: 'pointer' }}
+                        className="atelier-godot-row-action-btn"
                       >
                         Dịch →
                       </button>
@@ -3006,7 +2929,8 @@ export default function GodotTestbed({
                         type="button"
                         title="Hoán đổi toàn bộ 5 ô Hàng 3 với Hàng 1 (Nhìn xuống)"
                         onClick={() => handleSwapRows('up', 'down')}
-                        style={{ background: '#1e293b', border: '1px solid rgba(56,189,248,0.35)', color: '#38bdf8', borderRadius: '4px', padding: '3px 7px', fontSize: '0.7rem', cursor: 'pointer' }}
+                        className="atelier-godot-row-action-btn"
+                        style={{ borderColor: 'rgba(56, 189, 248, 0.35)', color: '#38bdf8' }}
                       >
                         ⇄ Đổi với Hàng Xuống
                       </button>
@@ -3014,7 +2938,8 @@ export default function GodotTestbed({
                         type="button"
                         title="Hoán đổi toàn bộ 5 ô Hàng 3 với Hàng 2 (Đi ngang)"
                         onClick={() => handleSwapRows('up', 'side')}
-                        style={{ background: '#1e293b', border: '1px solid rgba(16,185,129,0.35)', color: '#10b981', borderRadius: '4px', padding: '3px 7px', fontSize: '0.7rem', cursor: 'pointer' }}
+                        className="atelier-godot-row-action-btn"
+                        style={{ borderColor: 'rgba(16, 185, 129, 0.35)', color: '#10b981' }}
                       >
                         ⇄ Đổi với Hàng Ngang
                       </button>
@@ -3023,7 +2948,8 @@ export default function GodotTestbed({
                         type="button"
                         title="Xóa hết ảnh hàng này"
                         onClick={() => handleClearRow('up')}
-                        style={{ background: '#1e293b', border: '1px solid rgba(239,68,68,0.35)', color: '#ef4444', borderRadius: '4px', padding: '3px 7px', fontSize: '0.7rem', cursor: 'pointer' }}
+                        className="atelier-godot-row-action-btn"
+                        style={{ borderColor: 'rgba(239, 68, 68, 0.35)', color: '#f87171' }}
                       >
                         <Trash2 size={11} style={{ verticalAlign: 'middle' }} /> Xóa hàng
                       </button>
@@ -3058,27 +2984,13 @@ export default function GodotTestbed({
                             const file = e.dataTransfer.files[0];
                             if (file) handleSetSlotImage(slotDef.id, file);
                           }}
-                          style={{
-                            background: slotData ? 'rgba(245, 158, 11, 0.12)' : isOver ? 'rgba(16, 185, 129, 0.2)' : '#090d16',
-                            border: isOver ? '2px dashed #10b981' : slotData ? '1.5px solid #f59e0b' : '1.5px dashed rgba(255, 255, 255, 0.15)',
-                            borderRadius: '8px',
-                            padding: '8px',
-                            minHeight: '115px',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            cursor: 'pointer',
-                            position: 'relative',
-                            textAlign: 'center',
-                            transition: 'all 0.15s ease'
-                          }}
+                          className={`atelier-godot-slot-cell ${slotData ? 'filled' : ''} ${isOver ? 'drag-over' : ''}`}
                         >
                           <div style={{ width: '100%' }}>
                             <span style={{ fontSize: '0.725rem', fontWeight: 700, color: slotData ? '#f59e0b' : '#e2e8f0', display: 'block' }}>
                               {slotDef.label}
                             </span>
-                            <span style={{ fontSize: '0.65rem', color: slotDef.role === 'idle' ? '#facc15' : '#94a3b8' }}>
+                            <span style={{ fontSize: '0.65rem', color: slotDef.role === 'idle' ? '#facc15' : 'var(--atl-text-muted, #716b89)' }}>
                               {slotDef.desc}
                             </span>
                           </div>
@@ -3121,13 +3033,13 @@ export default function GodotTestbed({
                               </button>
                             </div>
                           ) : (
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', color: '#64748b', margin: '6px 0' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', color: 'var(--atl-text-muted, #716b89)', margin: '6px 0' }}>
                               <Plus size={20} color="#f59e0b" />
                               <span style={{ fontSize: '0.65rem' }}>Thả ảnh vào</span>
                             </div>
                           )}
 
-                          <span style={{ fontSize: '0.625rem', color: slotData ? '#94a3b8' : '#475569', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '90px' }}>
+                          <span style={{ fontSize: '0.625rem', color: slotData ? 'var(--atl-text-secondary, #a39bc2)' : '#475569', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '90px' }}>
                             {slotData ? slotData.name : 'Chưa có'}
                           </span>
 
@@ -3150,58 +3062,47 @@ export default function GodotTestbed({
             </div>
 
             {/* KHUNG XEM TRƯỚC HOẠT HỌA 3 HƯỚNG TRỰC TIẾP & NÚT HOÀN TẤT */}
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              flexWrap: 'wrap',
-              gap: '12px',
-              borderTop: '1px solid rgba(255,255,255,0.08)',
-              paddingTop: '14px',
-              background: '#090d16',
-              padding: '12px 16px',
-              borderRadius: '8px'
-            }}>
+            <div className="atelier-godot-modal-footer">
               <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#e2e8f0' }}>
+                <span style={{ fontSize: '0.78rem', fontWeight: 600, color: '#f5f3ff' }}>
                   Xem trước 3 hướng:
                 </span>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <div style={{ textAlign: 'center' }}>
-                    <canvas ref={previewDownCanvasRef} width={50} height={50} style={{ background: '#1e293b', borderRadius: '4px', display: 'block', border: '1px solid rgba(255,255,255,0.1)' }} />
-                    <span style={{ fontSize: '0.625rem', color: '#38bdf8' }}>⬇️ Xuống</span>
+                    <canvas ref={previewDownCanvasRef} width={50} height={50} style={{ background: '#0e0a1a', borderRadius: '6px', display: 'block', border: '1px solid rgba(168, 85, 247, 0.3)' }} />
+                    <span style={{ fontSize: '0.625rem', color: '#38bdf8', marginTop: '2px', display: 'block' }}>⬇️ Xuống</span>
                   </div>
                   {slotMode === '3_rows' && (
                     <>
                       <div style={{ textAlign: 'center' }}>
-                        <canvas ref={previewSideCanvasRef} width={50} height={50} style={{ background: '#1e293b', borderRadius: '4px', display: 'block', border: '1px solid rgba(255,255,255,0.1)' }} />
-                        <span style={{ fontSize: '0.625rem', color: '#10b981' }}>➡️ Ngang</span>
+                        <canvas ref={previewSideCanvasRef} width={50} height={50} style={{ background: '#0e0a1a', borderRadius: '6px', display: 'block', border: '1px solid rgba(16, 185, 129, 0.3)' }} />
+                        <span style={{ fontSize: '0.625rem', color: '#10b981', marginTop: '2px', display: 'block' }}>➡️ Ngang</span>
                       </div>
                       <div style={{ textAlign: 'center' }}>
-                        <canvas ref={previewUpCanvasRef} width={50} height={50} style={{ background: '#1e293b', borderRadius: '4px', display: 'block', border: '1px solid rgba(255,255,255,0.1)' }} />
-                        <span style={{ fontSize: '0.625rem', color: '#f59e0b' }}>⬆️ Lưng</span>
+                        <canvas ref={previewUpCanvasRef} width={50} height={50} style={{ background: '#0e0a1a', borderRadius: '6px', display: 'block', border: '1px solid rgba(245, 158, 11, 0.3)' }} />
+                        <span style={{ fontSize: '0.625rem', color: '#f59e0b', marginTop: '2px', display: 'block' }}>⬆️ Lưng</span>
                       </div>
                     </>
                   )}
                 </div>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <button
                   type="button"
-                  className="btn-ghost-studio"
+                  className="atelier-dialog-btn-cancel"
                   onClick={() => {
                     setIsSlotModalOpen(false);
                     setEditingCharIdx(null);
                   }}
-                  style={{ fontSize: '0.8rem', padding: '6px 14px' }}
+                  style={{ fontSize: '0.8rem', padding: '7px 16px' }}
                 >
                   Hủy bỏ
                 </button>
                 <button
                   type="button"
-                  className="btn-primary-studio"
+                  className="atelier-dialog-btn-confirm primary"
                   onClick={handleConfirmSlotTemplate}
                   style={{ fontSize: '0.8rem', padding: '7px 18px', gap: '6px' }}
                 >

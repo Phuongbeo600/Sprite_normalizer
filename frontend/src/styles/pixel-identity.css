@@ -1,0 +1,334 @@
+/* ============================================================================
+   PIXEL ART IDENTITY — ĐẶC TRƯNG HÌNH HỌC PIXEL CHO DARK FANTASY ATELIER
+   ============================================================================
+   Tập hợp các lớp định kiểu, hiệu ứng phát sáng mờ ảo, hiệu ứng lơ lửng và
+   hình bóng chìm (watermark) giúp giao diện mang đậm dấu ấn mỹ thuật Pixel Art.
+   ============================================================================ */
+
+/* 1. Thiết lập hình ảnh Pixel sắc cạnh chuẩn game Retro */
+.pixel-art-icon {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  shape-rendering: crispEdges;
+  display: inline-block;
+  vertical-align: middle;
+  flex-shrink: 0;
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), filter 0.25s ease;
+}
+
+/* 2. Hiệu ứng phát sáng hào quang thạch anh ma thuật */
+.pixel-art-glow {
+  filter: drop-shadow(0 0 10px rgba(168, 85, 247, 0.55)) drop-shadow(0 0 20px rgba(147, 51, 234, 0.25));
+}
+
+.pixel-art-glow-amber {
+  filter: drop-shadow(0 0 10px rgba(245, 158, 11, 0.6)) drop-shadow(0 0 20px rgba(234, 179, 8, 0.25));
+}
+
+.pixel-art-glow-cyan {
+  filter: drop-shadow(0 0 10px rgba(56, 189, 248, 0.6)) drop-shadow(0 0 20px rgba(14, 165, 233, 0.25));
+}
+
+.pixel-art-glow-emerald {
+  filter: drop-shadow(0 0 10px rgba(16, 185, 129, 0.6)) drop-shadow(0 0 20px rgba(5, 150, 105, 0.25));
+}
+
+/* 3. Hiệu ứng lơ lửng nhẹ nhàng kiểu vật phẩm ma thuật RPG */
+@keyframes pixelFloat {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+.pixel-art-float {
+  animation: pixelFloat 3.2s ease-in-out infinite;
+}
+
+/* 4. Hình bóng chìm hậu cảnh (Ambient Watermark) */
+.pixel-ambient-watermark {
+  position: absolute;
+  pointer-events: none;
+  user-select: none;
+  z-index: 0;
+  opacity: 0.055;
+  transition: opacity 0.3s ease;
+}
+
+/* 5. Hoa văn cổ rune trang trí góc thẻ card */
+.pixel-corner-rune {
+  position: absolute;
+  pointer-events: none;
+  user-select: none;
+  opacity: 0.35;
+  transition: opacity 0.25s ease, filter 0.25s ease;
+}
+
+.atelier-prompt-studio-card:hover .pixel-corner-rune,
+.atelier-assets-card:hover .pixel-corner-rune,
+.atelier-gen-panel:hover .pixel-corner-rune {
+  opacity: 0.85;
+  filter: drop-shadow(0 0 6px rgba(192, 132, 252, 0.7));
+}
+
+.pixel-corner-top-right {
+  top: 14px;
+  right: 16px;
+}
+
+.pixel-corner-bottom-right {
+  bottom: 14px;
+  right: 16px;
+}
+
+.pixel-corner-top-left {
+  top: 14px;
+  left: 16px;
+}
+
+/* 6. Khung chứa Empty State phong cách Pixel Game */
+.pixel-empty-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 40px 24px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.pixel-empty-icon-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 6px;
+}
+
+.pixel-empty-circle-aura {
+  position: absolute;
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(168, 85, 247, 0.22) 0%, rgba(147, 51, 234, 0.05) 60%, transparent 80%);
+  pointer-events: none;
+}
+
+/* ============================================================================
+   7. HỘP THOẠI NỔI NỘI BỘ DARK FANTASY ATELIER (IN-APP MODAL DIALOGS)
+   ============================================================================ */
+.atelier-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(4, 2, 10, 0.82);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  box-sizing: border-box;
+  animation: dialogFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes dialogFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes dialogPopIn {
+  from {
+    opacity: 0;
+    transform: scale(0.92) translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.atelier-dialog-box {
+  position: relative;
+  width: 100%;
+  max-width: 440px;
+  background: rgba(18, 13, 34, 0.96);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  border: 1px solid rgba(192, 132, 252, 0.35);
+  border-radius: 18px;
+  padding: 24px 26px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.85), 0 0 40px rgba(147, 51, 234, 0.25);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  color: #f5f3ff;
+  animation: dialogPopIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  box-sizing: border-box;
+}
+
+.atelier-dialog-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.atelier-dialog-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.atelier-dialog-icon-badge {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.atelier-dialog-icon-badge.primary {
+  background: rgba(147, 51, 234, 0.2);
+  border: 1px solid rgba(192, 132, 252, 0.4);
+  color: #c084fc;
+}
+
+.atelier-dialog-icon-badge.danger {
+  background: rgba(239, 68, 68, 0.18);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #f87171;
+}
+
+.atelier-dialog-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: -0.01em;
+}
+
+.atelier-dialog-close-btn {
+  background: transparent;
+  border: none;
+  color: #a39bc2;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.atelier-dialog-close-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.atelier-dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.atelier-dialog-message {
+  margin: 0;
+  font-size: 0.86rem;
+  color: #a39bc2;
+  line-height: 1.55;
+}
+
+.atelier-dialog-input {
+  width: 100%;
+  padding: 11px 14px;
+  border-radius: 9px;
+  background: rgba(10, 7, 20, 0.95);
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  color: #ffffff;
+  font-size: 0.9rem;
+  font-family: inherit;
+  outline: none;
+  box-sizing: border-box;
+  transition: all 0.2s ease;
+}
+
+.atelier-dialog-input:focus {
+  border-color: #c084fc;
+  box-shadow: 0 0 0 3px rgba(192, 132, 252, 0.2);
+  background: rgba(14, 10, 26, 0.98);
+}
+
+.atelier-dialog-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.atelier-dialog-btn-cancel {
+  padding: 8px 16px;
+  border-radius: 9px;
+  font-size: 0.825rem;
+  font-weight: 600;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #d1d5db;
+  transition: all 0.2s ease;
+}
+
+.atelier-dialog-btn-cancel:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+
+.atelier-dialog-btn-confirm {
+  padding: 8px 20px;
+  border-radius: 9px;
+  font-size: 0.825rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.atelier-dialog-btn-confirm.primary {
+  background: linear-gradient(135deg, #9333ea 0%, #6366f1 100%);
+  border: 1px solid rgba(192, 132, 252, 0.5);
+  color: #ffffff;
+  box-shadow: 0 4px 16px rgba(147, 51, 234, 0.4);
+}
+
+.atelier-dialog-btn-confirm.primary:hover {
+  background: linear-gradient(135deg, #a855f7 0%, #4f46e5 100%);
+  box-shadow: 0 0 22px rgba(168, 85, 247, 0.6);
+  transform: translateY(-1px);
+}
+
+.atelier-dialog-btn-confirm.danger {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  border: 1px solid rgba(248, 113, 113, 0.5);
+  color: #ffffff;
+  box-shadow: 0 4px 16px rgba(239, 68, 68, 0.4);
+}
+
+.atelier-dialog-btn-confirm.danger:hover {
+  background: linear-gradient(135deg, #f87171 0%, #b91c1c 100%);
+  box-shadow: 0 0 22px rgba(239, 68, 68, 0.6);
+  transform: translateY(-1px);
+}

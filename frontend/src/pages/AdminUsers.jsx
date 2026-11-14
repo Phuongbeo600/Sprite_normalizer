@@ -24,7 +24,10 @@ import {
 // ========================================================
 // 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Components & Dữ liệu)
 // ========================================================
-// (Không có component con phụ thuộc)
+// PixelArtIcons: Biểu tượng khiên hộ vệ hoàng gia pixel art
+import { PixelShield } from '../components/common/PixelArtIcons';
+// AtelierModalDialog: Hộp thoại nổi nội bộ chuẩn Dark Fantasy Atelier thay thế confirm/alert
+import AtelierModalDialog from '../components/common/AtelierModalDialog';
 
 // ========================================================
 // 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
@@ -49,6 +52,11 @@ export default function AdminUsers({ currentUser }) {
   const [loading, setLoading] = useState(true);
   const [feedback, setFeedback] = useState(null); // { type: 'success' | 'error', message: string }
   const [deletingId, setDeletingId] = useState(null);
+
+  // Trạng thái mở hộp thoại nổi xác nhận xóa tài khoản (thay thế window.confirm)
+  const [userToDelete, setUserToDelete] = useState(null);
+  // Trạng thái mở hộp thoại nổi cảnh báo không thể xóa (thay thế window.alert)
+  const [warningMessage, setWarningMessage] = useState(null);
 
   useEffect(() => {
     fetchUsersList();
@@ -77,25 +85,31 @@ export default function AdminUsers({ currentUser }) {
   };
 
   /**
-   * Xử lý xóa một tài khoản người dùng thường khỏi MySQL.
+   * Mở hộp thoại nổi xác nhận xóa một tài khoản người dùng thường khỏi MySQL.
+   * 
    * @param {Object} user Tài khoản cần xóa.
    */
-  const handleDeleteUser = async (user) => {
+  const handleRequestDeleteUser = (user) => {
     if (user.role === 'admin' || user.id === 1) {
-      alert('Không thể xóa tài khoản Quản trị viên (Admin) tối cao!');
+      setWarningMessage('Không thể xóa tài khoản Quản trị viên (Admin) tối cao!');
       return;
     }
 
     if (user.id === 2 || user.username === 'origin@gmail.com') {
-      alert('Không thể xóa tài khoản mẫu kiểm thử (origin@gmail.com)!');
+      setWarningMessage('Không thể xóa tài khoản mẫu kiểm thử (origin@gmail.com)!');
       return;
     }
 
-    const confirmed = window.confirm(
-      `Bạn có chắc chắn muốn xóa tài khoản "${user.username}" (ID: ${user.id}) không?\n\n` +
-      `⚠️ CẢNH BÁO QUẢN TRỊ: Toàn bộ ${user.project_count || 0} dự án, ảnh sprite, khung frame hoạt họa thuộc tài khoản này sẽ bị xóa sạch khỏi cơ sở dữ liệu MySQL!`
-    );
-    if (!confirmed) return;
+    setUserToDelete(user);
+  };
+
+  /**
+   * Xử lý xác nhận xóa vĩnh viễn tài khoản người dùng sau khi bấm trên hộp thoại nổi.
+   */
+  const handleConfirmDeleteUser = async () => {
+    if (!userToDelete) return;
+    const user = userToDelete;
+    setUserToDelete(null);
 
     setDeletingId(user.id);
     try {
@@ -128,7 +142,7 @@ export default function AdminUsers({ currentUser }) {
       <div className="atelier-admin-header">
         <div className="atelier-admin-header-title">
           <h1 className="atelier-admin-title-heading">
-            <ShieldAlert size={24} color="#c084fc" />
+            <PixelShield size={26} className="pixel-art-icon pixel-art-glow" />
             <span>Quản Trị Người Dùng Hệ Thống (Master Realm Control)</span>
           </h1>
           <p className="atelier-admin-title-subtext">
@@ -276,7 +290,7 @@ export default function AdminUsers({ currentUser }) {
                         <button
                           type="button"
                           disabled={isDeleting}
-                          onClick={() => handleDeleteUser(u)}
+                          onClick={() => handleRequestDeleteUser(u)}
                           className="atelier-admin-btn-delete"
                           title={`Xóa tài khoản ${u.username}`}
                         >
@@ -292,6 +306,31 @@ export default function AdminUsers({ currentUser }) {
           </table>
         </div>
       </div>
+
+      {/* Hộp thoại nổi xác nhận xóa tài khoản người dùng */}
+      <AtelierModalDialog
+        isOpen={Boolean(userToDelete)}
+        type="confirm"
+        isDestructive={true}
+        title="Xác Nhận Xóa Tài Khoản"
+        message={`Bạn có chắc chắn muốn xóa tài khoản "${userToDelete?.username}" (ID: ${userToDelete?.id}) không? CẢNH BÁO: Toàn bộ ${userToDelete?.project_count || 0} dự án, ảnh sprite, khung frame hoạt họa thuộc tài khoản này sẽ bị xóa sạch khỏi MySQL!`}
+        confirmText="Xóa vĩnh viễn"
+        cancelText="Hủy bỏ"
+        onConfirm={handleConfirmDeleteUser}
+        onCancel={() => setUserToDelete(null)}
+      />
+
+      {/* Hộp thoại nổi cảnh báo bảo vệ tài khoản */}
+      <AtelierModalDialog
+        isOpen={Boolean(warningMessage)}
+        type="alert"
+        isDestructive={true}
+        title="Bảo Vệ Tài Khoản"
+        message={warningMessage || ''}
+        confirmText="Đã hiểu"
+        onConfirm={() => setWarningMessage(null)}
+        onCancel={() => setWarningMessage(null)}
+      />
     </div>
   );
 }

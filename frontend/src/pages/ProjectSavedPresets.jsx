@@ -34,7 +34,8 @@ import {
 // ========================================================
 // 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Components & Dữ liệu)
 // ========================================================
-// (Không có component nội bộ phụ thuộc)
+// PixelArtIcons: Bộ biểu tượng mỹ thuật pixel art cho rương kho báu, tinh thể và thanh kiếm cổ
+import { PixelChest, PixelCrystal, PixelSword } from '../components/common/PixelArtIcons';
 
 // ========================================================
 // 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
@@ -460,7 +461,10 @@ export default function ProjectSavedPresets({
             </div>
           ) : presets.length === 0 ? (
             <div className="atelier-assets-empty">
-              <Bookmark size={42} color="#6e658a" />
+              <div className="pixel-empty-icon-wrap">
+                <div className="pixel-empty-circle-aura" />
+                <PixelChest size={64} className="pixel-art-glow pixel-art-float" />
+              </div>
               <h3>Dự án này chưa lưu hồ sơ nhân vật nào</h3>
               <p>
                 Hãy sang mục <strong>"Phân tích &amp; Prompt"</strong>, nạp sprite mẫu, thiết kế ý tưởng nhân vật mới và bấm <strong>"Lưu vào Dự án"</strong> để quản lý thư viện tại đây.
@@ -602,7 +606,10 @@ export default function ProjectSavedPresets({
             </div>
           ) : sprites.length === 0 ? (
             <div className="atelier-assets-empty">
-              <ImageIcon size={42} color="#6e658a" />
+              <div className="pixel-empty-icon-wrap">
+                <div className="pixel-empty-circle-aura" />
+                <PixelCrystal size={60} className="pixel-art-glow pixel-art-float" />
+              </div>
               <h3>Chưa có ảnh Sprite nào được lưu trong dự án</h3>
               <p>
                 Khi bạn nạp ảnh vào bàn làm việc <strong>"Xử lý ảnh"</strong> hoặc chuyển tiếp từ <strong>"Tạo ảnh AI"</strong>, ảnh gốc và ảnh đã chuẩn hóa sẽ được tự động lưu trữ tại đây.
@@ -867,7 +874,10 @@ export default function ProjectSavedPresets({
             </div>
           ) : characters.length === 0 ? (
             <div className="atelier-assets-empty">
-              <Gamepad2 size={42} color="#6e658a" />
+              <div className="pixel-empty-icon-wrap">
+                <div className="pixel-empty-circle-aura" />
+                <PixelSword size={56} className="pixel-art-glow-amber pixel-art-float" />
+              </div>
               <h3>Chưa có nhân vật nào được lưu trong Godot Testbed</h3>
               <p>
                 Hãy mở mục <strong>"Thử nghiệm Godot"</strong>, cấu hình nhân vật từ 15 ô frame hoạt họa hoặc Sprite Sheet để kiểm thử và lưu vào đội hình.

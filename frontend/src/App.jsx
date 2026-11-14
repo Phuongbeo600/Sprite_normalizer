@@ -6,13 +6,16 @@ import React, { useState } from 'react';
 // ========================================================
 // 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
 // ========================================================
-// (Không có phụ thuộc bên ngoài)
+// lucide-react: Biểu tượng đăng xuất cho modal xác nhận
+import { LogOut } from 'lucide-react';
 
 // ========================================================
 // 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Components & Các trang)
 // ========================================================
 // Sidebar: Thanh điều hướng chính của ứng dụng
 import Sidebar from './components/Sidebar';
+// AtelierModalDialog: Hộp thoại nổi nội bộ chuẩn Dark Fantasy Atelier thay thế confirm/prompt
+import AtelierModalDialog from './components/common/AtelierModalDialog';
 // Projects: Màn hình danh sách dự án trong MySQL
 import Projects from './pages/Projects';
 // ProjectAnalysis: Màn hình Studio phân tích mẫu và sinh prompt
@@ -212,12 +215,21 @@ export default function App() {
     }
   };
 
+  // Trạng thái hiển thị hộp thoại nổi xác nhận đăng xuất
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+
   /**
-   * Xử lý đăng xuất tài khoản và quay về màn hình đăng nhập.
+   * Mở hộp thoại nổi yêu cầu người dùng xác nhận đăng xuất.
    */
-  const handleLogout = () => {
-    const confirmed = window.confirm('Bạn có chắc chắn muốn đăng xuất khỏi tài khoản này không?');
-    if (!confirmed) return;
+  const handleRequestLogout = () => {
+    setShowLogoutConfirm(true);
+  };
+
+  /**
+   * Thực hiện đăng xuất tài khoản sau khi người dùng bấm xác nhận trên hộp thoại nổi.
+   */
+  const handleConfirmLogout = () => {
+    setShowLogoutConfirm(false);
 
     try {
       localStorage.setItem('sprite_logged_out', 'true');
@@ -269,7 +281,7 @@ export default function App() {
         onSelectTab={setActiveTab}
         isAiEnabled={isAiEnabled}
         currentUser={currentUser}
-        onLogout={handleLogout}
+        onLogout={handleRequestLogout}
         onOpenProfile={() => setShowProfileModal(true)}
       />
 
@@ -388,6 +400,20 @@ export default function App() {
           onProfileUpdated={handleProfileUpdated}
         />
       )}
+
+      {/* 4. Hộp thoại nổi xác nhận đăng xuất (Dark Fantasy Atelier Confirm) */}
+      <AtelierModalDialog
+        isOpen={showLogoutConfirm}
+        type="confirm"
+        isDestructive={true}
+        icon={<LogOut size={20} />}
+        title="Xác Nhận Đăng Xuất"
+        message="Bạn có chắc chắn muốn đăng xuất khỏi tài khoản này không? Mọi thay đổi chưa được đồng bộ có thể bị gián đoạn."
+        confirmText="Đăng xuất"
+        cancelText="Ở lại tiếp tục"
+        onConfirm={handleConfirmLogout}
+        onCancel={() => setShowLogoutConfirm(false)}
+      />
     </div>
   );
 }

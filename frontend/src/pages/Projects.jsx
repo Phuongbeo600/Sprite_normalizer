@@ -26,6 +26,10 @@ import {
 // ========================================================
 // ProjectRow: Component hiển thị thẻ dự án ở cả chế độ Lưới (Grid) và Danh sách (List)
 import ProjectRow from '../components/projects/ProjectRow';
+// PixelArtIcons: Biểu tượng hiệp sĩ đứng trên mỏm đất rêu phong pixel art
+import { PixelKnightGround } from '../components/common/PixelArtIcons';
+// AtelierModalDialog: Hộp thoại nổi nội bộ chuẩn Dark Fantasy Atelier thay thế prompt/confirm
+import AtelierModalDialog from '../components/common/AtelierModalDialog';
 
 // ========================================================
 // 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
@@ -53,6 +57,13 @@ export default function Projects({ onOpenProject, currentUser }) {
   const [viewMode, setViewMode] = useState('grid');
   // Trạng thái đang tải dữ liệu
   const [loading, setLoading] = useState(true);
+
+  // Trạng thái mở hộp thoại nổi khởi tạo dự án mới (thay thế window.prompt)
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  // Trạng thái mở hộp thoại nổi xác nhận xóa dự án (thay thế window.confirm)
+  const [projectToDelete, setProjectToDelete] = useState(null);
+  // Trạng thái hiển thị thông báo lỗi hệ thống
+  const [dialogError, setDialogError] = useState(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -93,14 +104,23 @@ export default function Projects({ onOpenProject, currentUser }) {
   }, [currentUser?.id, currentUser?.role]);
 
   /**
-   * Thêm dự án mới vào CSDL MySQL và cập nhật ngay lên giao diện.
+   * Mở hộp thoại nổi khởi tạo dự án mới.
    */
-  const handleCreateProject = async () => {
-    const name = prompt('Nhập tên dự án sprite mới:', 'Dự án Pixel RPG')?.trim();
+  const handleOpenCreateModal = () => {
+    setShowCreateModal(true);
+  };
+
+  /**
+   * Xử lý xác nhận tạo dự án mới từ hộp thoại nổi.
+   * 
+   * @param {string} projectName Tên dự án người dùng nhập vào.
+   */
+  const handleConfirmCreate = async (projectName) => {
+    const name = (projectName || '').trim();
     if (!name) return;
 
     if (Array.from(name).length > 255) {
-      alert('Tên dự án chỉ được dài tối đa 255 ký tự.');
+      setDialogError('Tên dự án chỉ được dài tối đa 255 ký tự.');
       return;
     }
 
@@ -121,25 +141,29 @@ export default function Projects({ onOpenProject, currentUser }) {
         data,
         ...currentProjects.filter((project) => project.id !== data.id),
       ]);
+      setShowCreateModal(false);
     } catch {
-      alert('Không xác nhận được dự án đã lưu. Hãy thử lại.');
+      setDialogError('Không xác nhận được dự án đã lưu. Hãy thử lại.');
     }
   };
 
   /**
-   * Xóa một dự án khỏi MySQL và đồng bộ loại bỏ khỏi danh sách hiển thị.
+   * Mở hộp thoại nổi xác nhận xóa một bản ghi dự án.
    * 
    * @param {Object} project Bản ghi dự án cần xóa.
    */
-  const handleDeleteProject = async (project) => {
-    const confirmed = window.confirm(
-      `Bạn có chắc chắn muốn xóa dự án "${project.name}" không?\n\n` +
-      `⚠️ CẢNH BÁO: Toàn bộ dữ liệu sprite, hồ sơ nhân vật và thiết lập frame sẽ bị xóa vĩnh viễn khỏi CSDL MySQL!`
-    );
-    if (!confirmed) return;
+  const handleOpenDeleteConfirm = (project) => {
+    setProjectToDelete(project);
+  };
+
+  /**
+   * Xử lý xác nhận xóa vĩnh viễn dự án khỏi MySQL.
+   */
+  const handleConfirmDelete = async () => {
+    if (!projectToDelete) return;
 
     try {
-      const response = await fetch(`/api/projects/${project.id}`, {
+      const response = await fetch(`/api/projects/${projectToDelete.id}`, {
         method: 'DELETE',
       });
 
@@ -149,10 +173,11 @@ export default function Projects({ onOpenProject, currentUser }) {
       }
 
       setProjects((currentProjects) =>
-        currentProjects.filter((p) => p.id !== project.id)
+        currentProjects.filter((p) => p.id !== projectToDelete.id)
       );
+      setProjectToDelete(null);
     } catch (err) {
-      alert(`Lỗi khi xóa dự án: ${err.message || 'Không thể kết nối máy chủ.'}`);
+      setDialogError(`Lỗi khi xóa dự án: ${err.message || 'Không thể kết nối máy chủ.'}`);
     }
   };
 
@@ -195,14 +220,6 @@ export default function Projects({ onOpenProject, currentUser }) {
             <span className="atelier-stat-val">{projects.length}</span>
             <span className="atelier-stat-label">Bản vẽ</span>
           </div>
-          <div className="atelier-stat-pill">
-            <span className="atelier-stat-val">15</span>
-            <span className="atelier-stat-label">Ma trận Frame</span>
-          </div>
-          <div className="atelier-stat-pill">
-            <span className="atelier-stat-val" style={{ color: 'var(--atl-emerald)' }}>v4.3</span>
-            <span className="atelier-stat-label">Godot Ready</span>
-          </div>
         </div>
       </section>
 
@@ -231,7 +248,7 @@ export default function Projects({ onOpenProject, currentUser }) {
           )}
         </div>
 
-        {/* Các Tùy Chọn Điều Khiển & Nút Tạo Mới */}
+        {/* Các Tùy Chọn Điều Khiển & Bộ Chuyển Chế Độ Xem */}
         <div className="atelier-command-actions">
           {/* Bộ chuyển đổi chế độ xem Lưới (Grid) / Danh sách (List) */}
           <div className="atelier-view-toggle" role="group" aria-label="Chế độ hiển thị">
@@ -252,17 +269,6 @@ export default function Projects({ onOpenProject, currentUser }) {
               <List size={16} />
             </button>
           </div>
-
-          {/* Nút Tạo Bản Vẽ Dự Án Mới (Primary Action) */}
-          <button
-            type="button"
-            className="atelier-cta-create-btn"
-            onClick={handleCreateProject}
-            title="Khởi tạo một bản vẽ dự án mới"
-          >
-            <Plus size={16} strokeWidth={2.6} />
-            <span>Khởi tạo dự án</span>
-          </button>
         </div>
       </div>
 
@@ -276,11 +282,11 @@ export default function Projects({ onOpenProject, currentUser }) {
             {/* Thẻ Khởi Tạo Nhanh Luôn Nằm Ở Đầu Lưới */}
             <div
               className="atelier-quick-create-card"
-              onClick={handleCreateProject}
+              onClick={handleOpenCreateModal}
               role="button"
               tabIndex={0}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') handleCreateProject();
+                if (e.key === 'Enter') handleOpenCreateModal();
               }}
               title="Bấm vào đây để tạo nhanh bản vẽ mới"
             >
@@ -301,7 +307,7 @@ export default function Projects({ onOpenProject, currentUser }) {
                 index={idx}
                 viewMode="grid"
                 onOpen={onOpenProject}
-                onDelete={handleDeleteProject}
+                onDelete={handleOpenDeleteConfirm}
               />
             ))}
           </div>
@@ -315,7 +321,7 @@ export default function Projects({ onOpenProject, currentUser }) {
                 index={idx}
                 viewMode="list"
                 onOpen={onOpenProject}
-                onDelete={handleDeleteProject}
+                onDelete={handleOpenDeleteConfirm}
               />
             ))}
           </div>
@@ -330,18 +336,21 @@ export default function Projects({ onOpenProject, currentUser }) {
           </p>
         </div>
       ) : (
-        /* Trạng thái rỗng ban đầu khi CSDL chưa có dự án nào */
+        /* Trạng thái rỗng ban đầu khi CSDL chưa có dự án nào (Hiệp sĩ đứng trên mỏm đất) */
         <div className="atelier-empty-stage">
-          <FolderOpen size={44} />
-          <h3 className="atelier-empty-title">Xưởng sáng tạo chưa có bản vẽ nào</h3>
+          <div className="pixel-empty-icon-wrap" style={{ marginBottom: '14px' }}>
+            <div className="pixel-empty-circle-aura" style={{ width: '130px', height: '130px' }} />
+            <PixelKnightGround size={110} className="pixel-art-glow pixel-art-float" />
+          </div>
+          <h3 className="atelier-empty-title">Hiệp sĩ đang đợi lệnh khởi tạo bản vẽ đầu tiên</h3>
           <p className="atelier-empty-desc">
-            Hãy bắt đầu chuyến phiêu lưu bằng cách bấm nút "Khởi tạo dự án" ở trên để tạo bản vẽ sprite đầu tiên.
+            Xưởng sáng tạo đang trống. Hãy bắt đầu hành trình bằng cách bấm nút "Khởi tạo dự án" để tạo bản vẽ sprite đầu tiên.
           </p>
           <button
             type="button"
             className="atelier-cta-create-btn"
-            onClick={handleCreateProject}
-            style={{ marginTop: '8px' }}
+            onClick={handleOpenCreateModal}
+            style={{ marginTop: '12px' }}
           >
             <Plus size={16} strokeWidth={2.5} />
             <span>Tạo dự án đầu tiên</span>
@@ -352,16 +361,53 @@ export default function Projects({ onOpenProject, currentUser }) {
       {/* ================================================================ */}
       {/* 4. CHÂN TRANG & THÔNG ĐIỆP ĐỘNG LỰC ATELIER                      */}
       {/* ================================================================ */}
-      <footer className="atelier-dashboard-footer">
+      <footer className="atelier-dashboard-footer" style={{ justifyContent: 'center' }}>
         <div className="atelier-footer-quote">
           “Không biết có làm được không, nhưng vẫn muốn cố gắng.”
         </div>
-
-        <div className="atelier-footer-status">
-          <span className="dot" />
-          <span>Hệ thống CSDL MySQL &amp; AI Studio Đồng Bộ</span>
-        </div>
       </footer>
+
+      {/* ================================================================ */}
+      {/* 5. CÁC HỘP THOẠI NỔI NỘI BỘ (DARK FANTASY ATELIER DIALOGS)       */}
+      {/* ================================================================ */}
+      {/* Hộp thoại Prompt: Khởi tạo bản vẽ dự án mới */}
+      <AtelierModalDialog
+        isOpen={showCreateModal}
+        type="prompt"
+        title="Khởi Tạo Bản Vẽ Dự Án Mới"
+        message="Nhập tên bản vẽ sprite mới để chuẩn bị không gian làm việc và đồng bộ vào MySQL:"
+        defaultValue="Dự án Pixel RPG"
+        placeholder="VD: Dự án Pixel RPG, Hiệp sĩ bóng đêm..."
+        confirmText="Khởi tạo bản vẽ"
+        cancelText="Hủy bỏ"
+        onConfirm={handleConfirmCreate}
+        onCancel={() => setShowCreateModal(false)}
+      />
+
+      {/* Hộp thoại Confirm: Xác nhận xóa vĩnh viễn dự án */}
+      <AtelierModalDialog
+        isOpen={Boolean(projectToDelete)}
+        type="confirm"
+        isDestructive={true}
+        title="Xác Nhận Xóa Bản Vẽ Dự Án"
+        message={`Bạn có chắc chắn muốn xóa vĩnh viễn dự án "${projectToDelete?.name}" không? Toàn bộ dữ liệu sprite, hồ sơ nhân vật và thiết lập frame sẽ bị loại bỏ khỏi CSDL MySQL.`}
+        confirmText="Xóa vĩnh viễn"
+        cancelText="Hủy bỏ"
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setProjectToDelete(null)}
+      />
+
+      {/* Hộp thoại Alert: Cảnh báo lỗi */}
+      <AtelierModalDialog
+        isOpen={Boolean(dialogError)}
+        type="alert"
+        isDestructive={true}
+        title="Thông Báo Hệ Thống"
+        message={dialogError || ''}
+        confirmText="Đã hiểu"
+        onConfirm={() => setDialogError(null)}
+        onCancel={() => setDialogError(null)}
+      />
     </div>
   );
 }

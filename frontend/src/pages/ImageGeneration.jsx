@@ -30,7 +30,8 @@ import {
 // ========================================================
 // 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Components & Dữ liệu)
 // ========================================================
-// (Không có component con trực tiếp)
+// PixelArtIcons: Biểu tượng lò rèn ma thuật pixel art cho empty state
+import { PixelForge } from '../components/common/PixelArtIcons';
 
 // ========================================================
 // 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
@@ -523,7 +524,10 @@ export default function ImageGeneration({
 
         {generatedGallery.length === 0 ? (
           <div className="atelier-gen-empty-state">
-            <Sparkles size={34} color="#6e658a" />
+            <div className="pixel-empty-icon-wrap">
+              <div className="pixel-empty-circle-aura" />
+              <PixelForge size={56} className="pixel-art-glow-amber pixel-art-float" />
+            </div>
             <p style={{ margin: 0, fontSize: '0.86rem', color: '#a39bc2' }}>
               Chưa có ảnh nào được tạo trong phiên này.
             </p>

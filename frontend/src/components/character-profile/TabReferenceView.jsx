@@ -27,6 +27,8 @@ import {
 import SpriteMeasurementEditor from './SpriteMeasurementEditor';
 // PaletteMetricsSection: Các chỉ số đo màu chi tiết
 import PaletteMetricsSection from './PaletteMetricsSection';
+// PixelArtIcons: Biểu tượng tinh thể thạch anh ma thuật pixel art
+import { PixelCrystal } from '../common/PixelArtIcons';
 
 // ========================================================
 // 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
@@ -115,8 +117,14 @@ export default function TabReferenceView({
               alt={reference.name}
             />
           ) : (
-            <div className="atelier-ref-empty-notice">
-              Bấm nút "Chọn ảnh sprite" ở trên để nạp tệp PNG, JPEG hoặc WebP phục vụ bóc tách giải phẫu.
+            <div className="atelier-ref-empty-notice" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+              <div className="pixel-empty-icon-wrap" style={{ marginBottom: '12px' }}>
+                <div className="pixel-empty-circle-aura" />
+                <PixelCrystal size={52} className="pixel-art-glow pixel-art-float" />
+              </div>
+              <p style={{ margin: 0, color: 'var(--atl-text-secondary, #a39bc2)', fontSize: '0.84rem' }}>
+                Bấm nút <strong>"Chọn ảnh sprite mẫu"</strong> ở trên để nạp tệp PNG/WebP phục vụ bóc tách giải phẫu.
+              </p>
             </div>
           )}
         </div>

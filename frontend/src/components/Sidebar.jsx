@@ -30,6 +30,8 @@ import {
 // ========================================================
 // initialProjects: Cấu hình logo hiển thị ở đầu thanh
 import { APP_CONFIG } from '../constants/initialProjects';
+// PixelArtIcons: Biểu tượng tinh thể thạch anh pixel art làm logo studio
+import { PixelCrystal } from './common/PixelArtIcons';
 
 // ========================================================
 // 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
@@ -85,7 +87,7 @@ export default function Sidebar({
               onError={(e) => { e.currentTarget.style.display = 'none'; }}
             />
           ) : (
-            <Bot size={22} className="logo-icon" />
+            <PixelCrystal size={24} className="pixel-art-icon pixel-art-glow" />
           )}
           <span className="logo-text">Sprite AI</span>
         </div>

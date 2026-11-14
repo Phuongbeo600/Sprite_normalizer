@@ -60,13 +60,8 @@
 .atelier-app-layout .main-content-viewport {
   background-color: var(--atl-void);
   background-image:
-    /* Lớp mặt nạ phủ mờ mềm mại hòa tan hình nền góc phải dưới */
     radial-gradient(ellipse at 85% 90%, rgba(13, 9, 28, 0.4) 0%, rgba(6, 4, 12, 0.88) 55%, var(--atl-void) 85%),
-    linear-gradient(135deg, rgba(6, 4, 12, 0.98) 0%, rgba(6, 4, 12, 0.75) 50%, rgba(6, 4, 12, 0.4) 100%),
-    url('/background.png');
-  background-size: cover;
-  background-position: right bottom;
-  background-repeat: no-repeat;
+    linear-gradient(135deg, rgba(6, 4, 12, 0.98) 0%, rgba(14, 10, 26, 0.9) 50%, rgba(8, 5, 16, 0.98) 100%);
   padding: 0;
   border: 1px solid var(--atl-border-subtle);
   overflow-y: auto;

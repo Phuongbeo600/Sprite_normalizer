@@ -317,3 +317,384 @@
   border-color: rgba(255, 255, 255, 0.08);
   box-shadow: none;
 }
+
+/* ============================================================================
+   6. BẢNG CHỈNH SỬA CHI TIẾT NHÂN VẬT (CHARACTER DETAIL EDITOR)
+   ============================================================================ */
+.atelier-godot-edit-panel {
+  background: rgba(18, 13, 34, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--atl-border-amethyst, rgba(168, 85, 247, 0.22));
+  border-radius: 12px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  margin-top: 6px;
+}
+
+.atelier-godot-edit-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  border-bottom: 1px solid rgba(168, 85, 247, 0.15);
+  padding-bottom: 10px;
+}
+
+.atelier-godot-edit-title {
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: #c084fc;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.atelier-godot-input {
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(10, 7, 20, 0.95);
+  border: 1px solid rgba(168, 85, 247, 0.25);
+  color: #ffffff;
+  font-size: 0.84rem;
+  font-family: inherit;
+  outline: none;
+  box-sizing: border-box;
+  transition: all 0.2s ease;
+}
+
+.atelier-godot-input:focus {
+  border-color: #c084fc;
+  box-shadow: 0 0 0 3px rgba(192, 132, 252, 0.18);
+  background: rgba(14, 10, 26, 0.98);
+}
+
+.atelier-godot-btn-sub {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+  background: rgba(147, 51, 234, 0.16);
+  border: 1px solid rgba(168, 85, 247, 0.35);
+  color: #d8b4fe;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.atelier-godot-btn-sub:hover {
+  background: rgba(147, 51, 234, 0.28);
+  border-color: #c084fc;
+  color: #ffffff;
+  box-shadow: 0 0 12px rgba(168, 85, 247, 0.25);
+}
+
+.atelier-godot-scale-btn {
+  font-size: 0.68rem;
+  font-weight: 600;
+  background: rgba(14, 10, 26, 0.9);
+  border: 1px solid rgba(168, 85, 247, 0.22);
+  color: var(--atl-text-secondary, #a39bc2);
+  border-radius: 5px;
+  padding: 2px 7px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.atelier-godot-scale-btn:hover {
+  background: rgba(147, 51, 234, 0.25);
+  border-color: #c084fc;
+  color: #ffffff;
+}
+
+/* ============================================================================
+   7. BẢNG THAM SỐ MẶT ĐẤT VÀ TỶ LỆ (GROUND & GUIDELINES DOCK)
+   ============================================================================ */
+.atelier-godot-ground-panel {
+  background: rgba(18, 13, 34, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--atl-border-amethyst, rgba(168, 85, 247, 0.2));
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+/* ============================================================================
+   8. MODAL KHUNG Ô GHÉP & CHỈNH SỬA 15 FRAME (SLOT TEMPLATE MODAL)
+   ============================================================================ */
+.atelier-godot-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(4, 2, 10, 0.88);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 20px;
+  box-sizing: border-box;
+  animation: dialogFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.atelier-godot-modal-box {
+  background: rgba(18, 13, 34, 0.96);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  border: 1px solid rgba(192, 132, 252, 0.35);
+  border-radius: 18px;
+  width: 100%;
+  max-width: 980px;
+  max-height: 92vh;
+  overflow-y: auto;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.85), 0 0 40px rgba(147, 51, 234, 0.2);
+  color: #f5f3ff;
+  animation: dialogPopIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  box-sizing: border-box;
+}
+
+.atelier-godot-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(168, 85, 247, 0.18);
+  padding-bottom: 14px;
+}
+
+.atelier-godot-modal-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  background: rgba(12, 8, 24, 0.9);
+  border: 1px solid rgba(168, 85, 247, 0.2);
+  padding: 10px 16px;
+  border-radius: 10px;
+}
+
+.atelier-godot-slot-row-card {
+  background: rgba(12, 8, 24, 0.85);
+  border: 1px solid rgba(168, 85, 247, 0.2);
+  border-radius: 12px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.atelier-godot-slot-row-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.atelier-godot-slot-cell {
+  background: rgba(8, 5, 16, 0.9);
+  border: 1.5px dashed rgba(168, 85, 247, 0.25);
+  border-radius: 10px;
+  padding: 10px 8px;
+  min-height: 120px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  position: relative;
+  text-align: center;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+}
+
+.atelier-godot-slot-cell:hover {
+  border-color: rgba(192, 132, 252, 0.5);
+  background: rgba(14, 10, 26, 0.95);
+}
+
+.atelier-godot-slot-cell.filled {
+  background: rgba(147, 51, 234, 0.16);
+  border: 1.5px solid #c084fc;
+  box-shadow: 0 0 12px rgba(168, 85, 247, 0.2);
+}
+
+.atelier-godot-slot-cell.drag-over {
+  background: rgba(16, 185, 129, 0.2);
+  border: 2px dashed #34d399;
+  box-shadow: 0 0 14px rgba(16, 185, 129, 0.3);
+}
+
+.atelier-godot-row-action-btn {
+  background: rgba(22, 16, 40, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--atl-text-secondary, #a39bc2);
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 0.72rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.atelier-godot-row-action-btn:hover {
+  background: rgba(147, 51, 234, 0.25);
+  border-color: #c084fc;
+  color: #ffffff;
+}
+
+.atelier-godot-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  border-top: 1px solid rgba(168, 85, 247, 0.18);
+  padding-top: 14px;
+  background: rgba(10, 7, 20, 0.9);
+  padding: 12px 18px;
+  border-radius: 12px;
+}
+
+/* ============================================================================
+   9. ĐỒNG BỘ THẺ ĐỘI HÌNH & THANH DEBUG (ROSTER CARDS & DEBUG BAR HARMONIZATION)
+   ============================================================================ */
+.atelier-godot-roster-box {
+  background: rgba(18, 13, 34, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--atl-border-amethyst, rgba(168, 85, 247, 0.22));
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.atelier-godot-char-card {
+  background: rgba(12, 8, 24, 0.75);
+  border: 1px solid rgba(168, 85, 247, 0.16);
+  border-radius: 8px;
+  padding: 10px 12px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  color: var(--atl-text-secondary, #a39bc2);
+}
+
+.atelier-godot-char-card:hover {
+  background: rgba(18, 12, 36, 0.9);
+  border-color: rgba(192, 132, 252, 0.35);
+  transform: translateY(-1px);
+}
+
+.atelier-godot-char-card.active {
+  background: rgba(147, 51, 234, 0.16);
+  border: 1.5px solid #c084fc;
+  box-shadow: 0 0 16px rgba(168, 85, 247, 0.28);
+  color: #f5f3ff;
+}
+
+.atelier-godot-char-card-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--atl-text-secondary, #a39bc2);
+  border-radius: 5px;
+  font-weight: 700;
+  font-size: 0.75rem;
+  transition: all 0.15s ease;
+}
+
+.atelier-godot-char-card.active .atelier-godot-char-card-num {
+  background: linear-gradient(135deg, #7c3aed 0%, #c084fc 100%);
+  color: #ffffff;
+  box-shadow: 0 0 10px rgba(168, 85, 247, 0.4);
+}
+
+.atelier-godot-card-name {
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: #d8b4fe;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 130px;
+}
+
+.atelier-godot-char-card.active .atelier-godot-card-name {
+  color: #ffffff;
+  font-weight: 700;
+  text-shadow: 0 0 8px rgba(192, 132, 252, 0.3);
+}
+
+.atelier-godot-btn-export-zip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 18px;
+  border-radius: 9px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  background: linear-gradient(135deg, #7c3aed 0%, #9333ea 50%, #c084fc 100%);
+  border: 1px solid rgba(216, 180, 254, 0.5);
+  color: #ffffff;
+  box-shadow: 0 4px 18px rgba(147, 51, 234, 0.4);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.atelier-godot-btn-export-zip:hover:not(:disabled) {
+  box-shadow: 0 6px 24px rgba(168, 85, 247, 0.6);
+  transform: translateY(-1px);
+  filter: brightness(1.1);
+}
+
+.atelier-godot-btn-export-zip:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  filter: grayscale(0.5);
+  box-shadow: none;
+}
+
+.atelier-godot-debug-bar {
+  background: rgba(18, 13, 34, 0.95);
+  border-bottom: 1px solid rgba(168, 85, 247, 0.2);
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.atelier-godot-active-pill {
+  background: rgba(12, 8, 24, 0.9);
+  border: 1px solid rgba(168, 85, 247, 0.35);
+  border-radius: 8px;
+  padding: 5px 14px;
+  text-align: center;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.5), 0 0 10px rgba(147, 51, 234, 0.15);
+}
+

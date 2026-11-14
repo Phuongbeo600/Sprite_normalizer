@@ -546,31 +546,37 @@ export default function HelpCenter({ onBack }) {
           </div>
         </div>
 
-        {/* Nút Quay Lại Sprite AI (Return to Sprite AI) */}
+        {/* Nút Quay Lại Xưởng Sáng Tạo (Return to Creative Atelier) */}
         <button
           type="button"
           onClick={onBack}
           style={{
-            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-            border: 'none',
-            borderRadius: '8px',
+            background: 'linear-gradient(135deg, #9333ea 0%, #6366f1 100%)',
+            border: '1px solid rgba(192, 132, 252, 0.45)',
+            borderRadius: '9px',
             color: '#ffffff',
             fontWeight: 600,
             fontSize: '0.825rem',
-            padding: '8px 16px',
+            padding: '8px 18px',
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
-            gap: '6px',
-            boxShadow: '0 4px 14px rgba(16, 185, 129, 0.35)',
-            transition: 'all 0.2s ease',
+            gap: '7px',
+            boxShadow: '0 4px 16px rgba(147, 51, 234, 0.35)',
+            transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
             flexShrink: 0
           }}
-          onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-1px)'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'translateY(-1px)';
+            e.currentTarget.style.boxShadow = '0 0 20px rgba(168, 85, 247, 0.55)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'translateY(0)';
+            e.currentTarget.style.boxShadow = '0 4px 16px rgba(147, 51, 234, 0.35)';
+          }}
         >
           <ArrowLeft size={15} />
-          <span>Quay lại Sprite AI</span>
+          <span>Trở về Xưởng Sáng Tạo</span>
         </button>
       </header>
 
@@ -858,23 +864,23 @@ export default function HelpCenter({ onBack }) {
                   fontWeight: 700,
                   textTransform: 'uppercase',
                   letterSpacing: '0.08em',
-                  color: '#38bdf8',
-                  background: 'rgba(56, 189, 248, 0.12)',
-                  border: '1px solid rgba(56, 189, 248, 0.3)',
-                  padding: '4px 10px',
+                  color: '#c084fc',
+                  background: 'rgba(147, 51, 234, 0.16)',
+                  border: '1px solid rgba(192, 132, 252, 0.35)',
+                  padding: '4px 12px',
                   borderRadius: '20px',
-                  marginBottom: '12px'
+                  marginBottom: '14px'
                 }}>
-                  HELP CENTER / TRUNG TÂM HƯỚNG DẪN
+                  BÍ THƯ SÁNG TẠO · CẨM NANG HƯỚNG DẪN
                 </span>
 
                 <h1 style={{
-                  margin: '0 0 8px',
+                  margin: '0 0 10px',
                   fontSize: '2.1rem',
                   fontWeight: 800,
                   color: '#ffffff'
                 }}>
-                  Làm thế nào để chúng tôi hỗ trợ bạn?
+                  Bạn Cần Tra Cứu Bí Quyết Sáng Tạo Nào?
                 </h1>
 
                 <p style={{
@@ -943,15 +949,16 @@ export default function HelpCenter({ onBack }) {
                     <button
                       type="submit"
                       style={{
-                        background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                        border: 'none',
+                        background: 'linear-gradient(135deg, #9333ea 0%, #6366f1 100%)',
+                        border: '1px solid rgba(192, 132, 252, 0.4)',
                         color: '#ffffff',
                         padding: '8px 20px',
                         borderRadius: '20px',
                         fontWeight: 600,
                         fontSize: '0.8rem',
                         cursor: 'pointer',
-                        boxShadow: '0 2px 8px rgba(16, 185, 129, 0.35)'
+                        boxShadow: '0 3px 12px rgba(147, 51, 234, 0.4)',
+                        transition: 'all 0.2s ease'
                       }}
                     >
                       Tìm kiếm
