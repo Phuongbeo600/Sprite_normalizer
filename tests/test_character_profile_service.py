@@ -1,9 +1,10 @@
 # ========================================================
 # 1. THƯ VIỆN NỀN TẢNG PYTHON (Kiểm thử đơn vị)
 # ========================================================
+# unittest: Framework kiểm thử chuẩn của Python
 import unittest
-# patch: Chặn HTTP trong kiểm thử để xác nhận không có yêu cầu ra ngoài.
-from unittest.mock import patch
+# patch, MagicMock: Chặn HTTP và CSDL trong kiểm thử để xác nhận không có yêu cầu ra ngoài.
+from unittest.mock import patch, MagicMock
 # asyncio: Gọi các hàm xử lý bất đồng bộ của tuyến API.
 import asyncio
 # io: Xử lý bộ nhớ luồng ảnh giả lập
@@ -28,6 +29,10 @@ from fastapi import UploadFile
 from backend.services.character_analysis_service import CharacterAnalysisService
 # SettingsService: Kiểm tra hành vi của tuyến kiểm tra khóa OpenAI.
 from backend.services.settings_service import SettingsService
+# PromptBuilderService: Dịch vụ xây dựng ma trận 15 frame hoạt họa và biên dịch prompt 3 tầng
+from backend.services.prompt_builder_service import PromptBuilderService
+# ProjectService: Dịch vụ dự án hỗ trợ cấu hình API
+from backend.services.project_service import ProjectService
 # Các tuyến phân tích ảnh, hồ sơ và sinh prompt.
 from backend.api.v1.sprites import analyze_character
 # sprites: Gọi tuyến đo thủ công với đa giác hoặc đoạn thẳng.
@@ -63,9 +68,17 @@ class TestCharacterProfileService(unittest.TestCase):
         for y in range(10, 40):
             for x in range(8, 24):
                 self.sample_image.putpixel((x, y), (255, 100, 50, 255))
+        # Giả lập phiên CSDL để tránh kết nối socket MySQL chậm trong môi trường cô lập
+        self.mock_db = MagicMock()
+        self.mock_db.mappings.return_value.first.return_value = None
+        self.mock_session = MagicMock()
+        self.mock_session.__enter__.return_value = self.mock_db
+        self.session_patcher = patch("backend.api.v1.character_analysis.SessionLocal", return_value=self.mock_session)
+        self.session_patcher.start()
 
     def tearDown(self):
-        """Khôi phục biến môi trường sau khi chạy kiểm thử."""
+        """Khôi phục biến môi trường và dừng giả lập CSDL sau khi chạy kiểm thử."""
+        self.session_patcher.stop()
         if self.old_gemini_key is not None:
             os.environ["GEMINI_API_KEY"] = self.old_gemini_key
         if self.old_openai_key is not None:
@@ -294,7 +307,7 @@ class TestCharacterProfileService(unittest.TestCase):
         self.assertTrue(len(result["negative_constraints"]["forbidden_design_changes"]) > 0)
 
     def test_generate_character_prompt_from_profile(self):
-        """Kiểm tra bộ máy sinh Prompt AI từ hồ sơ hoàn chỉnh."""
+        """Kiểm tra bộ máy sinh Prompt AI từ hồ sơ hoàn chỉnh thông qua PromptBuilderService."""
         global_res = CharacterAnalysisService.analyze_tab_global(self.sample_image)
         profile_data = {
             "global_analysis": global_res,
@@ -304,15 +317,14 @@ class TestCharacterProfileService(unittest.TestCase):
             "negative_constraints": {}
         }
 
-        prompt_res = CharacterAnalysisService.generate_character_prompt_from_profile(
-            profile_data=profile_data,
-            new_character_concept="Nữ hiệp sĩ tóc bạc áo giáp bạc",
-            target_direction="Front / Down view"
+        prompt_res = PromptBuilderService.compile_sprite_sheet_prompt(
+            character_concept="Nữ hiệp sĩ tóc bạc áo giáp bạc",
+            profile_data=profile_data
         )
 
         self.assertIn("positive_prompt", prompt_res)
         self.assertIn("negative_prompt", prompt_res)
-        self.assertIn("technical_notes", prompt_res)
+        self.assertIn("frame_actions_data", prompt_res)
         self.assertIn("Nữ hiệp sĩ tóc bạc áo giáp bạc", prompt_res["positive_prompt"])
         self.assertIn("pixel art", prompt_res["positive_prompt"].lower())
 
@@ -331,13 +343,11 @@ class TestCharacterProfileService(unittest.TestCase):
             "negative_constraints": {}
         }
 
-        prompt_res = CharacterAnalysisService.generate_character_prompt_from_profile(
+        prompt_res = PromptBuilderService.compile_sprite_sheet_prompt(
+            character_concept="Nữ phù thủy bóng đêm bí ẩn",
             profile_data=profile_data,
-            new_character_concept="Nữ phù thủy bóng đêm bí ẩn",
-            target_direction="Side Profile view",
             outfit_and_colors="Áo choàng nhung tím đen viền vàng",
             weapons_and_props="Trượng phép đính ngọc xanh",
-            stature_rule="Nhỏ hơn nhân vật gốc (Dáng cao hơn)",
             inherit_scale=True,
             inherit_style=True
         )

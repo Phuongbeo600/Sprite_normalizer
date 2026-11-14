@@ -45,11 +45,13 @@ class TestProjectPresetsAndApiConfig(unittest.TestCase):
         self.Session = sessionmaker(bind=self.engine)
         self.db = self.Session()
 
-        # Tạo bảng projects giả lập
+        # Tạo bảng projects giả lập (Đầy đủ các cột user_id và ai_enabled đồng bộ với CSDL)
         self.db.execute(text("""
             CREATE TABLE projects (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name VARCHAR(255) NOT NULL,
+                user_id INTEGER NULL,
+                ai_enabled BOOLEAN DEFAULT 1,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 api_provider VARCHAR(50) DEFAULT 'gemini',
                 gemini_api_key TEXT NULL,

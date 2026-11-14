@@ -19,7 +19,7 @@ Khi tạo sprite hoạt họa hoặc biến thể nhân vật bằng AI (như Mi
 ### Giải pháp của hệ thống
 Hệ thống kết hợp **2 tầng xử lý**:
 1. **Tầng Thuật Toán Toán Học & Hình Học (Offline Heuristics Engine - NumPy & Pillow):**
-   - Tự động cắt hộp bao (Bounding Box), loại bỏ viền trong suốt.(phế)
+   - Tự động cắt hộp bao (Bounding Box), loại bỏ viền trong suốt và chuẩn hóa kích thước.
    - Căn lề điểm neo chân (Anchor Alignment: Bottom-Center).
    - Đo đạc chính xác 100% không dùng AI: Tổng số màu thực tế, Kỷ nguyên bảng màu (8-bit, 16-bit, 32-bit), Dải màu chủ đạo, Bậc đổ bóng Cel-shading, Kỹ thuật dịch sắc độ bóng (Hue-Shifting), Kiểu viền (Black outline / Selout), Độ bão hòa & Độ tương phản.
    - Đo chiều cao pixel nhân vật và tỷ lệ đầu/thân.
@@ -34,31 +34,38 @@ Hệ thống kết hợp **2 tầng xử lý**:
 ```text
 Sprite_normalizer/
 ├── backend/                        # Mã nguồn máy chủ Backend (FastAPI, Python)
-│   ├── ai/                         # Tầng tích hợp AI Vision bên ngoài (Gemini, OpenAI)
-│   │   ├── base.py                 # Abstract Base Class BaseAIProvider (Hợp đồng giao tiếp AI)
+│   ├── providers/                  # Tầng tích hợp AI Vision bên ngoài (Gemini, OpenAI qua Factory)
+│   │   ├── base.py                 # Abstract Base Class BaseAiProvider (Hợp đồng giao tiếp AI)
+│   │   ├── factory.py              # AiProviderFactory khởi tạo nhà cung cấp AI theo tên gọi
 │   │   ├── gemini_provider.py      # Triển khai Gemini Vision API (Google Generative AI)
 │   │   └── openai_provider.py      # Triển khai OpenAI Vision API (GPT-4o, Custom Proxy)
 │   ├── api/                        # Tầng điều khiển HTTP Router (FastAPI Controllers)
-│   │   ├── api.py                  # Gom các sub-router v1 vào api_router
+│   │   ├── router.py               # Gom các sub-router v1 vào api_router
 │   │   └── v1/                     # Các endpoint phiên bản 1
+│   │       ├── auth.py             # API xác thực người dùng và đăng nhập/đăng ký
 │   │       ├── character_analysis.py # API phân tích hồ sơ nhân vật & sinh prompt
 │   │       ├── projects.py         # API quản lý dự án, cấu hình API Key & Presets
-│   │       └── sprites.py          # API chuẩn hóa ảnh sprite (trim, bbox, anchor)
+│   │       ├── settings.py         # API kiểm tra khóa kết nối AI và cài đặt
+│   │       ├── sprites.py          # API chuẩn hóa ảnh sprite, đo màu và cắt lưới
+│   │       └── users.py            # API quản lý thông tin người dùng
 │   ├── core/                       # Tầng thuật toán lõi độc lập framework (Pure Logic)
-│   │   ├── heuristic_analyzer.py   # Thuật toán đo chiều cao và tỷ lệ đầu/thân (NumPy)
+│   │   ├── character_metrics.py    # Thuật toán đo chiều cao và tỷ lệ đầu/thân (NumPy)
+│   │   ├── normalizer.py           # Thuật toán cắt viền trong suốt và căn neo đáy sprite
 │   │   ├── palette_analyzer.py     # Thuật toán phân tích 6 tiêu chí màu sắc Pixel Art (NumPy, HSV)
-│   │   └── sprite_normalizer.py    # Thuật toán cắt viền trong suốt và căn neo đáy sprite
-│   ├── db/                         # Tầng kết nối cơ sở dữ liệu MySQL
-│   │   ├── connection.py           # Quản lý Engine SQLAlchemy và SessionLocal
-│   │   ├── init_db.py              # Script tự động khởi tạo và cập nhật schema bảng MySQL
-│   │   └── models.py               # ORM Models (Project, ProjectCharacterPreset)
+│   │   ├── pixel_art_metrics.py    # Thuật toán tính toán chỉ số đồ họa điểm ảnh
+│   │   └── sprite_editing.py       # Thuật toán cắt lưới Sprite Sheet thích ứng căn giữa lề
+│   ├── db.py                       # Quản lý kết nối CSDL MySQL, SessionLocal và tự phục hồi schema
 │   ├── repositories/               # Tầng thao tác CSDL (Data Access Layer)
+│   │   ├── base.py                 # Abstract Base Class BaseRepository
 │   │   ├── character_preset_repository.py # CRUD bảng project_character_presets
-│   │   └── project_repository.py   # CRUD bảng projects & giải mã cấu hình API Key
+│   │   ├── project_repository.py   # CRUD bảng projects & giải mã cấu hình API Key
+│   │   ├── testbed_repository.py   # Quản lý dữ liệu nhân vật kiểm thử
+│   │   └── user_repository.py      # CRUD bảng users và tài khoản người dùng
 │   ├── schemas/                    # Tầng định nghĩa kiểu dữ liệu và Schemas Pydantic
 │   │   ├── character/              # Các schemas phân tích nhân vật chi tiết (7 Schemas)
-│   │   │   ├── animation.py        # Schema động học hoạt họa (Walk cycle, Bobbing)
+│   │   │   ├── ai_analysis.py      # Schema dữ liệu kết quả phân tích AI hoàn chỉnh
 │   │   │   ├── anatomy.py          # Schema cấu trúc giải phẫu học cơ thể
+│   │   │   ├── animation.py        # Schema động học hoạt họa (Walk cycle, Bobbing)
 │   │   │   ├── consistency.py      # Schema ràng buộc bất biến & phủ định
 │   │   │   ├── direction.py        # Schema 3 góc nhìn (Down, Side, Up)
 │   │   │   ├── enums.py            # Từ vựng kiểm soát phân loại (Controlled Vocabulary)
@@ -66,29 +73,38 @@ Sprite_normalizer/
 │   │   │   ├── palette.py          # Schema kết quả phân tích 6 tiêu chí màu sắc
 │   │   │   └── pixel_style.py      # Schema phong cách đồ họa pixel art
 │   │   ├── project.py              # Schema API cho Project & Cấu hình API Key
-│   │   └── prompt.py               # Schema yêu cầu sinh Prompt từ hồ sơ
+│   │   └── user.py                 # Schema người dùng và xác thực
 │   ├── services/                   # Tầng nghiệp vụ điều phối (Business Services)
-│   │   ├── character_analysis_service.py # Điều phối phân tích offline + online AI
+│   │   ├── auth_service.py         # Nghiệp vụ xác thực và mã hóa mật khẩu
+│   │   ├── character_analysis_service.py # Điều phối phân tích offline + online AI theo Tab
 │   │   ├── project_service.py      # Nghiệp vụ quản lý dự án & giải quyết API credentials
-│   │   └── prompt_builder_service.py # Xây dựng ma trận 15 frame và biên dịch prompt 3 tầng
+│   │   ├── prompt_builder_service.py # Xây dựng ma trận 15 frame và biên dịch prompt 3 tầng
+│   │   ├── reference_style_service.py # Tạo chỉ dẫn phong cách dựa trên ảnh và số đo Python
+│   │   ├── settings_service.py     # Kiểm tra kết nối API Key các nhà cung cấp AI
+│   │   ├── sprite_service.py       # Chuẩn hóa ảnh và đóng gói lưới Sprite Sheet
+│   │   └── translation_service.py  # Dịch thuật mô tả sang tiếng Anh bằng ArgosTranslate
 │   └── main.py                     # Entry point khởi chạy ứng dụng FastAPI (Uvicorn)
 │
 ├── frontend/                       # Giao diện người dùng Web (React + Vite)
 │   ├── src/
 │   │   ├── components/             # Các thành phần giao diện React
+│   │   │   ├── auth/               # Modal xác thực tài khoản đăng nhập/đăng ký
 │   │   │   ├── character-profile/  # Phân hệ Hồ sơ nhân vật AI & Ma trận Frame
-│   │   │   │   ├── FrameActionMatrixEditor.jsx # Bộ chỉnh sửa 15 frame hoạt họa
+│   │   │   │   ├── CharacterProfileTabs.jsx    # Thanh chuyển đổi 5 phân hệ Tab hồ sơ
+│   │   │   │   ├── FrameActionMatrixEditor.jsx # Bộ chỉnh sửa ma trận 15 frame hoạt họa
 │   │   │   │   ├── MasterColorSpecCard.jsx     # Khung quy định màu sắc & đồ họa cốt lõi
 │   │   │   │   ├── PaletteMetricsSection.jsx   # Khối hiển thị 6 chỉ số màu sắc NumPy
-│   │   │   │   ├── PromptOutputCard.jsx        # Thẻ hiển thị và sao chép Prompt
-│   │   │   │   ├── TabAnimationView.jsx        # Tab hiển thị động học chuyển động
-│   │   │   │   ├── TabConstraintsPromptView.jsx# Tab phòng tạo Prompt & Ràng buộc
-│   │   │   │   ├── TabDirectionView.jsx        # Tab hiển thị 3 hướng nhìn
-│   │   │   │   └── TabGlobalView.jsx           # Tab hiển thị phong cách & bảng màu
+│   │   │   │   ├── PromptOutputCard.jsx        # Thẻ hiển thị và sao chép Prompt 3 tầng
+│   │   │   │   ├── SpriteMeasurementEditor.jsx # Bộ công cụ đo đạc số đo thủ công
+│   │   │   │   ├── TabAnimationsView.jsx       # Tab 3: Hiển thị động học hoạt họa Idle/Walk
+│   │   │   │   ├── TabConstraintsPromptView.jsx# Tab 4 & 5: Phòng tạo Prompt & Ràng buộc
+│   │   │   │   ├── TabDirectionsView.jsx       # Tab 2: Hiển thị 3 hướng nhìn Down/Side/Up
+│   │   │   │   ├── TabGlobalView.jsx           # Tab 1: Hiển thị phong cách & bảng màu
+│   │   │   │   └── TabReferenceView.jsx        # Tab hiển thị ảnh tham chiếu gốc
 │   │   │   ├── projects/           # Thành phần quản lý danh sách & cấu hình dự án
 │   │   │   └── Header.jsx          # Thanh điều hướng trên cùng
 │   │   ├── constants/              # Dữ liệu hằng số tách biệt giao diện
-│   │   │   ├── initialProjects.js  # Danh sách dự án ban đầu mẫu
+│   │   │   ├── initialProjects.js  # Cấu hình hằng số ứng dụng APP_CONFIG
 │   │   │   └── promptDefaults.js   # Chuỗi Negative Prompt & Logic biên dịch 15 frames
 │   │   ├── services/               # Tầng giao tiếp API Backend (fetch/axios)
 │   │   │   ├── api.js              # Gọi API chuẩn hóa sprite
@@ -96,18 +112,21 @@ Sprite_normalizer/
 │   │   │   └── projectApi.js       # Gọi API quản lý dự án & cấu hình key
 │   │   ├── styles/                 # Định dạng màu sắc & giao diện
 │   │   │   ├── theme.css           # Bảng biến CSS toàn cục (Dark mode gaming)
+│   │   │   ├── workspace-atelier.css # Giao diện xưởng làm việc Atelier
+│   │   │   ├── auth-atelier.css    # Giao diện hộp thoại đăng nhập/đăng ký
 │   │   │   └── character-profile.css # Giao diện chuyên biệt cho hồ sơ nhân vật
 │   │   ├── App.jsx                 # Component trung tâm quản lý trạng thái điều hướng
 │   │   └── main.jsx                # Entry point gắn React vào DOM
 │   └── package.json                # Cấu hình gói và thư viện Frontend
 │
 ├── tests/                          # Tầng kiểm thử tự động (Unit Tests)
+│   ├── test_character_profile_service.py # Test phân tích hồ sơ nhân vật & sinh prompt
+│   ├── test_character_schemas.py   # Test tính hợp lệ của 7 Schemas Pydantic
 │   ├── test_core_characterization.py # Test khóa hành vi thuật toán cắt viền & giải phẫu
-│   ├── test_heuristic_analyzer.py  # Test đo chiều cao và tỷ lệ cơ thể
 │   ├── test_palette_analyzer.py    # Test đo 6 tiêu chuẩn màu sắc (NumPy)
-│   ├── test_project_service.py     # Test nghiệp vụ dự án & phân tầng dữ liệu
-│   ├── test_prompt_builder.py      # Test ma trận 15 frame & biên dịch prompt
-│   └── test_sprite_normalizer.py   # Test cắt hộp bao Bounding Box & neo đáy
+│   ├── test_project_presets_and_api_config.py # Test nghiệp vụ dự án & phân tầng dữ liệu
+│   ├── test_prompt_builder_service.py # Test ma trận 15 frame & biên dịch prompt 3 tầng
+│   └── test_sprite_workspace.py    # Test cắt lưới Sprite Sheet thích ứng & ZIP
 │
 └── docs/                           # Tài liệu kỹ thuật
     └── ARCHITECTURE.md             # Bản vẽ kiến trúc toàn diện (File này)
@@ -172,27 +191,29 @@ sequenceDiagram
 Hệ thống được thiết kế theo nguyên tắc **Mở rộng/Đóng kín (OCP)** và **Đảo ngược phụ thuộc (DIP)** tại các vị trí sau:
 
 ### 4.1. Thêm một nhà cung cấp AI mới (AI Provider)
-Tất cả các AI Vision Provider đều kế thừa lớp trừu tượng `BaseAIProvider` trong `backend/ai/base.py`.
+Tất cả các AI Vision Provider đều kế thừa lớp trừu tượng `BaseAiProvider` trong `backend/providers/base.py`.
 
 **Các bước thực hiện:**
-1. Tạo file mới `backend/ai/claude_provider.py` (ví dụ tích hợp Anthropic Claude 3.5 Sonnet):
+1. Tạo file mới `backend/providers/claude_provider.py` (ví dụ tích hợp Anthropic Claude 3.5 Sonnet):
    ```python
-   # Kế thừa BaseAIProvider
-   from backend.ai.base import BaseAIProvider
+   # Kế thừa BaseAiProvider
+   from backend.providers.base import BaseAiProvider
    
-   class ClaudeVisionProvider(BaseAIProvider):
-       def __init__(self, api_key: str, **kwargs):
-           self.api_key = api_key
+   class ClaudeProvider(BaseAiProvider):
+       DEFAULT_MODEL = "claude-3-5-sonnet-20241022"
 
-       def analyze_image(self, image_bytes: bytes, prompt: str, schema_class=None) -> dict:
-           # Gọi API Claude gửi ảnh kèm prompt và bóc tách JSON
+       def test_connection(self, api_key: str, base_url: Optional[str] = None) -> Tuple[bool, str]:
+           # Kiểm tra kết nối tới Claude API
+           ...
+
+       def analyze_vision(self, image: Image.Image, api_key: str, prompt: str, base_url: Optional[str] = None) -> Dict[str, Any]:
+           # Gửi ảnh kèm prompt và bóc tách kết quả JSON
            ...
            return parsed_json_dict
    ```
-2. Đăng ký vào Factory Method trong `backend/services/character_analysis_service.py` (`_resolve_ai_provider`):
+2. Đăng ký vào Factory Pattern trong `backend/providers/factory.py` (`AiProviderFactory`):
    ```python
-   if provider_name == "claude":
-       return ClaudeVisionProvider(api_key=api_key)
+   AiProviderFactory.register("claude", ClaudeProvider)
    ```
 3. Cập nhật giao diện chọn Provider trong `frontend/src/components/projects/ProjectConfigModal.jsx`.
 

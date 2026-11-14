@@ -70,7 +70,19 @@ class TestSpriteWorkspace(unittest.TestCase):
                     self.assertEqual(png.getpixel((0, 0)), expected)
 
     def test_rejects_grid_with_remainder(self):
-        """Báo lỗi nếu sheet không chia hết cho số cột."""
+        """
+        Kiểm tra thuật toán cắt Sprite Sheet với phần dư và từ chối kích thước không hợp lệ:
+        1. Lưới có phần dư pixel: Tự động căn giữa lề (Center Margin), cắt thành công các frame đều nhau.
+        2. Kích thước ảnh quá nhỏ so với số cột (kích thước ô < 1px): Quăng lỗi HTTPException 422.
+        """
+        # 1. Kiểm tra ảnh 10x8 cắt 2 hàng 3 cột (width = 10 // 3 = 3, height = 8 // 2 = 4, dư 1px được căn giữa lề)
+        result = sprites.slice_sprite_sheet(upload(Image.new("RGBA", (10, 8))), 2, 3, "json")
+        self.assertIn("frames", result)
+        self.assertEqual(len(result["frames"]), 6)
+        self.assertEqual(result["frames"][0]["width"], 3)
+        self.assertEqual(result["frames"][0]["height"], 4)
+
+        # 2. Kiểm tra trường hợp thực sự không hợp lệ: Chiều rộng ảnh (2px) nhỏ hơn số cột (5) -> Ô < 1px quăng lỗi 422
         with self.assertRaises(HTTPException) as raised:
-            sprites.slice_sprite_sheet(upload(Image.new("RGBA", (10, 4))), 2, 3, "json")
+            sprites.slice_sprite_sheet(upload(Image.new("RGBA", (2, 4))), 2, 5, "json")
         self.assertEqual(raised.exception.status_code, 422)
