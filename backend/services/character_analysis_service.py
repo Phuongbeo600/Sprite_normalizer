@@ -34,7 +34,6 @@ from backend.schemas.character import (
     AnimationAnalysis,
     ConsistencyAnalysis,
     NegativeConstraints,
-    AIAnalysis,
     PixelArtEra,
     OutlineStyle,
     ShadingStyle,

@@ -1,14 +1,14 @@
 # ========================================================
 # 1. THƯ VIỆN NỀN TẢNG PYTHON (Cấu trúc & Kiểu dữ liệu)
 # ========================================================
-# typing: Khai báo kiểu dữ liệu danh sách, từ điển, tùy chọn
-from typing import Dict, Any, List, Optional
+# typing: Khai báo kiểu dữ liệu từ điển, tùy chọn
+from typing import Dict, Any, Optional
 
 # ========================================================
 # 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
 # ========================================================
-# fastapi: Khởi tạo sub-router, xử lý Form, Body và Dependency Injection
-from fastapi import APIRouter, Depends, Form, HTTPException, Body
+# fastapi: Khởi tạo sub-router, xử lý Form và Dependency Injection
+from fastapi import APIRouter, Depends, Form, HTTPException
 # pydantic: Định nghĩa Schema kiểm tra tính hợp lệ dữ liệu yêu cầu
 from pydantic import BaseModel, Field
 # sqlalchemy: Phiên làm việc cơ sở dữ liệu

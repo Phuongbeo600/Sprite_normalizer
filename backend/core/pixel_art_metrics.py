@@ -492,13 +492,6 @@ def _contact_matrix(ctx: Ctx) -> np.ndarray:
     return M + M.T
 
 
-def _find(parent: List[int], i: int) -> int:
-    while parent[i] != i:
-        parent[i] = parent[parent[i]]
-        i = parent[i]
-    return i
-
-
 def analyze_ramps(ctx: Ctx, is_outline: np.ndarray, warm_axis_deg: float = 65.0,
                   max_step_dL: float = 0.25, max_step_hue: float = 45.0,
                   max_ramp_span: float = 85.0, max_steps: int = 10) -> Dict[str, Any]:

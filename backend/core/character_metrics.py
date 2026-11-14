@@ -1,8 +1,8 @@
 # ========================================================
 # 1. THƯ VIỆN NỀN TẢNG PYTHON (Cấu trúc dữ liệu & Kiểu)
 # ========================================================
-# dataclass, asdict: Định nghĩa cấu trúc dữ liệu lưu thông số giải phẫu nhân vật
-from dataclasses import dataclass, asdict
+# dataclass: Định nghĩa cấu trúc dữ liệu lưu thông số giải phẫu nhân vật
+from dataclasses import dataclass
 # typing: Khai báo kiểu dữ liệu
 from typing import Optional, Tuple
 

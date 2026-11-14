@@ -1,14 +1,14 @@
 # ========================================================
 # 1. THƯ VIỆN NỀN TẢNG PYTHON (Cấu trúc & Kiểu)
 # ========================================================
-# typing: Định nghĩa danh sách, từ điển và tùy chọn
-from typing import Dict, Any, List, Optional
+# typing: Định nghĩa kiểu tùy chọn
+from typing import Optional
 
 # ========================================================
 # 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
 # ========================================================
 # fastapi: Khởi tạo router, xử lý lỗi HTTP và tham số truy vấn
-from fastapi import APIRouter, Depends, HTTPException, Query, Header
+from fastapi import APIRouter, Depends, HTTPException, Query
 # sqlalchemy: Phiên làm việc cơ sở dữ liệu
 from sqlalchemy.orm import Session
 

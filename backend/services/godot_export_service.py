@@ -5,8 +5,6 @@
 import io
 # zipfile: Đóng gói toàn bộ tài nguyên Godot thành tệp ZIP
 from zipfile import ZipFile
-# typing: Định nghĩa các kiểu dữ liệu
-from typing import Tuple, List, Dict, Any, Optional
 
 # ========================================================
 # 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)

@@ -3,8 +3,6 @@
 # ========================================================
 # typing: Định nghĩa các kiểu danh sách, tùy chọn giá trị
 from typing import List, Optional, Any
-# datetime: Kiểu dữ liệu thời gian tạo dự án
-from datetime import datetime
 
 # ========================================================
 # 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)

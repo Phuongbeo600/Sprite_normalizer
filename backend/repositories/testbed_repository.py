@@ -162,18 +162,6 @@ class TestbedRepository(BaseRepository):
         rows = db.execute(sql, {"project_id": project_id}).mappings().all()
         return [dict(r) for r in rows]
 
-    def get_character_by_id(self, db: Session, char_id: int, project_id: int) -> Optional[Dict[str, Any]]:
-        """
-        Lấy thông tin một nhân vật cụ thể theo ID và project_id.
-        """
-        sql = text("""
-            SELECT id, project_id, name, cell_width, cell_height, fps, scale_ratio, pos_x, order_index
-            FROM testbed_characters
-            WHERE id = :id AND project_id = :project_id;
-        """)
-        row = db.execute(sql, {"id": char_id, "project_id": project_id}).mappings().first()
-        return dict(row) if row else None
-
     def create_character(
         self,
         db: Session,
