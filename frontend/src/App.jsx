@@ -35,6 +35,8 @@ import AdminUsers from './pages/AdminUsers';
 import AuthModal from './components/auth/AuthModal';
 // ProfileModal: Hộp thoại quản lý hồ sơ cá nhân, đổi avatar, đổi mật khẩu và gán dự án
 import ProfileModal from './components/auth/ProfileModal';
+// HelpCenter: Màn hình Trung tâm Hướng dẫn đa hình (Help Center)
+import HelpCenter from './pages/HelpCenter';
 
 // ========================================================
 // 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
@@ -237,9 +239,25 @@ export default function App() {
     setActiveTab('analysis');
   };
 
+  /**
+   * Quay lại màn hình làm việc từ Trung tâm Hướng dẫn (Help Center).
+   */
+  const handleReturnFromHelp = () => {
+    if (currentUser?.role === 'admin') {
+      setActiveTab('admin_users');
+    } else {
+      setActiveTab('projects');
+    }
+  };
+
   // NẾU CHƯA ĐĂNG NHẬP: Hiển thị Màn hình Đăng nhập / Đăng ký
   if (!currentUser) {
     return <AuthModal onLoginSuccess={handleLoginSuccess} />;
+  }
+
+  // NẾU ĐANG Ở MỤC HƯỚNG DẪN: Hiển thị toàn màn hình Trung tâm Hướng dẫn (như Ảnh số 2)
+  if (activeTab === 'help') {
+    return <HelpCenter onBack={handleReturnFromHelp} />;
   }
 
   return (

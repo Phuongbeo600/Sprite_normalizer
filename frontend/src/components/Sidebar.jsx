@@ -21,7 +21,8 @@ import {
   Lock,
   Users,
   LogOut,
-  ShieldCheck
+  ShieldCheck,
+  HelpCircle
 } from 'lucide-react';
 
 // ========================================================
@@ -183,7 +184,7 @@ export default function Sidebar({
               <span>Quản lý tài khoản</span>
             </button>
           ) : (
-            /* Khi là Người dùng thường: Hiển thị mục Dự án và Cài đặt */
+            /* Khi là Người dùng thường: Hiển thị mục Dự án, Cài đặt và Hướng dẫn (Ảnh số 1 & 3) */
             <>
               {/* Mục Danh sách Dự án */}
               <button
@@ -201,6 +202,15 @@ export default function Sidebar({
               >
                 <Settings size={18} />
                 <span>Cài đặt</span>
+              </button>
+
+              {/* Mục Hướng dẫn sử dụng (Help Center) */}
+              <button
+                className={`minimal-nav-item ${activeTab === 'help' ? 'active' : ''}`}
+                onClick={() => onSelectTab('help')}
+              >
+                <HelpCircle size={18} />
+                <span>Hướng dẫn</span>
               </button>
             </>
           )}
