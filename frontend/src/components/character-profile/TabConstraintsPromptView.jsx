@@ -7,7 +7,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 // 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
 // ========================================================
 // lucide-react: Bộ icon minh họa bảo vệ ràng buộc, sao chép prompt, bảng màu, lưu và cảnh báo lỗi
-import { ShieldCheck, ShieldAlert, Sparkles, Check, Wand2, Bookmark, Layers } from 'lucide-react';
+import { ShieldCheck, ShieldAlert, Sparkles, Check, Wand2, Bookmark, Layers, Languages, Loader2, Undo2 } from 'lucide-react';
 
 // ========================================================
 // 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Components & Dữ liệu)
@@ -18,6 +18,8 @@ import FrameActionMatrixEditor from './FrameActionMatrixEditor';
 import MasterColorSpecCard from './MasterColorSpecCard';
 // PromptOutputCard: Thẻ hiển thị câu prompt xuất bản kèm nút sao chép
 import PromptOutputCard from './PromptOutputCard';
+// translateBatch, translateText: Hàm gọi API dịch thuật offline không tốn API key
+import { translateBatch, translateText } from '../../utils/translationApi';
 // promptDefaults: Hằng số Negative Prompt và các hàm biên dịch prompt
 import {
   DEFAULT_NEGATIVE_PROMPT,
@@ -69,6 +71,11 @@ export default function TabConstraintsPromptView({
   const [weaponsAndProps, setWeaponsAndProps] = useState(initialConfig?.weapons_and_props || 'Tay phải cầm trượng phép đính ngọc xanh');
   const [statureRule, setStatureRule] = useState(initialConfig?.stature_rule || 'Bằng nhân vật gốc (Tỷ lệ chuẩn)');
   const [targetDir, setTargetDir] = useState(initialConfig?.target_direction || 'Sprite Sheet 3x5 (15 frames)');
+
+  // Lưu trữ bản tiếng Việt gốc để người dùng có thể hoàn tác lại
+  const [vietnameseBackup, setVietnameseBackup] = useState(null);
+  // Trạng thái đang dịch mô tả tiếng Việt sang tiếng Anh
+  const [translatingInputs, setTranslatingInputs] = useState(false);
 
   // Trạng thái Ma trận 15 Frame Hoạt Họa (3 Hướng × 5 Frames)
   const [frameActions, setFrameActions] = useState(() => {
@@ -188,6 +195,44 @@ export default function TabConstraintsPromptView({
   };
 
   /**
+   * Dịch đồng loạt 3 trường mô tả (concept, outfit, weapons) từ Tiếng Việt sang Tiếng Anh.
+   */
+  const handleTranslateInputsToEnglish = async () => {
+    const textsToTranslate = [concept, outfitAndColors, weaponsAndProps];
+    if (!textsToTranslate.some((t) => t && t.trim())) return;
+
+    // Lưu lại bản tiếng Việt hiện tại trước khi dịch để hỗ trợ hoàn tác
+    setVietnameseBackup({
+      concept,
+      outfitAndColors,
+      weaponsAndProps
+    });
+    setTranslatingInputs(true);
+
+    try {
+      const results = await translateBatch(textsToTranslate, 'vi', 'en');
+      if (results[0]) setConcept(results[0]);
+      if (results[1]) setOutfitAndColors(results[1]);
+      if (results[2]) setWeaponsAndProps(results[2]);
+    } catch (err) {
+      console.error('[TabConstraintsPromptView] Lỗi dịch mô tả sang tiếng Anh:', err);
+    } finally {
+      setTranslatingInputs(false);
+    }
+  };
+
+  /**
+   * Khôi phục lại bản Tiếng Việt đã nhập trước đó.
+   */
+  const handleRestoreVietnameseInputs = () => {
+    if (!vietnameseBackup) return;
+    setConcept(vietnameseBackup.concept);
+    setOutfitAndColors(vietnameseBackup.outfitAndColors);
+    setWeaponsAndProps(vietnameseBackup.weaponsAndProps);
+    setVietnameseBackup(null);
+  };
+
+  /**
    * Biên dịch câu Prompt thời gian thực (Live Preview) dựa trên các giá trị hiện tại.
    */
   const livePositivePrompt = useMemo(() => {
@@ -254,6 +299,57 @@ export default function TabConstraintsPromptView({
               <option value="Hẹp hơn nhân vật gốc (Thon gọn)">Hẹp hơn nhân vật mẫu (Thon gọn / Nhẹ nhàng)</option>
             </select>
           </label>
+
+          {/* Nút dịch đồng bộ các ô mô tả tiếng Việt sang tiếng Anh */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '4px 0',
+            flexWrap: 'wrap'
+          }}>
+            <button
+              type="button"
+              className="btn-ghost-studio"
+              onClick={handleTranslateInputsToEnglish}
+              disabled={translatingInputs}
+              title="Dịch 3 ô mô tả tiếng Việt sang tiếng Anh bằng AI offline để câu Prompt hoàn toàn đồng nhất tiếng Anh"
+              style={{
+                fontSize: '0.75rem',
+                padding: '6px 12px',
+                gap: '6px',
+                color: '#38bdf8',
+                background: 'rgba(56, 189, 248, 0.1)',
+                border: '1px solid rgba(56, 189, 248, 0.3)',
+                borderRadius: '6px',
+                cursor: 'pointer'
+              }}
+            >
+              {translatingInputs ? (
+                <Loader2 size={13} className="spin" />
+              ) : (
+                <Languages size={13} color="#38bdf8" />
+              )}
+              <span>{translatingInputs ? 'Đang dịch sang English…' : 'Dịch mô tả sang English (Đồng nhất Prompt)'}</span>
+            </button>
+
+            {vietnameseBackup && (
+              <button
+                type="button"
+                className="btn-ghost-studio"
+                onClick={handleRestoreVietnameseInputs}
+                title="Khôi phục lại nội dung tiếng Việt ban đầu"
+                style={{ fontSize: '0.75rem', padding: '6px 12px', gap: '5px', color: 'var(--text-muted)', cursor: 'pointer' }}
+              >
+                <Undo2 size={13} />
+                <span>Hoàn tác Tiếng Việt</span>
+              </button>
+            )}
+
+            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+              (Mô hình AI Offline cục bộ · 0 token · Không cần mạng/API key)
+            </span>
+          </div>
 
           {/* Các công tắc kế thừa kỹ thuật */}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '14px', padding: '6px 0', fontSize: '0.8rem' }}>
