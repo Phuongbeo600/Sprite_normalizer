@@ -18,10 +18,11 @@ import { translateText } from '../../utils/translationApi';
 // ========================================================
 // 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
 // ========================================================
-// Kế thừa các lớp CSS từ theme.css
+// Kế thừa phong cách Dark Fantasy Atelier từ analysis-atelier.css
+import '../../styles/analysis-atelier.css';
 
 /**
- * Thẻ hiển thị câu Prompt xuất bản (Positive Prompt hoặc Negative Prompt).
+ * Thẻ hiển thị câu Prompt xuất bản (Positive Prompt hoặc Negative Prompt) — Dark Fantasy Atelier Edition.
  * Tích hợp nút chuyển đổi xem bản dịch Tiếng Việt (mô hình AI Offline) bên cạnh nút Sao chép.
  * 
  * @param {Object} props Thuộc tính của component.
@@ -35,7 +36,7 @@ import { translateText } from '../../utils/translationApi';
 export default function PromptOutputCard({
   title,
   icon,
-  titleColor = 'var(--text-white)',
+  titleColor = '#ffffff',
   text = '',
   rows = 5
 }) {
@@ -89,46 +90,45 @@ export default function PromptOutputCard({
    */
   const handleCopy = () => {
     if (!text) return;
-    // Luôn ưu tiên sao chép phiên bản tiếng Anh chuẩn AI để giữ nguyên chất lượng tạo ảnh
     navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
   return (
-    <div className="studio-prompt-output-card">
-      <div className="studio-prompt-output-header">
+    <div className="atelier-prompt-out-card">
+      <div className="atelier-prompt-out-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-          <h4 style={{ color: titleColor, margin: 0 }}>
+          <h4 className="atelier-prompt-out-title" style={{ color: titleColor }}>
             {icon}
-            {title}
+            <span>{title}</span>
           </h4>
           {isViewingVietnamese && (
             <span style={{
-              fontSize: '0.65rem',
-              padding: '1px 6px',
-              borderRadius: '4px',
+              fontSize: '0.68rem',
+              padding: '2px 8px',
+              borderRadius: '6px',
               background: 'rgba(56, 189, 248, 0.15)',
+              border: '1px solid rgba(56, 189, 248, 0.35)',
               color: '#38bdf8',
-              fontWeight: 500
+              fontWeight: 600
             }}>
               Bản dịch Tiếng Việt (Offline)
             </span>
           )}
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           {/* Nút Dịch / Xem Tiếng Việt đặt ngay cạnh nút Sao chép */}
           <button
             type="button"
-            className="btn-ghost-studio"
+            className="atelier-prompt-btn-translate"
             onClick={handleToggleLanguage}
             disabled={isTranslating}
             title={isViewingVietnamese ? 'Xem lại câu prompt tiếng Anh chuẩn' : 'Dịch sang tiếng Việt (mô hình AI offline không cần mạng/API key)'}
             style={{
-              color: isViewingVietnamese ? '#38bdf8' : 'var(--text-muted)',
-              background: isViewingVietnamese ? 'rgba(56, 189, 248, 0.1)' : 'transparent',
-              borderColor: isViewingVietnamese ? 'rgba(56, 189, 248, 0.3)' : 'transparent'
+              padding: '4px 10px',
+              fontSize: '0.74rem'
             }}
           >
             {isTranslating ? (
@@ -144,10 +144,10 @@ export default function PromptOutputCard({
           {/* Nút Sao chép */}
           <button
             type="button"
-            className="btn-ghost-studio"
+            className="atelier-assets-btn-sub"
             onClick={handleCopy}
             title="Sao chép prompt tiếng Anh chuẩn để sử dụng"
-            style={{ color: copied ? '#10b981' : 'var(--text-muted)' }}
+            style={{ padding: '4px 10px', fontSize: '0.74rem', color: copied ? '#10b981' : undefined }}
           >
             {copied ? <Check size={13} color="#10b981" /> : <Copy size={13} />}
             <span>{copied ? 'Đã chép English!' : 'Sao chép'}</span>
@@ -156,7 +156,7 @@ export default function PromptOutputCard({
       </div>
 
       <textarea
-        className="studio-prompt-textarea"
+        className="atelier-prompt-out-textarea"
         rows={rows}
         readOnly
         value={isViewingVietnamese && vietnameseText ? vietnameseText : text}

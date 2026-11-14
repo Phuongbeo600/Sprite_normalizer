@@ -6,7 +6,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 // ========================================================
 // 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
 // ========================================================
-// lucide-react: Bộ icon minh họa kho tài nguyên, chế độ xem lưới/danh sách, tải về, xem chi tiết và xóa
+// lucide-react: Bộ biểu tượng kho tài nguyên, chế độ xem lưới/danh sách, tải về, xem chi tiết và xóa
 import {
   FolderOpen,
   Bookmark,
@@ -39,8 +39,8 @@ import {
 // ========================================================
 // 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
 // ========================================================
-// Kế thừa các biến màu sắc và phong cách Dark Gaming từ theme.css
-
+// Kế thừa phong cách Dark Fantasy Atelier từ presets-atelier.css
+import '../styles/presets-atelier.css';
 
 /**
  * Định dạng dung lượng byte thành chuỗi KB hoặc MB dễ đọc.
@@ -54,7 +54,6 @@ function formatBytes(bytes) {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
 }
-
 
 /**
  * Định dạng ngày giờ chuẩn hiển thị tiếng Việt.
@@ -74,9 +73,8 @@ function formatDate(dateStr) {
   });
 }
 
-
 /**
- * Màn hình Kho Tài Nguyên Dự Án (Project Asset Hub).
+ * Màn hình Kho Tài Nguyên Dự Án (Project Asset Hub) — Dark Fantasy Atelier Edition.
  * Quản lý toàn bộ 4 danh mục dữ liệu được lưu trữ trong MySQL:
  * 1. Hồ Sơ & Prompt AI (project_character_presets)
  * 2. Ảnh Sprite & Sheet (project_sprites, sprite_frames) - Kèm chuyển đổi Lưới 🔲 / Danh sách ☰
@@ -87,6 +85,7 @@ function formatDate(dateStr) {
  * @param {Object} props.currentProject Dự án hiện tại đang mở (chứa id, name).
  * @param {Function} [props.onLoadPresetToStudio] Nạp ngược preset vào Studio để làm việc tiếp.
  * @param {Function} [props.onLoadSpriteToWorkspace] Nạp ảnh sprite vào Workspace để tiếp tục xử lý.
+ * @param {Function} [props.onDeployCharactersToGodot] Nạp danh sách nhân vật vào Godot Testbed.
  * @param {Function} [props.onSelectTab] Chuyển tab điều hướng chính của ứng dụng.
  * @returns {React.ReactElement} Giao diện Kho Tài Nguyên Dự Án.
  */
@@ -209,6 +208,7 @@ export default function ProjectSavedPresets({
 
   /**
    * Tải ảnh sprite từ backend và chuyển vào Workspace để tiếp tục xử lý.
+   * @param {Object} sprite Bản ghi sprite
    */
   const handleOpenInWorkspace = async (sprite) => {
     if (!onLoadSpriteToWorkspace) return;
@@ -228,6 +228,8 @@ export default function ProjectSavedPresets({
 
   /**
    * Tải tệp ảnh PNG về máy tính người dùng.
+   * @param {Object} sprite Bản ghi sprite
+   * @param {boolean} isProcessed Cờ tải ảnh đã qua xử lý
    */
   const handleDownloadSprite = (sprite, isProcessed = false) => {
     const url = isProcessed && sprite.has_processed
@@ -243,6 +245,8 @@ export default function ProjectSavedPresets({
 
   /**
    * Xóa một bức ảnh sprite khỏi MySQL.
+   * @param {number} spriteId Mã ảnh
+   * @param {string} spriteName Tên ảnh
    */
   const handleDeleteSprite = async (spriteId, spriteName) => {
     if (!window.confirm(`Bạn có chắc chắn muốn xóa ảnh "${spriteName}" khỏi cơ sở dữ liệu không?`)) {
@@ -260,6 +264,8 @@ export default function ProjectSavedPresets({
 
   /**
    * Xóa một bản ghi preset khỏi MySQL.
+   * @param {number} presetId Mã preset
+   * @param {string} presetName Tên preset
    */
   const handleDeletePreset = async (presetId, presetName) => {
     if (!window.confirm(`Bạn có chắc chắn muốn xóa bản ghi "${presetName}" không?`)) {
@@ -279,6 +285,8 @@ export default function ProjectSavedPresets({
 
   /**
    * Xóa nhân vật Godot khỏi MySQL.
+   * @param {number} charId Mã nhân vật
+   * @param {string} charName Tên nhân vật
    */
   const handleDeleteCharacter = async (charId, charName) => {
     if (!window.confirm(`Bạn có chắc muốn xóa nhân vật "${charName}" khỏi phòng thử nghiệm không?`)) {
@@ -315,6 +323,7 @@ export default function ProjectSavedPresets({
 
   /**
    * Mở xem chi tiết preset đầy đủ.
+   * @param {number} presetId Mã preset
    */
   const handleOpenPresetDetail = async (presetId) => {
     try {
@@ -329,6 +338,8 @@ export default function ProjectSavedPresets({
 
   /**
    * Sao chép văn bản vào bộ nhớ tạm.
+   * @param {string} text Nội dung cần copy
+   * @param {'positive' | 'negative'} type Loại prompt
    */
   const handleCopyText = (text, type) => {
     if (!text) return;
@@ -343,37 +354,43 @@ export default function ProjectSavedPresets({
   };
 
   return (
-    <div className="studio-workspace-container" style={{ padding: '0 4px' }}>
+    <div className="atelier-assets-root">
       {/* ========================================================
           1. THANH TIÊU ĐỀ KHO TÀI NGUYÊN DỰ ÁN
           ======================================================== */}
-      <header className="studio-header-card">
-        <div className="studio-title-group">
-          <h1>
-            <FolderOpen size={22} color="var(--accent-purple)" />
-            Kho Tài Nguyên Dự Án
-          </h1>
-          <p>
-            Quản lý, xem lại chi tiết và dọn dẹp các tài nguyên đã lưu trong cơ sở dữ liệu: <strong>{currentProject?.name}</strong>.
+      <div className="atelier-assets-header">
+        <div className="atelier-assets-header-title">
+          <h2 className="atelier-assets-title-heading">
+            <FolderOpen size={22} color="#c084fc" />
+            <span>Kho Tài Nguyên Dự Án (Project Asset Vault)</span>
+          </h2>
+          <p className="atelier-assets-title-subtext">
+            Quản lý, phân loại và tái sử dụng các dữ liệu đã rèn trong dự án <strong>{currentProject?.name}</strong>.
           </p>
         </div>
 
         <button
           type="button"
-          className="btn-secondary-studio"
+          className="atelier-assets-btn-refresh"
           onClick={fetchAllAssets}
           disabled={loading}
-          style={{ minHeight: '34px', fontSize: '0.8rem', gap: '6px' }}
           title="Tải lại toàn bộ dữ liệu từ MySQL"
         >
           <RefreshCw size={14} className={loading ? 'spin' : ''} />
-          Làm mới
+          <span>Làm mới Vault</span>
         </button>
-      </header>
+      </div>
 
       {/* Thông báo lỗi nếu có */}
       {error && (
-        <div className="analysis-result" style={{ color: '#ef4444', marginBottom: '12px' }}>
+        <div style={{
+          padding: '12px 16px',
+          background: 'rgba(239, 68, 68, 0.12)',
+          border: '1px solid rgba(239, 68, 68, 0.35)',
+          borderRadius: '10px',
+          color: '#fca5a5',
+          fontSize: '0.825rem'
+        }}>
           ⚠️ {error}
         </div>
       )}
@@ -381,142 +398,49 @@ export default function ProjectSavedPresets({
       {/* ========================================================
           2. THANH CHUYỂN ĐỔI 4 TAB CON (SEGMENTED TABS)
           ======================================================== */}
-      <div style={{
-        display: 'flex',
-        flexWrap: 'wrap',
-        gap: '8px',
-        margin: '14px 0 16px',
-        padding: '6px',
-        background: 'rgba(15, 23, 42, 0.65)',
-        borderRadius: '10px',
-        border: '1px solid var(--border-panel)'
-      }}>
+      <div className="atelier-assets-tabs">
         {/* Tab 1: Hồ sơ & Prompt */}
         <button
           type="button"
+          className={`atelier-assets-tab-btn ${activeAssetTab === 'presets' ? 'active' : ''}`}
           onClick={() => setActiveAssetTab('presets')}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            padding: '8px 14px',
-            borderRadius: '7px',
-            fontSize: '0.825rem',
-            fontWeight: activeAssetTab === 'presets' ? 600 : 400,
-            cursor: 'pointer',
-            transition: 'all 0.2s ease',
-            border: activeAssetTab === 'presets' ? '1px solid var(--accent-purple)' : '1px solid transparent',
-            background: activeAssetTab === 'presets' ? 'rgba(168, 85, 247, 0.16)' : 'transparent',
-            color: activeAssetTab === 'presets' ? '#fff' : 'var(--text-muted)'
-          }}
         >
-          <Bookmark size={15} color={activeAssetTab === 'presets' ? 'var(--accent-purple)' : 'currentColor'} />
-          <span>Hồ Sơ &amp; Prompt</span>
-          <span style={{
-            background: activeAssetTab === 'presets' ? 'var(--accent-purple)' : 'rgba(255,255,255,0.08)',
-            color: '#fff',
-            fontSize: '0.7rem',
-            padding: '1px 6px',
-            borderRadius: '10px'
-          }}>
-            {presets.length}
-          </span>
+          <Bookmark size={15} color={activeAssetTab === 'presets' ? '#c084fc' : 'currentColor'} />
+          <span>Hồ Sơ &amp; Prompt AI</span>
+          <span className="atelier-assets-tab-badge">{presets.length}</span>
         </button>
 
         {/* Tab 2: Ảnh Sprite */}
         <button
           type="button"
+          className={`atelier-assets-tab-btn ${activeAssetTab === 'sprites' ? 'active' : ''}`}
           onClick={() => setActiveAssetTab('sprites')}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            padding: '8px 14px',
-            borderRadius: '7px',
-            fontSize: '0.825rem',
-            fontWeight: activeAssetTab === 'sprites' ? 600 : 400,
-            cursor: 'pointer',
-            transition: 'all 0.2s ease',
-            border: activeAssetTab === 'sprites' ? '1px solid var(--accent-purple)' : '1px solid transparent',
-            background: activeAssetTab === 'sprites' ? 'rgba(168, 85, 247, 0.16)' : 'transparent',
-            color: activeAssetTab === 'sprites' ? '#fff' : 'var(--text-muted)'
-          }}
         >
           <ImageIcon size={15} color={activeAssetTab === 'sprites' ? '#38bdf8' : 'currentColor'} />
-          <span>Ảnh Sprite</span>
-          <span style={{
-            background: activeAssetTab === 'sprites' ? '#0284c7' : 'rgba(255,255,255,0.08)',
-            color: '#fff',
-            fontSize: '0.7rem',
-            padding: '1px 6px',
-            borderRadius: '10px'
-          }}>
-            {sprites.length}
-          </span>
+          <span>Kho Ảnh Sprite</span>
+          <span className="atelier-assets-tab-badge">{sprites.length}</span>
         </button>
 
         {/* Tab 3: Đội Hình Godot */}
         <button
           type="button"
+          className={`atelier-assets-tab-btn ${activeAssetTab === 'characters' ? 'active' : ''}`}
           onClick={() => setActiveAssetTab('characters')}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            padding: '8px 14px',
-            borderRadius: '7px',
-            fontSize: '0.825rem',
-            fontWeight: activeAssetTab === 'characters' ? 600 : 400,
-            cursor: 'pointer',
-            transition: 'all 0.2s ease',
-            border: activeAssetTab === 'characters' ? '1px solid var(--accent-purple)' : '1px solid transparent',
-            background: activeAssetTab === 'characters' ? 'rgba(168, 85, 247, 0.16)' : 'transparent',
-            color: activeAssetTab === 'characters' ? '#fff' : 'var(--text-muted)'
-          }}
         >
           <Gamepad2 size={15} color={activeAssetTab === 'characters' ? '#10b981' : 'currentColor'} />
           <span>Đội Hình Godot</span>
-          <span style={{
-            background: activeAssetTab === 'characters' ? '#059669' : 'rgba(255,255,255,0.08)',
-            color: '#fff',
-            fontSize: '0.7rem',
-            padding: '1px 6px',
-            borderRadius: '10px'
-          }}>
-            {characters.length}
-          </span>
+          <span className="atelier-assets-tab-badge">{characters.length}</span>
         </button>
 
         {/* Tab 4: Bản Đồ Nền */}
         <button
           type="button"
+          className={`atelier-assets-tab-btn ${activeAssetTab === 'maps' ? 'active' : ''}`}
           onClick={() => setActiveAssetTab('maps')}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            padding: '8px 14px',
-            borderRadius: '7px',
-            fontSize: '0.825rem',
-            fontWeight: activeAssetTab === 'maps' ? 600 : 400,
-            cursor: 'pointer',
-            transition: 'all 0.2s ease',
-            border: activeAssetTab === 'maps' ? '1px solid var(--accent-purple)' : '1px solid transparent',
-            background: activeAssetTab === 'maps' ? 'rgba(168, 85, 247, 0.16)' : 'transparent',
-            color: activeAssetTab === 'maps' ? '#fff' : 'var(--text-muted)'
-          }}
         >
           <MapIcon size={15} color={activeAssetTab === 'maps' ? '#f59e0b' : 'currentColor'} />
-          <span>Bản Đồ Nền</span>
-          <span style={{
-            background: activeAssetTab === 'maps' ? '#d97706' : 'rgba(255,255,255,0.08)',
-            color: '#fff',
-            fontSize: '0.7rem',
-            padding: '1px 6px',
-            borderRadius: '10px'
-          }}>
-            {mapData ? 1 : 0}
-          </span>
+          <span>Bản Đồ Nền Game</span>
+          <span className="atelier-assets-tab-badge">{mapData ? 1 : 0}</span>
         </button>
       </div>
 
@@ -530,124 +454,77 @@ export default function ProjectSavedPresets({
       {activeAssetTab === 'presets' && (
         <div>
           {loading ? (
-            <div style={{ textAlign: 'center', padding: '48px 16px', color: 'var(--text-dim)' }}>
+            <div style={{ textAlign: 'center', padding: '48px 16px', color: '#a39bc2' }}>
               <RefreshCw size={24} className="spin" style={{ margin: '0 auto 8px', display: 'block' }} />
-              <span>Đang tải danh sách hồ sơ từ MySQL…</span>
+              <span>Đang đọc dữ liệu hồ sơ từ MySQL…</span>
             </div>
           ) : presets.length === 0 ? (
-            <div className="studio-viewport-card" style={{ textAlign: 'center', padding: '48px 24px' }}>
-              <Bookmark size={40} color="var(--accent-purple)" style={{ opacity: 0.6, margin: '0 auto 12px' }} />
-              <h3 style={{ color: 'var(--text-white)', margin: '0 0 6px' }}>Dự án này chưa có hồ sơ nào được lưu</h3>
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.825rem', maxWidth: '480px', margin: '0 auto 16px' }}>
-                Hãy sang mục <strong>"Phân tích &amp; Prompt"</strong>, nạp sprite mẫu, tạo ý tưởng nhân vật mới và bấm <strong>"Lưu vào Dự án"</strong> để quản lý thư viện tại đây.
+            <div className="atelier-assets-empty">
+              <Bookmark size={42} color="#6e658a" />
+              <h3>Dự án này chưa lưu hồ sơ nhân vật nào</h3>
+              <p>
+                Hãy sang mục <strong>"Phân tích &amp; Prompt"</strong>, nạp sprite mẫu, thiết kế ý tưởng nhân vật mới và bấm <strong>"Lưu vào Dự án"</strong> để quản lý thư viện tại đây.
               </p>
             </div>
           ) : (
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
-              gap: '14px'
-            }}>
+            <div className="atelier-assets-grid">
               {presets.map((preset) => {
                 const metrics = preset.metrics_data || {};
                 const height = metrics.anatomical_height || metrics.visible_height;
                 const heads = metrics.heads_tall;
 
                 return (
-                  <div
-                    key={preset.id}
-                    className="studio-metric-card"
-                    style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      justifyContent: 'space-between',
-                      padding: '16px',
-                      borderRadius: '10px',
-                      border: '1px solid var(--border-panel)',
-                      background: 'var(--bg-card)',
-                      transition: 'border-color 0.2s ease, transform 0.2s ease'
-                    }}
-                  >
+                  <div key={preset.id} className="atelier-assets-card">
                     <div>
                       {/* Tiêu đề & Ngày lưu */}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-                        <h3 style={{ fontSize: '0.95rem', color: 'var(--text-white)', margin: 0, fontWeight: 600 }}>
-                          {preset.name}
-                        </h3>
-                        <span style={{ fontSize: '0.7rem', color: 'var(--text-dim)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                      <div className="atelier-assets-card-header">
+                        <h3 className="atelier-assets-card-title">{preset.name}</h3>
+                        <span className="atelier-assets-card-time">
                           <Clock size={11} />
                           {formatDate(preset.created_at)}
                         </span>
                       </div>
 
                       {/* Ý tưởng nhân vật mới */}
-                      <div style={{ fontSize: '0.8rem', color: 'var(--accent-purple)', fontWeight: 500, marginBottom: '10px' }}>
+                      <div className="atelier-assets-card-concept">
                         🪄 Concept: {preset.new_character_concept}
                       </div>
 
                       {/* Các thẻ Tag chỉ số đo lường */}
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '12px' }}>
+                      <div className="atelier-assets-metrics-row">
                         {height && (
-                          <span style={{
-                            fontSize: '0.7rem',
-                            padding: '3px 8px',
-                            borderRadius: '4px',
-                            background: 'rgba(16, 185, 129, 0.12)',
-                            color: '#34d399',
-                            border: '1px solid rgba(16, 185, 129, 0.25)'
-                          }}>
+                          <span className="atelier-assets-metric-pill emerald">
                             📏 {height}px
                           </span>
                         )}
                         {heads && (
-                          <span style={{
-                            fontSize: '0.7rem',
-                            padding: '3px 8px',
-                            borderRadius: '4px',
-                            background: 'rgba(99, 102, 241, 0.12)',
-                            color: '#a5b4fc',
-                            border: '1px solid rgba(99, 102, 241, 0.25)'
-                          }}>
+                          <span className="atelier-assets-metric-pill indigo">
                             👤 {typeof heads === 'number' ? heads.toFixed(1) : heads} đầu
                           </span>
                         )}
-                        <span style={{
-                          fontSize: '0.7rem',
-                          padding: '3px 8px',
-                          borderRadius: '4px',
-                          background: 'rgba(236, 72, 153, 0.12)',
-                          color: '#f472b6',
-                          border: '1px solid rgba(236, 72, 153, 0.25)'
-                        }}>
+                        <span className="atelier-assets-metric-pill rose">
                           🧭 {preset.target_direction || 'Front View'}
                         </span>
                       </div>
                     </div>
 
                     {/* Các nút tác vụ */}
-                    <div style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      paddingTop: '12px',
-                      borderTop: '1px solid rgba(255, 255, 255, 0.06)'
-                    }}>
+                    <div className="atelier-assets-card-actions">
                       <div style={{ display: 'flex', gap: '6px' }}>
                         <button
                           type="button"
-                          className="btn-secondary-studio"
+                          className="atelier-assets-btn-sub"
                           onClick={() => handleOpenPresetDetail(preset.id)}
-                          style={{ fontSize: '0.75rem', padding: '5px 9px', minHeight: '28px' }}
                           title="Xem toàn bộ chỉ số và prompt"
                         >
                           <Eye size={13} />
-                          Chi tiết
+                          <span>Chi tiết</span>
                         </button>
 
                         {onLoadPresetToStudio && (
                           <button
                             type="button"
-                            className="btn-secondary-studio"
+                            className="atelier-assets-btn-sub primary-link"
                             onClick={async () => {
                               const res = await fetch(`/api/projects/${currentProject.id}/character-presets/${preset.id}`);
                               if (res.ok) {
@@ -655,35 +532,18 @@ export default function ProjectSavedPresets({
                                 onLoadPresetToStudio(json.data);
                               }
                             }}
-                            style={{
-                              fontSize: '0.75rem',
-                              padding: '5px 9px',
-                              minHeight: '28px',
-                              color: 'var(--accent-purple)',
-                              borderColor: 'var(--accent-purple-glow)'
-                            }}
                             title="Nạp toàn bộ số đo và prompt này vào màn hình Studio"
                           >
                             <ArrowRight size={13} />
-                            Mở Studio
+                            <span>Mở Studio</span>
                           </button>
                         )}
                       </div>
 
                       <button
                         type="button"
+                        className="atelier-assets-btn-delete"
                         onClick={() => handleDeletePreset(preset.id, preset.name)}
-                        style={{
-                          background: 'transparent',
-                          border: 'none',
-                          color: 'var(--text-dim)',
-                          cursor: 'pointer',
-                          padding: '6px',
-                          borderRadius: '4px',
-                          transition: 'color 0.2s'
-                        }}
-                        onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444'; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-dim)'; }}
                         title="Xóa bản ghi này khỏi MySQL"
                       >
                         <Trash2 size={15} />
@@ -698,53 +558,27 @@ export default function ProjectSavedPresets({
       )}
 
       {/* --------------------------------------------------------
-          TAB 2: ẢNH SPRITE & SHEET (LỊCH SỬ THÊM GẦN ĐÂY)
+          TAB 2: KHO ẢNH SPRITE & SHEET (LƯỚI / DANH SÁCH)
           -------------------------------------------------------- */}
       {activeAssetTab === 'sprites' && (
         <div>
-          {/* Thanh phụ: Tiêu đề danh mục & Nút chuyển Lưới (Grid) / Danh sách (List) */}
-          <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: '14px',
-            flexWrap: 'wrap',
-            gap: '8px'
-          }}>
+          {/* Thanh phụ: Tiêu đề danh mục & Nút chuyển Lưới / Danh sách */}
+          <div className="atelier-assets-toolbar-sub">
             <div>
               <span style={{ fontSize: '0.9rem', color: '#fff', fontWeight: 600 }}>
-                Lịch sử ảnh đã thêm &amp; chỉnh sửa gần đây
+                Lịch sử ảnh đã thêm &amp; chuẩn hóa gần đây
               </span>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginLeft: '8px' }}>
+              <span style={{ fontSize: '0.75rem', color: '#6e658a', marginLeft: '8px' }}>
                 (Tự động sắp xếp mới nhất lên đầu)
               </span>
             </div>
 
-            {/* Nút bấm chuyển đổi Chế độ xem: Grid ↔ List */}
-            <div style={{
-              display: 'inline-flex',
-              background: '#0f172a',
-              border: '1px solid var(--border-panel)',
-              borderRadius: '6px',
-              padding: '2px'
-            }}>
+            {/* Nút chuyển đổi View Mode */}
+            <div className="atelier-assets-viewmode-toggle">
               <button
                 type="button"
+                className={`atelier-assets-viewmode-btn ${viewMode === 'grid' ? 'active' : ''}`}
                 onClick={() => setViewMode('grid')}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '5px',
-                  background: viewMode === 'grid' ? 'var(--accent-purple)' : 'transparent',
-                  color: viewMode === 'grid' ? '#fff' : 'var(--text-muted)',
-                  border: 'none',
-                  borderRadius: '4px',
-                  padding: '4px 10px',
-                  fontSize: '0.75rem',
-                  cursor: 'pointer',
-                  fontWeight: viewMode === 'grid' ? 600 : 400
-                }}
-                title="Chế độ xem dạng lưới (Xem thumbnail ảnh to)"
               >
                 <LayoutGrid size={13} />
                 <span>Dạng Lưới</span>
@@ -752,61 +586,42 @@ export default function ProjectSavedPresets({
 
               <button
                 type="button"
+                className={`atelier-assets-viewmode-btn ${viewMode === 'list' ? 'active' : ''}`}
                 onClick={() => setViewMode('list')}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '5px',
-                  background: viewMode === 'list' ? 'var(--accent-purple)' : 'transparent',
-                  color: viewMode === 'list' ? '#fff' : 'var(--text-muted)',
-                  border: 'none',
-                  borderRadius: '4px',
-                  padding: '4px 10px',
-                  fontSize: '0.75rem',
-                  cursor: 'pointer',
-                  fontWeight: viewMode === 'list' ? 600 : 400
-                }}
-                title="Chế độ xem dạng danh sách (Đọc tên file đầy đủ)"
               >
                 <List size={13} />
-                <span>Dạng Danh Sách</span>
+                <span>Dạng Bảng</span>
               </button>
             </div>
           </div>
 
           {loading ? (
-            <div style={{ textAlign: 'center', padding: '48px 16px', color: 'var(--text-dim)' }}>
+            <div style={{ textAlign: 'center', padding: '48px 16px', color: '#a39bc2' }}>
               <RefreshCw size={24} className="spin" style={{ margin: '0 auto 8px', display: 'block' }} />
               <span>Đang tải danh sách ảnh sprite từ MySQL…</span>
             </div>
           ) : sprites.length === 0 ? (
-            <div className="studio-viewport-card" style={{ textAlign: 'center', padding: '48px 24px' }}>
-              <ImageIcon size={40} color="#38bdf8" style={{ opacity: 0.6, margin: '0 auto 12px' }} />
-              <h3 style={{ color: 'var(--text-white)', margin: '0 0 6px' }}>Chưa có ảnh Sprite nào được lưu trong dự án</h3>
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.825rem', maxWidth: '480px', margin: '0 auto 16px' }}>
-                Khi bạn nạp ảnh vào bàn làm việc <strong>"Xử lý ảnh"</strong> hoặc chuyển tiếp từ <strong>"Tạo ảnh AI"</strong>, ảnh gốc và ảnh đã chuẩn hóa sẽ được tự động lưu vĩnh viễn vào đây.
+            <div className="atelier-assets-empty">
+              <ImageIcon size={42} color="#6e658a" />
+              <h3>Chưa có ảnh Sprite nào được lưu trong dự án</h3>
+              <p>
+                Khi bạn nạp ảnh vào bàn làm việc <strong>"Xử lý ảnh"</strong> hoặc chuyển tiếp từ <strong>"Tạo ảnh AI"</strong>, ảnh gốc và ảnh đã chuẩn hóa sẽ được tự động lưu trữ tại đây.
               </p>
               {onSelectTab && (
                 <button
                   type="button"
-                  className="btn-primary-studio"
+                  className="atelier-assets-btn-sub primary-link"
                   onClick={() => onSelectTab('workspace')}
-                  style={{ minHeight: '34px', fontSize: '0.8rem', margin: '0 auto' }}
+                  style={{ marginTop: '8px', padding: '8px 16px' }}
                 >
                   <Wrench size={14} />
-                  Đi đến Xử lý ảnh
+                  <span>Đi đến Xử lý ảnh</span>
                 </button>
               )}
             </div>
           ) : viewMode === 'grid' ? (
-            /* ========================================================
-               CHẾ ĐỘ XEM 1: DẠNG LƯỚI (GRID VIEW)
-               ======================================================== */
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
-              gap: '14px'
-            }}>
+            /* DẠNG LƯỚI (GRID VIEW) */
+            <div className="atelier-assets-grid">
               {sprites.map((s) => {
                 const thumbUrl = s.has_processed
                   ? `/api/sprites/${s.id}/processed?project_id=${currentProject.id}`
@@ -814,53 +629,23 @@ export default function ProjectSavedPresets({
                 const totalBytes = (s.raw_bytes || 0) + (s.processed_bytes || 0);
 
                 return (
-                  <div
-                    key={s.id}
-                    className="studio-metric-card"
-                    style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      justifyContent: 'space-between',
-                      borderRadius: '10px',
-                      overflow: 'hidden',
-                      border: '1px solid var(--border-panel)',
-                      background: 'var(--bg-card)'
-                    }}
-                  >
+                  <div key={s.id} className="atelier-assets-card" style={{ padding: 0, overflow: 'hidden' }}>
                     {/* Khung xem trước ảnh Thumbnail */}
-                    <div
-                      style={{
-                        position: 'relative',
-                        width: '100%',
-                        height: '140px',
-                        background: 'repeating-conic-gradient(#1e293b 0% 25%, #0f172a 0% 50%) 50% / 16px 16px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        overflow: 'hidden',
-                        borderBottom: '1px solid var(--border-panel)'
-                      }}
-                    >
+                    <div className="atelier-assets-thumb-frame">
                       <img
                         src={thumbUrl}
                         alt={s.name}
-                        style={{
-                          maxWidth: '90%',
-                          maxHeight: '90%',
-                          objectFit: 'contain',
-                          imageRendering: 'pixelated'
-                        }}
                         onError={(e) => { e.currentTarget.style.display = 'none'; }}
                       />
 
                       {/* Tag trạng thái góc trên */}
                       <div style={{ position: 'absolute', top: '8px', left: '8px', display: 'flex', gap: '4px' }}>
                         {s.has_processed ? (
-                          <span style={{ fontSize: '0.65rem', background: 'rgba(16, 185, 129, 0.9)', color: '#fff', padding: '2px 6px', borderRadius: '4px', fontWeight: 600 }}>
+                          <span className="atelier-assets-metric-pill emerald" style={{ fontSize: '0.65rem' }}>
                             Đã xử lý
                           </span>
                         ) : (
-                          <span style={{ fontSize: '0.65rem', background: 'rgba(2, 132, 199, 0.9)', color: '#fff', padding: '2px 6px', borderRadius: '4px', fontWeight: 600 }}>
+                          <span className="atelier-assets-metric-pill indigo" style={{ fontSize: '0.65rem' }}>
                             Ảnh gốc (Raw)
                           </span>
                         )}
@@ -874,11 +659,11 @@ export default function ProjectSavedPresets({
                           position: 'absolute',
                           top: '8px',
                           right: '8px',
-                          background: 'rgba(0,0,0,0.6)',
-                          border: 'none',
+                          background: 'rgba(10, 7, 20, 0.75)',
+                          border: '1px solid rgba(255, 255, 255, 0.15)',
                           color: '#fff',
-                          padding: '4px',
-                          borderRadius: '4px',
+                          padding: '5px',
+                          borderRadius: '6px',
                           cursor: 'pointer'
                         }}
                         title="Phóng to ảnh"
@@ -888,49 +673,49 @@ export default function ProjectSavedPresets({
                     </div>
 
                     {/* Thông tin mô tả ảnh */}
-                    <div style={{ padding: '12px' }}>
-                      <div style={{ fontSize: '0.85rem', color: '#fff', fontWeight: 600, marginBottom: '6px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={s.name}>
+                    <div style={{ padding: '14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div
+                        style={{ fontSize: '0.88rem', color: '#fff', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                        title={s.name}
+                      >
                         {s.name}
                       </div>
 
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.725rem', color: 'var(--text-dim)', marginBottom: '10px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.725rem', color: 'var(--atl-text-secondary)' }}>
                         <span>{formatBytes(totalBytes)}</span>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#6e658a' }}>
                           <Clock size={11} />
                           {formatDate(s.created_at)}
                         </span>
                       </div>
 
                       {/* Cụm nút hành động */}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '8px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-                        <div style={{ display: 'flex', gap: '4px' }}>
+                      <div className="atelier-assets-card-actions">
+                        <div style={{ display: 'flex', gap: '6px' }}>
                           <button
                             type="button"
-                            className="btn-secondary-studio"
+                            className="atelier-assets-btn-sub"
                             onClick={() => setSelectedSprite(s)}
-                            style={{ fontSize: '0.725rem', padding: '4px 8px', minHeight: '26px' }}
                             title="Xem chi tiết ảnh"
                           >
                             <Eye size={12} />
-                            Chi tiết
+                            <span>Chi tiết</span>
                           </button>
 
                           <button
                             type="button"
-                            className="btn-secondary-studio"
+                            className="atelier-assets-btn-sub primary-link"
                             onClick={() => handleOpenInWorkspace(s)}
-                            style={{ fontSize: '0.725rem', padding: '4px 8px', minHeight: '26px', color: '#38bdf8' }}
                             title="Nạp vào Workspace để sửa lại"
                           >
                             <Wrench size={12} />
-                            Workspace
+                            <span>Workspace</span>
                           </button>
 
                           <button
                             type="button"
-                            className="btn-secondary-studio"
+                            className="atelier-assets-btn-sub"
                             onClick={() => handleDownloadSprite(s, s.has_processed)}
-                            style={{ fontSize: '0.725rem', padding: '4px 8px', minHeight: '26px' }}
                             title="Tải ảnh PNG về máy"
                           >
                             <Download size={12} />
@@ -939,10 +724,8 @@ export default function ProjectSavedPresets({
 
                         <button
                           type="button"
+                          className="atelier-assets-btn-delete"
                           onClick={() => handleDeleteSprite(s.id, s.name)}
-                          style={{ background: 'transparent', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', padding: '4px' }}
-                          onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444'; }}
-                          onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-dim)'; }}
                           title="Xóa ảnh khỏi MySQL"
                         >
                           <Trash2 size={14} />
@@ -954,27 +737,11 @@ export default function ProjectSavedPresets({
               })}
             </div>
           ) : (
-            /* ========================================================
-               CHẾ ĐỘ XEM 2: DẠNG DANH SÁCH (LIST VIEW)
-               ======================================================== */
-            <div style={{
-              background: 'var(--bg-card)',
-              borderRadius: '10px',
-              border: '1px solid var(--border-panel)',
-              overflow: 'hidden'
-            }}>
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: '60px 1fr 120px 90px 140px 130px',
-                padding: '10px 14px',
-                background: 'rgba(0,0,0,0.3)',
-                borderBottom: '1px solid var(--border-panel)',
-                fontSize: '0.75rem',
-                color: 'var(--text-dim)',
-                fontWeight: 600
-              }}>
+            /* DẠNG BẢNG DANH SÁCH (LIST VIEW) */
+            <div className="atelier-assets-table-box">
+              <div className="atelier-assets-table-header">
                 <span>Ảnh</span>
-                <span>Tên ảnh / File</span>
+                <span>Tên ảnh / Tệp tin</span>
                 <span>Trạng thái</span>
                 <span>Dung lượng</span>
                 <span>Ngày nạp</span>
@@ -982,37 +749,27 @@ export default function ProjectSavedPresets({
               </div>
 
               <div>
-                {sprites.map((s, idx) => {
+                {sprites.map((s) => {
                   const thumbUrl = s.has_processed
                     ? `/api/sprites/${s.id}/processed?project_id=${currentProject.id}`
                     : `/api/sprites/${s.id}/raw?project_id=${currentProject.id}`;
                   const totalBytes = (s.raw_bytes || 0) + (s.processed_bytes || 0);
 
                   return (
-                    <div
-                      key={s.id}
-                      style={{
-                        display: 'grid',
-                        gridTemplateColumns: '60px 1fr 120px 90px 140px 130px',
-                        padding: '8px 14px',
-                        alignItems: 'center',
-                        fontSize: '0.8rem',
-                        borderBottom: idx === sprites.length - 1 ? 'none' : '1px solid rgba(255,255,255,0.04)',
-                        background: idx % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.015)'
-                      }}
-                    >
+                    <div key={s.id} className="atelier-assets-table-row">
                       {/* Thumbnail nhỏ */}
                       <div
                         style={{
                           width: '42px',
                           height: '42px',
-                          background: 'repeating-conic-gradient(#1e293b 0% 25%, #0f172a 0% 50%) 50% / 8px 8px',
-                          borderRadius: '4px',
+                          background: '#07050e',
+                          borderRadius: '6px',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
                           overflow: 'hidden',
-                          cursor: 'pointer'
+                          cursor: 'pointer',
+                          border: '1px solid rgba(168, 85, 247, 0.2)'
                         }}
                         onClick={() => setSelectedSprite(s)}
                       >
@@ -1023,7 +780,7 @@ export default function ProjectSavedPresets({
                         />
                       </div>
 
-                      {/* Tên ảnh hiển thị rõ ràng */}
+                      {/* Tên ảnh */}
                       <div style={{ color: '#fff', fontWeight: 500, paddingRight: '12px', wordBreak: 'break-word' }}>
                         {s.name}
                       </div>
@@ -1031,23 +788,23 @@ export default function ProjectSavedPresets({
                       {/* Trạng thái */}
                       <div>
                         {s.has_processed ? (
-                          <span style={{ fontSize: '0.7rem', background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', border: '1px solid rgba(16, 185, 129, 0.3)', padding: '2px 8px', borderRadius: '4px' }}>
+                          <span className="atelier-assets-metric-pill emerald" style={{ fontSize: '0.68rem' }}>
                             Đã xử lý
                           </span>
                         ) : (
-                          <span style={{ fontSize: '0.7rem', background: 'rgba(2, 132, 199, 0.15)', color: '#38bdf8', border: '1px solid rgba(2, 132, 199, 0.3)', padding: '2px 8px', borderRadius: '4px' }}>
+                          <span className="atelier-assets-metric-pill indigo" style={{ fontSize: '0.68rem' }}>
                             Ảnh gốc (Raw)
                           </span>
                         )}
                       </div>
 
                       {/* Dung lượng */}
-                      <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
+                      <div style={{ color: 'var(--atl-text-secondary)', fontSize: '0.75rem' }}>
                         {formatBytes(totalBytes)}
                       </div>
 
                       {/* Ngày lưu */}
-                      <div style={{ color: 'var(--text-dim)', fontSize: '0.725rem' }}>
+                      <div style={{ color: '#6e658a', fontSize: '0.725rem' }}>
                         {formatDate(s.created_at)}
                       </div>
 
@@ -1055,37 +812,35 @@ export default function ProjectSavedPresets({
                       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '4px' }}>
                         <button
                           type="button"
-                          className="btn-secondary-studio"
+                          className="atelier-assets-btn-sub"
                           onClick={() => setSelectedSprite(s)}
-                          style={{ padding: '3px 6px', minHeight: '24px' }}
+                          style={{ padding: '4px 6px' }}
                           title="Xem chi tiết"
                         >
                           <Eye size={12} />
                         </button>
                         <button
                           type="button"
-                          className="btn-secondary-studio"
+                          className="atelier-assets-btn-sub primary-link"
                           onClick={() => handleOpenInWorkspace(s)}
-                          style={{ padding: '3px 6px', minHeight: '24px', color: '#38bdf8' }}
+                          style={{ padding: '4px 6px' }}
                           title="Mở vào Workspace"
                         >
                           <Wrench size={12} />
                         </button>
                         <button
                           type="button"
-                          className="btn-secondary-studio"
+                          className="atelier-assets-btn-sub"
                           onClick={() => handleDownloadSprite(s, s.has_processed)}
-                          style={{ padding: '3px 6px', minHeight: '24px' }}
+                          style={{ padding: '4px 6px' }}
                           title="Tải về"
                         >
                           <Download size={12} />
                         </button>
                         <button
                           type="button"
+                          className="atelier-assets-btn-delete"
                           onClick={() => handleDeleteSprite(s.id, s.name)}
-                          style={{ background: 'transparent', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', padding: '3px 6px' }}
-                          onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444'; }}
-                          onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-dim)'; }}
                           title="Xóa ảnh"
                         >
                           <Trash2 size={13} />
@@ -1106,46 +861,35 @@ export default function ProjectSavedPresets({
       {activeAssetTab === 'characters' && (
         <div>
           {loading ? (
-            <div style={{ textAlign: 'center', padding: '48px 16px', color: 'var(--text-dim)' }}>
+            <div style={{ textAlign: 'center', padding: '48px 16px', color: '#a39bc2' }}>
               <RefreshCw size={24} className="spin" style={{ margin: '0 auto 8px', display: 'block' }} />
               <span>Đang tải danh sách nhân vật Godot từ MySQL…</span>
             </div>
           ) : characters.length === 0 ? (
-            <div className="studio-viewport-card" style={{ textAlign: 'center', padding: '48px 24px' }}>
-              <Gamepad2 size={40} color="#10b981" style={{ opacity: 0.6, margin: '0 auto 12px' }} />
-              <h3 style={{ color: 'var(--text-white)', margin: '0 0 6px' }}>Chưa có nhân vật nào được lưu trong Godot Testbed</h3>
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.825rem', maxWidth: '480px', margin: '0 auto 16px' }}>
-                Hãy mở mục <strong>"Thử nghiệm Godot"</strong>, tạo nhân vật từ 15 ô frame hoặc nạp Sprite Sheet để kiểm thử và lưu vào đội hình.
+            <div className="atelier-assets-empty">
+              <Gamepad2 size={42} color="#6e658a" />
+              <h3>Chưa có nhân vật nào được lưu trong Godot Testbed</h3>
+              <p>
+                Hãy mở mục <strong>"Thử nghiệm Godot"</strong>, cấu hình nhân vật từ 15 ô frame hoạt họa hoặc Sprite Sheet để kiểm thử và lưu vào đội hình.
               </p>
               {onSelectTab && (
                 <button
                   type="button"
-                  className="btn-primary-studio"
+                  className="atelier-assets-btn-sub primary-link"
                   onClick={() => onSelectTab('godot_testbed')}
-                  style={{ minHeight: '34px', fontSize: '0.8rem', margin: '0 auto' }}
+                  style={{ marginTop: '8px', padding: '8px 16px' }}
                 >
                   <Gamepad2 size={14} />
-                  Mở Thử nghiệm Godot
+                  <span>Mở Thử nghiệm Godot</span>
                 </button>
               )}
             </div>
           ) : (
             <div>
-              {/* Thanh công cụ Đội hình: Checkbox chọn tất cả & Nút nạp đội hình đã chọn vào Godot Testbed */}
-              <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: '14px',
-                flexWrap: 'wrap',
-                gap: '10px',
-                padding: '10px 14px',
-                background: 'rgba(15, 23, 42, 0.65)',
-                borderRadius: '8px',
-                border: '1px solid var(--border-panel)'
-              }}>
+              {/* Thanh điều phối đội hình */}
+              <div className="atelier-assets-squad-bar">
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.825rem', color: '#fff', fontWeight: 500 }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.825rem', color: '#fff', fontWeight: 600 }}>
                     <input
                       type="checkbox"
                       checked={characters.length > 0 && selectedCharIds.size === characters.length}
@@ -1164,33 +908,19 @@ export default function ProjectSavedPresets({
 
                 <button
                   type="button"
-                  className="btn-primary-studio"
+                  className="atelier-assets-btn-deploy"
                   disabled={selectedCharIds.size === 0}
                   onClick={handleDeploySelectedToGodot}
-                  style={{
-                    minHeight: '34px',
-                    fontSize: '0.8rem',
-                    gap: '8px',
-                    padding: '6px 14px',
-                    background: selectedCharIds.size > 0 ? '#10b981' : undefined,
-                    borderColor: selectedCharIds.size > 0 ? '#059669' : undefined,
-                    opacity: selectedCharIds.size === 0 ? 0.5 : 1,
-                    cursor: selectedCharIds.size === 0 ? 'not-allowed' : 'pointer'
-                  }}
                   title="Đưa các nhân vật đã tích chọn vào phòng thử nghiệm Godot"
                 >
                   <Gamepad2 size={15} />
-                  <span>Đưa {selectedCharIds.size} nhân vật đã chọn vào Godot Testbed</span>
+                  <span>Đưa {selectedCharIds.size} nhân vật vào Godot Testbed</span>
                   <ArrowRight size={13} />
                 </button>
               </div>
 
-              {/* Lưới các thẻ nhân vật kèm Checkbox tích chọn riêng */}
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-                gap: '14px'
-              }}>
+              {/* Lưới các thẻ nhân vật */}
+              <div className="atelier-assets-grid">
                 {characters.map((char) => {
                   const slotCount = Object.keys(char.slots_data || {}).length;
                   const idleDown = char.slots_data?.down_0;
@@ -1199,21 +929,10 @@ export default function ProjectSavedPresets({
                   return (
                     <div
                       key={char.id}
-                      className="studio-metric-card"
-                      style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        justifyContent: 'space-between',
-                        borderRadius: '10px',
-                        padding: '16px',
-                        border: isChecked ? '1px solid #10b981' : '1px solid var(--border-panel)',
-                        boxShadow: isChecked ? '0 0 14px rgba(16, 185, 129, 0.2)' : 'none',
-                        background: 'var(--bg-card)',
-                        position: 'relative',
-                        transition: 'border-color 0.2s, box-shadow 0.2s'
-                      }}
+                      className={`atelier-assets-card ${isChecked ? 'selected' : ''}`}
+                      style={{ position: 'relative' }}
                     >
-                      {/* Checkbox tích chọn ở góc trên bên phải của Card */}
+                      {/* Checkbox tích chọn ở góc trên phải */}
                       <label
                         style={{
                           position: 'absolute',
@@ -1223,12 +942,13 @@ export default function ProjectSavedPresets({
                           alignItems: 'center',
                           gap: '6px',
                           cursor: 'pointer',
-                          background: isChecked ? 'rgba(16, 185, 129, 0.15)' : 'rgba(15, 23, 42, 0.8)',
-                          border: isChecked ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid var(--border-card)',
-                          padding: '3px 8px',
+                          background: isChecked ? 'rgba(16, 185, 129, 0.15)' : 'rgba(14, 10, 26, 0.85)',
+                          border: isChecked ? '1px solid rgba(16, 185, 129, 0.45)' : '1px solid rgba(168, 85, 247, 0.2)',
+                          padding: '4px 8px',
                           borderRadius: '6px',
                           fontSize: '0.725rem',
-                          color: isChecked ? '#34d399' : 'var(--text-muted)'
+                          color: isChecked ? '#34d399' : 'var(--atl-text-secondary)',
+                          transition: 'all 0.15s ease'
                         }}
                         title="Tích chọn nhân vật này để đưa vào Godot Testbed"
                       >
@@ -1244,25 +964,25 @@ export default function ProjectSavedPresets({
                               return next;
                             });
                           }}
-                          style={{ accentColor: '#10b981', cursor: 'pointer', width: '15px', height: '15px' }}
+                          style={{ accentColor: '#10b981', cursor: 'pointer', width: '14px', height: '14px' }}
                         />
                         <span>{isChecked ? 'Đã chọn' : 'Bỏ chọn'}</span>
                       </label>
 
                       <div>
                         {/* Tiêu đề & Icon */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
                           <div
                             style={{
                               width: '48px',
                               height: '48px',
-                              background: 'repeating-conic-gradient(#1e293b 0% 25%, #0f172a 0% 50%) 50% / 8px 8px',
-                              borderRadius: '6px',
+                              background: '#07050e',
+                              borderRadius: '8px',
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
                               overflow: 'hidden',
-                              border: '1px solid var(--border-panel)'
+                              border: '1px solid rgba(168, 85, 247, 0.2)'
                             }}
                           >
                             {idleDown ? (
@@ -1273,46 +993,45 @@ export default function ProjectSavedPresets({
                           </div>
 
                           <div>
-                            <h3 style={{ fontSize: '0.95rem', color: '#fff', margin: '0 0 2px', fontWeight: 600, paddingRight: '80px' }}>
+                            <h3 style={{ fontSize: '0.96rem', color: '#fff', margin: '0 0 2px', fontWeight: 600, paddingRight: '80px' }}>
                               {char.name}
                             </h3>
-                            <div style={{ fontSize: '0.725rem', color: '#34d399', fontWeight: 500 }}>
-                              🎮 {slotCount}/15 ô frame đã nạp
+                            <div style={{ fontSize: '0.725rem', color: '#34d399', fontWeight: 600 }}>
+                              🎮 {slotCount}/15 ô frame hoạt họa
                             </div>
                           </div>
                         </div>
 
                         {/* Các thông số kỹ thuật */}
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '14px' }}>
-                          <span style={{ fontSize: '0.7rem', padding: '2px 8px', borderRadius: '4px', background: 'rgba(255,255,255,0.06)', color: 'var(--text-muted)' }}>
+                        <div className="atelier-assets-metrics-row">
+                          <span className="atelier-assets-metric-pill neutral">
                             Tỉ lệ: {char.scale || 1.0}x
                           </span>
-                          <span style={{ fontSize: '0.7rem', padding: '2px 8px', borderRadius: '4px', background: 'rgba(255,255,255,0.06)', color: 'var(--text-muted)' }}>
+                          <span className="atelier-assets-metric-pill neutral">
                             Tốc độ: {char.fps || 8} FPS
                           </span>
-                          <span style={{ fontSize: '0.7rem', padding: '2px 8px', borderRadius: '4px', background: 'rgba(255,255,255,0.06)', color: 'var(--text-muted)' }}>
+                          <span className="atelier-assets-metric-pill neutral">
                             Vị trí X: {char.pos_x || 260}px
                           </span>
                         </div>
                       </div>
 
                       {/* Nút hành động */}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '10px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                      <div className="atelier-assets-card-actions">
                         <div style={{ display: 'flex', gap: '6px' }}>
                           <button
                             type="button"
-                            className="btn-secondary-studio"
+                            className="atelier-assets-btn-sub"
                             onClick={() => setSelectedCharacter(char)}
-                            style={{ fontSize: '0.75rem', padding: '4px 9px', minHeight: '28px' }}
                             title="Xem toàn bộ 15 ô frame của nhân vật"
                           >
                             <Eye size={12} />
-                            Xem 15 ô
+                            <span>Xem 15 ô</span>
                           </button>
 
                           <button
                             type="button"
-                            className="btn-secondary-studio"
+                            className="atelier-assets-btn-sub primary-link"
                             onClick={() => {
                               if (onDeployCharactersToGodot) {
                                 onDeployCharactersToGodot([char.id]);
@@ -1320,20 +1039,17 @@ export default function ProjectSavedPresets({
                                 onSelectTab('godot_testbed');
                               }
                             }}
-                            style={{ fontSize: '0.75rem', padding: '4px 9px', minHeight: '28px', color: '#10b981' }}
                             title="Chỉ đưa riêng nhân vật này vào Godot Testbed"
                           >
                             <Gamepad2 size={12} />
-                            Vào Testbed
+                            <span>Vào Testbed</span>
                           </button>
                         </div>
 
                         <button
                           type="button"
+                          className="atelier-assets-btn-delete"
                           onClick={() => handleDeleteCharacter(char.id, char.name)}
-                          style={{ background: 'transparent', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', padding: '4px' }}
-                          onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444'; }}
-                          onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-dim)'; }}
                           title="Xóa nhân vật khỏi MySQL"
                         >
                           <Trash2 size={14} />
@@ -1354,52 +1070,43 @@ export default function ProjectSavedPresets({
       {activeAssetTab === 'maps' && (
         <div>
           {loading ? (
-            <div style={{ textAlign: 'center', padding: '48px 16px', color: 'var(--text-dim)' }}>
+            <div style={{ textAlign: 'center', padding: '48px 16px', color: '#a39bc2' }}>
               <RefreshCw size={24} className="spin" style={{ margin: '0 auto 8px', display: 'block' }} />
               <span>Đang tải thông tin bản đồ nền từ MySQL…</span>
             </div>
           ) : !mapData ? (
-            <div className="studio-viewport-card" style={{ textAlign: 'center', padding: '48px 24px' }}>
-              <MapIcon size={40} color="#f59e0b" style={{ opacity: 0.6, margin: '0 auto 12px' }} />
-              <h3 style={{ color: 'var(--text-white)', margin: '0 0 6px' }}>Chưa có bản đồ nền nào được lưu</h3>
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.825rem', maxWidth: '480px', margin: '0 auto 16px' }}>
-                Bạn có thể nạp một tấm ảnh cảnh quan môi trường trong <strong>"Thử nghiệm Godot"</strong> để nhân vật chạy nhảy trên nền map thực tế.
+            <div className="atelier-assets-empty">
+              <MapIcon size={42} color="#6e658a" />
+              <h3>Chưa có bản đồ nền nào được nạp</h3>
+              <p>
+                Bạn có thể tải ảnh môi trường game trong <strong>"Thử nghiệm Godot"</strong> để nhân vật chạy nhảy và thử độ tương phản trên map thực tế.
               </p>
               {onSelectTab && (
                 <button
                   type="button"
-                  className="btn-primary-studio"
+                  className="atelier-assets-btn-sub primary-link"
                   onClick={() => onSelectTab('godot_testbed')}
-                  style={{ minHeight: '34px', fontSize: '0.8rem', margin: '0 auto' }}
+                  style={{ marginTop: '8px', padding: '8px 16px' }}
                 >
                   <MapIcon size={14} />
-                  Mở Thử nghiệm Godot
+                  <span>Mở Thử nghiệm Godot</span>
                 </button>
               )}
             </div>
           ) : (
-            <div
-              className="studio-metric-card"
-              style={{
-                borderRadius: '10px',
-                border: '1px solid var(--border-panel)',
-                background: 'var(--bg-card)',
-                maxWidth: '680px',
-                overflow: 'hidden'
-              }}
-            >
+            <div className="atelier-assets-card" style={{ maxWidth: '720px', padding: 0, overflow: 'hidden' }}>
               {/* Xem trước ảnh map */}
               <div
                 style={{
                   width: '100%',
-                  height: '240px',
-                  background: 'repeating-conic-gradient(#1e293b 0% 25%, #0f172a 0% 50%) 50% / 16px 16px',
+                  height: '260px',
+                  backgroundColor: '#07050e',
+                  position: 'relative',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  position: 'relative',
                   overflow: 'hidden',
-                  borderBottom: '1px solid var(--border-panel)'
+                  borderBottom: '1px solid rgba(168, 85, 247, 0.18)'
                 }}
               >
                 <img
@@ -1424,52 +1131,46 @@ export default function ProjectSavedPresets({
               </div>
 
               {/* Thông tin bản đồ */}
-              <div style={{ padding: '16px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <h3 style={{ fontSize: '1rem', color: '#fff', margin: 0, fontWeight: 600 }}>
-                    {mapData.name}
-                  </h3>
-                  <span style={{ fontSize: '0.75rem', background: 'rgba(245, 158, 11, 0.15)', color: '#fbbf24', border: '1px solid rgba(245, 158, 11, 0.3)', padding: '2px 8px', borderRadius: '4px' }}>
+              <div style={{ padding: '18px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <h3 className="atelier-assets-card-title">{mapData.name}</h3>
+                  <span className="atelier-assets-metric-pill" style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#fbbf24', border: '1px solid rgba(245, 158, 11, 0.3)' }}>
                     Độ cao sàn (ground_y): {mapData.ground_y}px
                   </span>
                 </div>
 
-                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '0 0 16px' }}>
+                <p style={{ fontSize: '0.8rem', color: 'var(--atl-text-secondary)', margin: 0, lineHeight: 1.45 }}>
                   Bản đồ nền đang được áp dụng trực tiếp cho phòng thử nghiệm Godot Testbed của dự án.
                 </p>
 
                 {/* Cụm nút thao tác */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '12px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                <div className="atelier-assets-card-actions">
                   <div style={{ display: 'flex', gap: '8px' }}>
                     <button
                       type="button"
-                      className="btn-secondary-studio"
+                      className="atelier-assets-btn-sub"
                       onClick={() => setSelectedMap(mapData)}
-                      style={{ fontSize: '0.75rem', padding: '5px 12px', minHeight: '30px' }}
                     >
                       <Eye size={13} />
-                      Xem kích thước đầy đủ
+                      <span>Xem kích thước đầy đủ</span>
                     </button>
 
                     {onSelectTab && (
                       <button
                         type="button"
-                        className="btn-secondary-studio"
+                        className="atelier-assets-btn-sub primary-link"
                         onClick={() => onSelectTab('godot_testbed')}
-                        style={{ fontSize: '0.75rem', padding: '5px 12px', minHeight: '30px', color: '#f59e0b' }}
                       >
                         <Gamepad2 size={13} />
-                        Vào phòng Testbed
+                        <span>Vào phòng Testbed</span>
                       </button>
                     )}
                   </div>
 
                   <button
                     type="button"
+                    className="atelier-assets-btn-delete"
                     onClick={handleDeleteMap}
-                    style={{ background: 'transparent', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', padding: '6px' }}
-                    onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444'; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-dim)'; }}
                     title="Xóa bản đồ nền khỏi MySQL"
                   >
                     <Trash2 size={16} />
@@ -1487,60 +1188,42 @@ export default function ProjectSavedPresets({
 
       {/* MODAL 1: CHI TIẾT HỒ SƠ & PROMPT */}
       {selectedPreset && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0, 0, 0, 0.75)',
-          backdropFilter: 'blur(4px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000,
-          padding: '16px'
-        }}>
-          <div style={{
-            background: 'var(--bg-panel)',
-            border: '1px solid var(--border-panel)',
-            borderRadius: '12px',
-            maxWidth: '640px',
-            width: '100%',
-            maxHeight: '90vh',
-            overflowY: 'auto',
-            padding: '24px',
-            boxShadow: '0 20px 40px rgba(0,0,0,0.6)'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <h2 style={{ fontSize: '1.1rem', color: '#fff', margin: 0 }}>
+        <div
+          className="atelier-assets-modal-overlay"
+          onClick={() => setSelectedPreset(null)}
+        >
+          <div
+            className="atelier-assets-modal-box"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h2 style={{ fontSize: '1.15rem', color: '#fff', margin: 0, fontWeight: 700 }}>
                 {selectedPreset.name}
               </h2>
               <button
                 type="button"
+                className="atelier-assets-btn-delete"
                 onClick={() => setSelectedPreset(null)}
-                style={{ background: 'transparent', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', padding: '4px' }}
               >
                 <X size={18} />
               </button>
             </div>
 
-            <div style={{ fontSize: '0.85rem', color: 'var(--accent-purple)', fontWeight: 500, marginBottom: '16px' }}>
+            <div style={{ fontSize: '0.85rem', color: '#c084fc', fontWeight: 600 }}>
               🪄 Concept: {selectedPreset.new_character_concept}
             </div>
 
             {/* Positive Prompt */}
-            <div style={{ marginBottom: '14px' }}>
+            <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                <strong style={{ fontSize: '0.8rem', color: '#10b981' }}>Positive Prompt (Mô tả chi tiết tạo ảnh)</strong>
+                <strong style={{ fontSize: '0.8rem', color: '#34d399' }}>Positive Prompt (Mô tả chi tiết tạo ảnh)</strong>
                 <button
                   type="button"
-                  className="btn-secondary-studio"
+                  className="atelier-assets-btn-sub"
                   onClick={() => handleCopyText(selectedPreset.positive_prompt, 'positive')}
-                  style={{ fontSize: '0.725rem', padding: '4px 8px', minHeight: '26px' }}
                 >
                   {copiedPos ? <Check size={12} color="#10b981" /> : <Copy size={12} />}
-                  {copiedPos ? 'Đã chép' : 'Sao chép'}
+                  <span>{copiedPos ? 'Đã chép' : 'Sao chép'}</span>
                 </button>
               </div>
               <textarea
@@ -1549,30 +1232,30 @@ export default function ProjectSavedPresets({
                 rows={4}
                 style={{
                   width: '100%',
-                  background: 'rgba(0, 0, 0, 0.35)',
-                  border: '1px solid var(--border-panel)',
-                  borderRadius: '6px',
-                  color: 'var(--text-white)',
-                  padding: '8px 10px',
+                  background: 'rgba(10, 7, 20, 0.85)',
+                  border: '1px solid rgba(168, 85, 247, 0.2)',
+                  borderRadius: '8px',
+                  color: '#ffffff',
+                  padding: '10px 12px',
                   fontSize: '0.8rem',
-                  lineHeight: '1.4',
-                  resize: 'none'
+                  lineHeight: '1.45',
+                  resize: 'none',
+                  boxSizing: 'border-box'
                 }}
               />
             </div>
 
             {/* Negative Prompt */}
-            <div style={{ marginBottom: '16px' }}>
+            <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                <strong style={{ fontSize: '0.8rem', color: '#ef4444' }}>Negative Prompt (Bộ lọc loại bỏ lỗi)</strong>
+                <strong style={{ fontSize: '0.8rem', color: '#f43f5e' }}>Negative Prompt (Bộ lọc loại bỏ lỗi)</strong>
                 <button
                   type="button"
-                  className="btn-secondary-studio"
+                  className="atelier-assets-btn-sub"
                   onClick={() => handleCopyText(selectedPreset.negative_prompt, 'negative')}
-                  style={{ fontSize: '0.725rem', padding: '4px 8px', minHeight: '26px' }}
                 >
                   {copiedNeg ? <Check size={12} color="#10b981" /> : <Copy size={12} />}
-                  {copiedNeg ? 'Đã chép' : 'Sao chép'}
+                  <span>{copiedNeg ? 'Đã chép' : 'Sao chép'}</span>
                 </button>
               </div>
               <textarea
@@ -1581,39 +1264,38 @@ export default function ProjectSavedPresets({
                 rows={3}
                 style={{
                   width: '100%',
-                  background: 'rgba(0, 0, 0, 0.35)',
-                  border: '1px solid var(--border-panel)',
-                  borderRadius: '6px',
-                  color: 'var(--text-muted)',
-                  padding: '8px 10px',
+                  background: 'rgba(10, 7, 20, 0.85)',
+                  border: '1px solid rgba(244, 63, 94, 0.25)',
+                  borderRadius: '8px',
+                  color: '#fda4af',
+                  padding: '10px 12px',
                   fontSize: '0.8rem',
-                  lineHeight: '1.4',
-                  resize: 'none'
+                  lineHeight: '1.45',
+                  resize: 'none',
+                  boxSizing: 'border-box'
                 }}
               />
             </div>
 
             {/* Footer Modal */}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', paddingTop: '10px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
               {onLoadPresetToStudio && (
                 <button
                   type="button"
-                  className="btn-primary-studio"
+                  className="atelier-assets-btn-deploy"
                   onClick={() => {
                     onLoadPresetToStudio(selectedPreset);
                     setSelectedPreset(null);
                   }}
-                  style={{ minHeight: '34px', fontSize: '0.8rem', padding: '6px 14px' }}
                 >
                   <ArrowRight size={14} />
-                  Mở lại trong Studio
+                  <span>Mở lại trong Studio</span>
                 </button>
               )}
               <button
                 type="button"
-                className="btn-secondary-studio"
+                className="atelier-assets-btn-sub"
                 onClick={() => setSelectedPreset(null)}
-                style={{ minHeight: '34px', fontSize: '0.8rem' }}
               >
                 Đóng
               </button>
@@ -1624,44 +1306,28 @@ export default function ProjectSavedPresets({
 
       {/* MODAL 2: CHI TIẾT ẢNH SPRITE (PHÓNG TO & SO SÁNH) */}
       {selectedSprite && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0, 0, 0, 0.85)',
-          backdropFilter: 'blur(5px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000,
-          padding: '16px'
-        }}>
-          <div style={{
-            background: 'var(--bg-panel)',
-            border: '1px solid var(--border-panel)',
-            borderRadius: '12px',
-            maxWidth: '780px',
-            width: '100%',
-            maxHeight: '90vh',
-            overflowY: 'auto',
-            padding: '24px',
-            boxShadow: '0 20px 40px rgba(0,0,0,0.6)'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+        <div
+          className="atelier-assets-modal-overlay"
+          onClick={() => setSelectedSprite(null)}
+        >
+          <div
+            className="atelier-assets-modal-box"
+            style={{ maxWidth: '800px' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <h2 style={{ fontSize: '1.1rem', color: '#fff', margin: '0 0 4px' }}>
+                <h2 style={{ fontSize: '1.15rem', color: '#fff', margin: '0 0 4px', fontWeight: 700 }}>
                   {selectedSprite.name}
                 </h2>
-                <span style={{ fontSize: '0.725rem', color: 'var(--text-dim)' }}>
+                <span style={{ fontSize: '0.725rem', color: 'var(--atl-text-secondary)' }}>
                   Lưu ngày: {formatDate(selectedSprite.created_at)}
                 </span>
               </div>
               <button
                 type="button"
+                className="atelier-assets-btn-delete"
                 onClick={() => setSelectedSprite(null)}
-                style={{ background: 'transparent', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', padding: '4px' }}
               >
                 <X size={18} />
               </button>
@@ -1671,8 +1337,7 @@ export default function ProjectSavedPresets({
             <div style={{
               display: 'grid',
               gridTemplateColumns: selectedSprite.has_processed ? '1fr 1fr' : '1fr',
-              gap: '16px',
-              marginBottom: '20px'
+              gap: '16px'
             }}>
               {/* Cột ảnh gốc */}
               <div>
@@ -1681,9 +1346,9 @@ export default function ProjectSavedPresets({
                 </div>
                 <div style={{
                   height: '240px',
-                  background: 'repeating-conic-gradient(#1e293b 0% 25%, #0f172a 0% 50%) 50% / 16px 16px',
+                  backgroundColor: '#07050e',
                   borderRadius: '8px',
-                  border: '1px solid var(--border-panel)',
+                  border: '1px solid rgba(168, 85, 247, 0.2)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -1695,7 +1360,7 @@ export default function ProjectSavedPresets({
                     style={{ maxWidth: '95%', maxHeight: '95%', objectFit: 'contain', imageRendering: 'pixelated' }}
                   />
                 </div>
-                <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)', marginTop: '4px' }}>
+                <div style={{ fontSize: '0.7rem', color: '#6e658a', marginTop: '4px' }}>
                   Dung lượng: {formatBytes(selectedSprite.raw_bytes)}
                 </div>
               </div>
@@ -1708,9 +1373,9 @@ export default function ProjectSavedPresets({
                   </div>
                   <div style={{
                     height: '240px',
-                    background: 'repeating-conic-gradient(#1e293b 0% 25%, #0f172a 0% 50%) 50% / 16px 16px',
+                    backgroundColor: '#07050e',
                     borderRadius: '8px',
-                    border: '1px solid var(--border-panel)',
+                    border: '1px solid rgba(168, 85, 247, 0.2)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -1722,7 +1387,7 @@ export default function ProjectSavedPresets({
                       style={{ maxWidth: '95%', maxHeight: '95%', objectFit: 'contain', imageRendering: 'pixelated' }}
                     />
                   </div>
-                  <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)', marginTop: '4px' }}>
+                  <div style={{ fontSize: '0.7rem', color: '#6e658a', marginTop: '4px' }}>
                     Dung lượng: {formatBytes(selectedSprite.processed_bytes)}
                   </div>
                 </div>
@@ -1733,47 +1398,35 @@ export default function ProjectSavedPresets({
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '12px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
               <button
                 type="button"
+                className="atelier-assets-btn-delete"
                 onClick={() => handleDeleteSprite(selectedSprite.id, selectedSprite.name)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  background: 'rgba(239, 68, 68, 0.12)',
-                  color: '#ef4444',
-                  border: '1px solid rgba(239, 68, 68, 0.25)',
-                  borderRadius: '6px',
-                  padding: '6px 12px',
-                  fontSize: '0.75rem',
-                  cursor: 'pointer'
-                }}
+                style={{ color: '#f87171' }}
               >
-                <Trash2 size={13} />
-                Xóa ảnh khỏi MySQL
+                <Trash2 size={14} />
+                <span>Xóa ảnh khỏi MySQL</span>
               </button>
 
               <div style={{ display: 'flex', gap: '8px' }}>
                 <button
                   type="button"
-                  className="btn-secondary-studio"
+                  className="atelier-assets-btn-sub"
                   onClick={() => handleDownloadSprite(selectedSprite, selectedSprite.has_processed)}
-                  style={{ minHeight: '34px', fontSize: '0.8rem', gap: '6px' }}
                 >
                   <Download size={14} />
-                  Tải PNG về
+                  <span>Tải PNG về</span>
                 </button>
 
                 {onLoadSpriteToWorkspace && (
                   <button
                     type="button"
-                    className="btn-primary-studio"
+                    className="atelier-assets-btn-sub primary-link"
                     onClick={() => {
                       handleOpenInWorkspace(selectedSprite);
                       setSelectedSprite(null);
                     }}
-                    style={{ minHeight: '34px', fontSize: '0.8rem', gap: '6px' }}
                   >
                     <Wrench size={14} />
-                    Mở vào Workspace
+                    <span>Mở vào Workspace</span>
                   </button>
                 )}
               </div>
@@ -1784,34 +1437,18 @@ export default function ProjectSavedPresets({
 
       {/* MODAL 3: CHI TIẾT 15 Ô FRAME CỦA NHÂN VẬT GODOT */}
       {selectedCharacter && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0, 0, 0, 0.85)',
-          backdropFilter: 'blur(5px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000,
-          padding: '16px'
-        }}>
-          <div style={{
-            background: 'var(--bg-panel)',
-            border: '1px solid var(--border-panel)',
-            borderRadius: '12px',
-            maxWidth: '680px',
-            width: '100%',
-            maxHeight: '90vh',
-            overflowY: 'auto',
-            padding: '24px',
-            boxShadow: '0 20px 40px rgba(0,0,0,0.6)'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+        <div
+          className="atelier-assets-modal-overlay"
+          onClick={() => setSelectedCharacter(null)}
+        >
+          <div
+            className="atelier-assets-modal-box"
+            style={{ maxWidth: '720px' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <h2 style={{ fontSize: '1.1rem', color: '#fff', margin: '0 0 2px' }}>
+                <h2 style={{ fontSize: '1.15rem', color: '#fff', margin: '0 0 2px', fontWeight: 700 }}>
                   Bộ Khung Hoạt Họa 15 Ô: {selectedCharacter.name}
                 </h2>
                 <span style={{ fontSize: '0.725rem', color: '#10b981' }}>
@@ -1820,18 +1457,18 @@ export default function ProjectSavedPresets({
               </div>
               <button
                 type="button"
+                className="atelier-assets-btn-delete"
                 onClick={() => setSelectedCharacter(null)}
-                style={{ background: 'transparent', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', padding: '4px' }}
               >
                 <X size={18} />
               </button>
             </div>
 
             {/* Bảng hiển thị 15 ô */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {['down', 'side', 'up'].map((dir) => (
-                <div key={dir} style={{ background: 'rgba(0,0,0,0.25)', borderRadius: '8px', padding: '10px', border: '1px solid var(--border-panel)' }}>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--accent-purple)', fontWeight: 600, marginBottom: '6px' }}>
+                <div key={dir} style={{ background: 'rgba(10, 7, 20, 0.75)', borderRadius: '10px', padding: '12px', border: '1px solid rgba(168, 85, 247, 0.18)' }}>
+                  <div style={{ fontSize: '0.75rem', color: '#c084fc', fontWeight: 600, marginBottom: '8px' }}>
                     {dir === 'down' ? '⬇ Hướng Nhìn Xuống (Down)' : dir === 'side' ? '➡ Hướng Nhìn Ngang (Side)' : '⬆ Hướng Nhìn Lên (Up)'}
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '8px' }}>
@@ -1842,21 +1479,21 @@ export default function ProjectSavedPresets({
                         <div
                           key={slotKey}
                           style={{
-                            height: '70px',
-                            background: 'repeating-conic-gradient(#1e293b 0% 25%, #0f172a 0% 50%) 50% / 8px 8px',
-                            borderRadius: '4px',
+                            height: '74px',
+                            backgroundColor: '#07050e',
+                            borderRadius: '6px',
                             display: 'flex',
                             flexDirection: 'column',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            border: '1px solid var(--border-card)',
+                            border: '1px solid rgba(168, 85, 247, 0.16)',
                             position: 'relative'
                           }}
                         >
                           {slotImg ? (
                             <img src={slotImg} alt={slotKey} style={{ maxWidth: '90%', maxHeight: '80%', objectFit: 'contain', imageRendering: 'pixelated' }} />
                           ) : (
-                            <span style={{ fontSize: '0.65rem', color: 'var(--text-dim)' }}>Rỗng</span>
+                            <span style={{ fontSize: '0.65rem', color: '#6e658a' }}>Rỗng</span>
                           )}
                           <span style={{ position: 'absolute', bottom: '2px', fontSize: '0.6rem', color: '#94a3b8' }}>
                             {c === 0 ? 'idle' : `walk_${c}`}
@@ -1869,26 +1506,24 @@ export default function ProjectSavedPresets({
               ))}
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', paddingTop: '10px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
               {onSelectTab && (
                 <button
                   type="button"
-                  className="btn-primary-studio"
+                  className="atelier-assets-btn-deploy"
                   onClick={() => {
                     onSelectTab('godot_testbed');
                     setSelectedCharacter(null);
                   }}
-                  style={{ minHeight: '34px', fontSize: '0.8rem', gap: '6px' }}
                 >
                   <Gamepad2 size={14} />
-                  Mở trong Godot Testbed
+                  <span>Mở trong Godot Testbed</span>
                 </button>
               )}
               <button
                 type="button"
-                className="btn-secondary-studio"
+                className="atelier-assets-btn-sub"
                 onClick={() => setSelectedCharacter(null)}
-                style={{ minHeight: '34px', fontSize: '0.8rem' }}
               >
                 Đóng
               </button>
@@ -1899,39 +1534,23 @@ export default function ProjectSavedPresets({
 
       {/* MODAL 4: PHÓNG TO BẢN ĐỒ NỀN */}
       {selectedMap && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0, 0, 0, 0.85)',
-          backdropFilter: 'blur(5px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000,
-          padding: '16px'
-        }}>
-          <div style={{
-            background: 'var(--bg-panel)',
-            border: '1px solid var(--border-panel)',
-            borderRadius: '12px',
-            maxWidth: '850px',
-            width: '100%',
-            maxHeight: '90vh',
-            overflowY: 'auto',
-            padding: '24px',
-            boxShadow: '0 20px 40px rgba(0,0,0,0.6)'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <h2 style={{ fontSize: '1.1rem', color: '#fff', margin: 0 }}>
+        <div
+          className="atelier-assets-modal-overlay"
+          onClick={() => setSelectedMap(null)}
+        >
+          <div
+            className="atelier-assets-modal-box"
+            style={{ maxWidth: '850px' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h2 style={{ fontSize: '1.15rem', color: '#fff', margin: 0, fontWeight: 700 }}>
                 {selectedMap.name}
               </h2>
               <button
                 type="button"
+                className="atelier-assets-btn-delete"
                 onClick={() => setSelectedMap(null)}
-                style={{ background: 'transparent', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', padding: '4px' }}
               >
                 <X size={18} />
               </button>
@@ -1940,14 +1559,13 @@ export default function ProjectSavedPresets({
             <div style={{
               maxHeight: '520px',
               overflow: 'auto',
-              background: '#020617',
-              borderRadius: '8px',
-              border: '1px solid var(--border-panel)',
+              background: '#07050e',
+              borderRadius: '10px',
+              border: '1px solid rgba(168, 85, 247, 0.2)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              padding: '12px',
-              marginBottom: '16px'
+              padding: '12px'
             }}>
               <img
                 src={selectedMap.map_image_base64}
@@ -1959,9 +1577,8 @@ export default function ProjectSavedPresets({
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
               <button
                 type="button"
-                className="btn-secondary-studio"
+                className="atelier-assets-btn-sub"
                 onClick={() => setSelectedMap(null)}
-                style={{ minHeight: '34px', fontSize: '0.8rem' }}
               >
                 Đóng
               </button>

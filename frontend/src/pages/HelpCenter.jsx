@@ -41,7 +41,8 @@ import { HELP_GUIDE_CATEGORIES } from '../constants/helpGuidesData';
 // ========================================================
 // 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
 // ========================================================
-// Kế thừa phong cách Dark UI từ theme.css thông qua index.css
+// Kế thừa phong cách Dark Fantasy Atelier từ help-atelier.css
+import '../styles/help-atelier.css';
 
 /**
  * Ánh xạ icon tương ứng với danh mục hướng dẫn.

@@ -1,0 +1,226 @@
+/**
+ * ============================================================================
+ * DARK FANTASY ATELIER — HELP CENTER & DOCUMENTATION STYLESHEET
+ * ============================================================================
+ * Phong cách: 70% Professional Creative Tool + 30% Dark Fantasy Pixel Art
+ * Chuẩn mực: Tasteskill 2.5 (Typography công thái học, đọc sách kỳ ảo, sạch sẽ)
+ * Tính năng: Trung tâm Hướng dẫn Đa hình, Tra cứu Tài liệu, FAQ Accordion
+ * ============================================================================
+ */
+
+/* ============================================================================
+   1. KHUNG GỐC TRUNG TÂM HƯỚNG DẪN (ROOT CONTAINER)
+   ============================================================================ */
+.atelier-help-root {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+  box-sizing: border-box;
+  color: var(--atl-text-primary, #f5f3ff);
+}
+
+/* ============================================================================
+   2. THANH TIÊU ĐỀ & Ô TÌM KIẾM TÀI LIỆU (HEADER & SEARCH)
+   ============================================================================ */
+.atelier-help-header {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 24px 28px;
+  background: rgba(18, 13, 34, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--atl-border-amethyst, rgba(168, 85, 247, 0.18));
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.atelier-help-header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.atelier-help-title-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.atelier-help-title-subtext {
+  margin: 0;
+  font-size: 0.84rem;
+  color: var(--atl-text-secondary, #a39bc2);
+}
+
+.atelier-help-search-box {
+  position: relative;
+  width: 100%;
+}
+
+.atelier-help-search-input {
+  width: 100%;
+  padding: 12px 18px 12px 42px;
+  border-radius: 10px;
+  background: rgba(10, 7, 20, 0.9);
+  border: 1px solid rgba(168, 85, 247, 0.22);
+  color: #ffffff;
+  font-size: 0.88rem;
+  outline: none;
+  box-sizing: border-box;
+  transition: all 0.2s ease;
+}
+
+.atelier-help-search-input:focus {
+  border-color: #c084fc;
+  box-shadow: 0 0 0 3px rgba(192, 132, 252, 0.18);
+  background: rgba(14, 10, 26, 0.95);
+}
+
+.atelier-help-search-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #6e658a;
+  pointer-events: none;
+}
+
+/* ============================================================================
+   3. LƯỚI DANH MỤC HƯỚNG DẪN (CATEGORY CARDS GRID)
+   ============================================================================ */
+.atelier-help-categories-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.atelier-help-cat-card {
+  padding: 18px 20px;
+  border-radius: 12px;
+  background: rgba(18, 13, 34, 0.75);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--atl-border-amethyst, rgba(168, 85, 247, 0.18));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.atelier-help-cat-card:hover {
+  border-color: rgba(192, 132, 252, 0.45);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(147, 51, 234, 0.2);
+}
+
+.atelier-help-cat-card.active {
+  background: linear-gradient(135deg, rgba(147, 51, 234, 0.25) 0%, rgba(99, 102, 241, 0.2) 100%);
+  border-color: #c084fc;
+  box-shadow: 0 0 16px rgba(168, 85, 247, 0.25);
+}
+
+.atelier-help-cat-title {
+  margin: 0;
+  font-size: 0.94rem;
+  font-weight: 700;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.atelier-help-cat-desc {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--atl-text-secondary, #a39bc2);
+  line-height: 1.45;
+}
+
+/* ============================================================================
+   4. NỘI DUNG BÀI VIẾT (ARTICLE READER BOX)
+   ============================================================================ */
+.atelier-help-article-box {
+  background: rgba(18, 13, 34, 0.75);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--atl-border-amethyst, rgba(168, 85, 247, 0.18));
+  border-radius: 14px;
+  padding: 24px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+}
+
+.atelier-help-code-block {
+  margin: 16px 0;
+  background: rgba(10, 7, 20, 0.9);
+  border-radius: 10px;
+  border: 1px solid rgba(168, 85, 247, 0.2);
+  overflow: hidden;
+}
+
+.atelier-help-code-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px;
+  background: rgba(18, 13, 34, 0.8);
+  border-bottom: 1px solid rgba(168, 85, 247, 0.15);
+  font-size: 0.75rem;
+  color: var(--atl-text-secondary, #a39bc2);
+}
+
+.atelier-help-code-pre {
+  margin: 0;
+  padding: 14px 18px;
+  font-size: 0.82rem;
+  font-family: Consolas, 'Fira Code', monospace;
+  color: #e2e8f0;
+  overflow-x: auto;
+  line-height: 1.55;
+}
+
+/* Accordion FAQ */
+.atelier-help-faq-item {
+  border: 1px solid rgba(168, 85, 247, 0.18);
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 8px;
+  background: rgba(12, 8, 24, 0.6);
+  transition: border-color 0.18s ease;
+}
+
+.atelier-help-faq-item:hover {
+  border-color: rgba(192, 132, 252, 0.35);
+}
+
+.atelier-help-faq-header {
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.atelier-help-faq-body {
+  padding: 12px 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 0.82rem;
+  color: var(--atl-text-secondary, #a39bc2);
+  line-height: 1.55;
+  background: rgba(8, 5, 16, 0.5);
+}

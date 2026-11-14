@@ -1,0 +1,1141 @@
+/**
+ * ============================================================================
+ * DARK FANTASY ATELIER — PROJECT ANALYSIS STYLESHEET
+ * ============================================================================
+ * Phong cách: 70% Professional Creative Tool + 30% Dark Fantasy Pixel Art
+ * Chuẩn mực: Tasteskill 2.5 (Phân cấp thị giác rõ nét, vi tương tác xúc giác)
+ * Mục tiêu: Tối ưu không gian phân tích giải phẫu nhân vật và phòng sinh prompt AI.
+ * ============================================================================
+ */
+
+/* ============================================================================
+   1. KHUNG GỐC PHÂN TÍCH & PROMPT STUDIO (ROOT CONTAINER)
+   ============================================================================ */
+.atelier-analysis-root {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  width: 100%;
+  min-height: 100%;
+  color: var(--atl-text-primary, #f5f3ff);
+  box-sizing: border-box;
+  position: relative;
+}
+
+/* ============================================================================
+   2. THANH TIÊU ĐỀ STUDIO (STUDIO HEADER BANNER)
+   ============================================================================ */
+.atelier-analysis-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 22px;
+  background: rgba(18, 13, 34, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--atl-border-amethyst, rgba(168, 85, 247, 0.18));
+  border-radius: 14px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  flex-wrap: wrap;
+}
+
+.atelier-analysis-title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: 600px;
+}
+
+.atelier-analysis-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.atelier-analysis-heading svg {
+  color: #c084fc;
+}
+
+.atelier-analysis-subtext {
+  font-size: 0.78rem;
+  color: #a39bc2;
+  margin: 0;
+}
+
+.atelier-analysis-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* Huy hiệu hiển thị tệp tin ảnh đang mở */
+.atelier-analysis-file-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 99px;
+  background: rgba(147, 51, 234, 0.12);
+  border: 1px solid rgba(168, 85, 247, 0.25);
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: #c084fc;
+  max-width: 240px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Nút Tải / Đổi ảnh tham chiếu */
+.atelier-analysis-btn-upload {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  background: rgba(147, 51, 234, 0.18);
+  border: 1px solid rgba(168, 85, 247, 0.35);
+  color: #ffffff;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  position: relative;
+}
+
+.atelier-analysis-btn-upload:hover {
+  background: rgba(147, 51, 234, 0.3);
+  border-color: rgba(192, 132, 252, 0.55);
+  transform: translateY(-1px);
+}
+
+.atelier-analysis-btn-upload input[type="file"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  width: 100%;
+}
+
+/* ============================================================================
+   3. BỘ CHUYỂN ĐỔI CHẾ ĐỘ STUDIO (SEGMENTED MODE NAVIGATION)
+   ============================================================================ */
+.atelier-analysis-nav {
+  display: flex;
+  background: rgba(14, 10, 26, 0.9);
+  border: 1px solid var(--atl-border-amethyst, rgba(168, 85, 247, 0.18));
+  border-radius: 10px;
+  padding: 4px;
+  gap: 4px;
+}
+
+.atelier-analysis-nav-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 9px 16px;
+  border-radius: 7px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: #94a3b8;
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.atelier-analysis-nav-btn:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.atelier-analysis-nav-btn.active {
+  background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.15);
+  box-shadow: 0 2px 10px rgba(124, 58, 237, 0.4);
+}
+
+.atelier-analysis-nav-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+}
+
+/* Thanh chỉ báo quét / tiến trình */
+.atelier-analysis-progress-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.78rem;
+  color: #c084fc;
+  font-weight: 600;
+  padding: 0 4px;
+  min-height: 20px;
+}
+
+/* ============================================================================
+   4. BỐ CỤC 2 CỘT CHO TAB ĐO SPRITE (TAB REFERENCE VIEW)
+   ============================================================================ */
+.atelier-reference-layout {
+  display: grid;
+  grid-template-columns: minmax(360px, 440px) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+@media (max-width: 1080px) {
+  .atelier-reference-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Khung Xem Ảnh Tham Chiếu (Cột Trái) */
+.atelier-ref-card {
+  display: flex;
+  flex-direction: column;
+  background: rgba(18, 13, 34, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--atl-border-amethyst, rgba(168, 85, 247, 0.18));
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.atelier-ref-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: rgba(12, 8, 22, 0.9);
+  border-bottom: 1px solid var(--atl-border-amethyst, rgba(168, 85, 247, 0.18));
+}
+
+.atelier-ref-card-header h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+/* Vùng Bàn Vẽ Caro Hiển Thị Ảnh Mẫu */
+.atelier-ref-preview-stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: clamp(280px, 45vh, 460px);
+  padding: 16px;
+  background-color: #0c0816;
+  background-image:
+    linear-gradient(45deg, #130d22 25%, transparent 25%),
+    linear-gradient(-45deg, #130d22 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #130d22 75%),
+    linear-gradient(-45deg, transparent 75%, #130d22 75%);
+  background-size: 20px 20px;
+  background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.atelier-ref-preview-stage img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.7));
+}
+
+.atelier-ref-empty-notice {
+  font-size: 0.8rem;
+  color: #94a3b8;
+  text-align: center;
+  max-width: 260px;
+}
+
+/* Thanh Điều Khiển & Lớp Phủ Giải Phẫu */
+.atelier-ref-card-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: rgba(12, 8, 22, 0.95);
+  border-top: 1px solid var(--atl-border-amethyst, rgba(168, 85, 247, 0.18));
+}
+
+.atelier-ref-toggle-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #a39bc2;
+  cursor: pointer;
+  user-select: none;
+}
+
+.atelier-ref-toggle-chip.active {
+  color: #c084fc;
+}
+
+.atelier-ref-toggle-chip input[type="checkbox"] {
+  accent-color: #9333ea;
+  width: 15px;
+  height: 15px;
+  cursor: pointer;
+}
+
+/* Chú giải lớp phủ giải phẫu (Legend Bar) */
+.atelier-ref-legend-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  background: rgba(14, 10, 26, 0.95);
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.atelier-legend-item-head { color: #f59e0b; }
+.atelier-legend-item-torso { color: #10b981; }
+.atelier-legend-item-legs { color: #38bdf8; }
+
+/* ============================================================================
+   5. CỘT PHẢI: BẢNG SỐ ĐO GIẢI PHẪU & MÀU SẮC (METRICS INSPECTOR)
+   ============================================================================ */
+.atelier-metrics-column {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.atelier-metric-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 18px;
+  background: rgba(18, 13, 34, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--atl-border-amethyst, rgba(168, 85, 247, 0.18));
+  border-radius: 14px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+}
+
+.atelier-metric-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.atelier-metric-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #c084fc;
+}
+
+/* Lưới hiển thị 4 chỉ số giải phẫu chính */
+.atelier-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.atelier-stat-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: rgba(12, 8, 24, 0.85);
+  border: 1px solid rgba(168, 85, 247, 0.16);
+}
+
+.atelier-stat-cell-label {
+  font-size: 0.7rem;
+  color: #a39bc2;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+
+.atelier-stat-cell-value {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #ffffff;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Danh sách lát cắt giải phẫu */
+.atelier-readings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.atelier-reading-box {
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(12, 8, 24, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.atelier-reading-label {
+  font-size: 0.7rem;
+  color: #a39bc2;
+}
+
+.atelier-reading-value {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #ffffff;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Bảng Mẫu Màu Chủ Đạo (Swatches) */
+.atelier-swatches-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.atelier-swatch-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 10px;
+  border-radius: 7px;
+  background: rgba(12, 8, 24, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.atelier-swatch-color {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  flex-shrink: 0;
+}
+
+.atelier-swatch-code {
+  font-family: monospace;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+/* Nút Chuyển Tiếp Sang Sinh Prompt */
+.atelier-ref-next-bar {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 4px;
+}
+
+/* ============================================================================
+   6. GIAO DIỆN PHÂN HỆ HỒ SƠ MẪU AI (DNA PROFILE VIEW)
+   ============================================================================ */
+.atelier-dna-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px 22px;
+  background: rgba(18, 13, 34, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--atl-border-amethyst, rgba(168, 85, 247, 0.18));
+  border-radius: 14px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+}
+
+.atelier-dna-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.atelier-dna-heading h2 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.atelier-dna-result-box {
+  padding: 16px;
+  border-radius: 10px;
+  background: rgba(12, 8, 24, 0.95);
+  border: 1px solid rgba(168, 85, 247, 0.25);
+  font-size: 0.86rem;
+  line-height: 1.6;
+  color: #f1f5f9;
+}
+
+/* ============================================================================
+   7. ĐỒNG BỘ PHÒNG SINH PROMPT (TAB CONSTRAINTS PROMPT VIEW)
+   ============================================================================ */
+.studio-inheritance-summary {
+  padding: 12px 16px;
+  border-radius: 10px;
+  background: rgba(147, 51, 234, 0.08);
+  border: 1px solid rgba(168, 85, 247, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.82rem;
+  color: #e2e8f0;
+}
+
+.studio-measure-details {
+  border: 1px solid rgba(168, 85, 247, 0.2);
+  border-radius: 10px;
+  background: rgba(14, 10, 26, 0.8);
+  padding: 10px 14px;
+}
+
+.studio-measure-details summary {
+  font-weight: 600;
+  font-size: 0.84rem;
+  color: #c084fc;
+  cursor: pointer;
+  outline: none;
+}
+
+
+/* ============================================================================
+   8. DARK FANTASY ATELIER — PHÒNG TẠO PROMPT 15-FRAME (STUDIO REDESIGN)
+   ============================================================================ */
+.atelier-prompt-studio-root {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  width: 100%;
+}
+
+.atelier-prompt-studio-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 22px 24px;
+  background: rgba(18, 13, 34, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--atl-border-amethyst, rgba(168, 85, 247, 0.22));
+  border-radius: 16px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+}
+
+.atelier-prompt-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid rgba(168, 85, 247, 0.15);
+  padding-bottom: 14px;
+}
+
+.atelier-prompt-card-title {
+  margin: 0;
+  font-size: 1.12rem;
+  font-weight: 700;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.atelier-prompt-card-desc {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--atl-text-secondary, #a39bc2);
+  line-height: 1.45;
+}
+
+/* Lưới các trường nhập liệu nhân vật mới */
+.atelier-prompt-fields-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+
+.atelier-prompt-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.atelier-prompt-field-label {
+  font-size: 0.825rem;
+  font-weight: 600;
+  color: #f5f3ff;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.atelier-prompt-input {
+  width: 100%;
+  padding: 11px 14px;
+  border-radius: 9px;
+  background: rgba(10, 7, 20, 0.9);
+  border: 1px solid rgba(168, 85, 247, 0.22);
+  color: #ffffff;
+  font-size: 0.86rem;
+  font-family: inherit;
+  outline: none;
+  box-sizing: border-box;
+  transition: all 0.2s ease;
+}
+
+.atelier-prompt-input:focus {
+  border-color: #c084fc;
+  box-shadow: 0 0 0 3px rgba(192, 132, 252, 0.18);
+  background: rgba(14, 10, 26, 0.95);
+}
+
+.atelier-prompt-select {
+  width: 100%;
+  padding: 11px 14px;
+  border-radius: 9px;
+  background: rgba(10, 7, 20, 0.9);
+  border: 1px solid rgba(168, 85, 247, 0.22);
+  color: #ffffff;
+  font-size: 0.86rem;
+  font-family: inherit;
+  outline: none;
+  cursor: pointer;
+  box-sizing: border-box;
+  transition: all 0.2s ease;
+}
+
+.atelier-prompt-select:focus {
+  border-color: #c084fc;
+  box-shadow: 0 0 0 3px rgba(192, 132, 252, 0.18);
+}
+
+/* Nút dịch mô tả sang tiếng Anh */
+.atelier-prompt-translate-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0;
+  flex-wrap: wrap;
+}
+
+.atelier-prompt-btn-translate {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 14px;
+  border-radius: 8px;
+  font-size: 0.775rem;
+  font-weight: 600;
+  cursor: pointer;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  color: #38bdf8;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.atelier-prompt-btn-translate:hover:not(:disabled) {
+  background: rgba(56, 189, 248, 0.22);
+  color: #ffffff;
+  box-shadow: 0 0 14px rgba(56, 189, 248, 0.25);
+}
+
+/* Hàng Checkbox Kế Thừa Phong Cách */
+.atelier-prompt-checkbox-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 6px 0;
+}
+
+.atelier-prompt-check-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 9px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  background: rgba(14, 10, 26, 0.8);
+  border: 1px solid rgba(168, 85, 247, 0.2);
+  color: var(--atl-text-secondary, #a39bc2);
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.atelier-prompt-check-pill.active {
+  background: rgba(147, 51, 234, 0.22);
+  border-color: #c084fc;
+  color: #ffffff;
+  box-shadow: 0 0 12px rgba(168, 85, 247, 0.2);
+}
+
+.atelier-prompt-check-pill input {
+  accent-color: #c084fc;
+  cursor: pointer;
+  width: 15px;
+  height: 15px;
+}
+
+/* Tóm tắt kế thừa */
+.atelier-prompt-summary-box {
+  padding: 14px 18px;
+  border-radius: 12px;
+  background: rgba(12, 8, 24, 0.9);
+  border: 1px solid rgba(168, 85, 247, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--atl-text-secondary, #a39bc2);
+}
+
+.atelier-prompt-summary-box strong {
+  color: #c084fc;
+  margin-right: 6px;
+}
+
+/* ============================================================================
+   9. MA TRẬN 15 FRAME HOẠT HỌA ATELIER (FRAME ACTION MATRIX)
+   ============================================================================ */
+.atelier-matrix-card {
+  background: rgba(14, 10, 26, 0.88);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(168, 85, 247, 0.22);
+  border-radius: 14px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+}
+
+.atelier-matrix-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  border-bottom: 1px solid rgba(168, 85, 247, 0.15);
+  padding-bottom: 12px;
+}
+
+.atelier-matrix-title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.atelier-matrix-title {
+  margin: 0;
+  font-size: 0.96rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.atelier-matrix-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 99px;
+  background: rgba(147, 51, 234, 0.2);
+  border: 1px solid rgba(192, 132, 252, 0.35);
+  color: #c084fc;
+}
+
+/* 3 Tab Hướng Nhìn (Direction Tabs) */
+.atelier-matrix-dir-tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.atelier-matrix-dir-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 14px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(22, 16, 40, 0.7);
+  color: var(--atl-text-secondary, #a39bc2);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.atelier-matrix-dir-btn:hover {
+  background: rgba(147, 51, 234, 0.18);
+  border-color: rgba(192, 132, 252, 0.35);
+  color: #ffffff;
+}
+
+.atelier-matrix-dir-btn.active {
+  background: linear-gradient(135deg, rgba(147, 51, 234, 0.35) 0%, rgba(99, 102, 241, 0.25) 100%);
+  border-color: #c084fc;
+  color: #ffffff;
+  box-shadow: 0 0 14px rgba(168, 85, 247, 0.25);
+}
+
+/* Lưới 5 Frame Hoạt Họa */
+.atelier-matrix-frames-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.atelier-matrix-frame-card {
+  padding: 12px;
+  border-radius: 10px;
+  background: rgba(10, 7, 20, 0.9);
+  border: 1px solid rgba(168, 85, 247, 0.18);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: border-color 0.2s ease;
+}
+
+.atelier-matrix-frame-card:focus-within {
+  border-color: #c084fc;
+  box-shadow: 0 0 10px rgba(168, 85, 247, 0.15);
+}
+
+.atelier-matrix-frame-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.atelier-matrix-frame-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.atelier-matrix-frame-textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 7px;
+  background: rgba(6, 4, 14, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #f1f5f9;
+  font-size: 0.78rem;
+  font-family: Consolas, monospace;
+  line-height: 1.45;
+  resize: vertical;
+  box-sizing: border-box;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.atelier-matrix-frame-textarea:focus {
+  border-color: #c084fc;
+}
+
+/* ============================================================================
+   10. THẺ HIỂN THỊ CÂU PROMPT XUẤT BẢN (PROMPT OUTPUT CARDS)
+   ============================================================================ */
+.atelier-prompt-out-card {
+  background: rgba(14, 10, 26, 0.88);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(168, 85, 247, 0.2);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+}
+
+.atelier-prompt-out-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  background: rgba(18, 13, 34, 0.85);
+  border-bottom: 1px solid rgba(168, 85, 247, 0.15);
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.atelier-prompt-out-title {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.atelier-prompt-out-textarea {
+  width: 100%;
+  padding: 14px 18px;
+  background: rgba(8, 5, 16, 0.95);
+  border: none;
+  color: #f1f5f9;
+  font-family: Consolas, 'Fira Code', monospace;
+  font-size: 0.82rem;
+  line-height: 1.55;
+  resize: vertical;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.atelier-prompt-action-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  background: rgba(147, 51, 234, 0.08);
+  border: 1px solid rgba(168, 85, 247, 0.25);
+  border-radius: 12px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+/* ============================================================================
+   11. CHI TIẾT ĐẶC TẢ & BẢNG MÀU CỐT LÕI (DETAILS & MASTER COLOR)
+   ============================================================================ */
+.atelier-details-card {
+  border-radius: 12px;
+  background: rgba(14, 10, 26, 0.75);
+  border: 1px solid rgba(168, 85, 247, 0.2);
+  padding: 12px 16px;
+  margin-top: 8px;
+  transition: all 0.25s ease;
+}
+
+.atelier-details-card[open] {
+  border-color: rgba(192, 132, 252, 0.4);
+  background: rgba(18, 13, 34, 0.9);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.atelier-details-summary {
+  cursor: pointer;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: #c084fc;
+  user-select: none;
+  outline: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 0;
+  transition: color 0.15s ease;
+}
+
+.atelier-details-summary:hover {
+  color: #e9d5ff;
+}
+
+.atelier-master-color-card {
+  margin-top: 14px;
+  padding: 16px;
+  background: rgba(12, 8, 24, 0.92);
+  border: 1px solid rgba(168, 85, 247, 0.25);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.atelier-master-color-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.atelier-master-color-title {
+  margin: 0;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.atelier-color-swatches-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.atelier-color-swatch-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 0.72rem;
+  font-family: Consolas, monospace;
+  color: #e2e8f0;
+}
+
+.atelier-color-swatch-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  display: inline-block;
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.5);
+}
+
+.atelier-btn-amber-send {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 8px 16px;
+  border-radius: 9px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  background: linear-gradient(135deg, rgba(234, 179, 8, 0.2) 0%, rgba(245, 158, 11, 0.15) 100%);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  color: #fef08a;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 14px rgba(245, 158, 11, 0.15);
+}
+
+.atelier-btn-amber-send:hover {
+  background: linear-gradient(135deg, rgba(234, 179, 8, 0.3) 0%, rgba(245, 158, 11, 0.25) 100%);
+  border-color: #fbbf24;
+  color: #ffffff;
+  box-shadow: 0 0 18px rgba(245, 158, 11, 0.35);
+  transform: translateY(-1px);
+}
+
+.atelier-btn-purple-save {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 8px 18px;
+  border-radius: 9px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  background: linear-gradient(135deg, #9333ea 0%, #6366f1 100%);
+  border: 1px solid rgba(192, 132, 252, 0.5);
+  color: #ffffff;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 16px rgba(147, 51, 234, 0.35);
+}
+
+.atelier-btn-purple-save:hover:not(:disabled) {
+  background: linear-gradient(135deg, #a855f7 0%, #4f46e5 100%);
+  box-shadow: 0 0 22px rgba(168, 85, 247, 0.55);
+  transform: translateY(-1px);
+}
+
+.atelier-btn-purple-save:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Thẻ Ràng buộc & Cấm kỵ */
+.atelier-constraint-card {
+  background: rgba(18, 13, 34, 0.85);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(168, 85, 247, 0.22);
+  border-radius: 14px;
+  padding: 20px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+}
+
+.atelier-constraint-title {
+  margin: 0;
+  font-size: 0.98rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #ffffff;
+}
+
+.atelier-constraint-tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.atelier-constraint-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 8px;
+  font-size: 0.775rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.atelier-constraint-chip.success {
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: #6ee7b7;
+}
+
+.atelier-constraint-chip.warning {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+}
+

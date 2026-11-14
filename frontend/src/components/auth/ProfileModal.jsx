@@ -30,7 +30,8 @@ import {
 // ========================================================
 // 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
 // ========================================================
-// Kế thừa phong cách Dark UI từ theme.css thông qua index.css
+// Kế thừa phong cách Dark Fantasy Atelier từ auth-atelier.css
+import '../../styles/auth-atelier.css';
 
 /**
  * Biểu thức chính quy kiểm tra định dạng Gmail.
@@ -180,33 +181,8 @@ export default function ProfileModal({ currentUser, onClose, onProfileUpdated })
   };
 
   return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 9999,
-      background: 'rgba(6, 4, 15, 0.85)',
-      backdropFilter: 'blur(16px)',
-      padding: '16px'
-    }}>
-      <div style={{
-        width: '100%',
-        maxWidth: '520px',
-        maxHeight: '90vh',
-        overflowY: 'auto',
-        background: 'linear-gradient(145deg, rgba(26, 18, 51, 0.98) 0%, rgba(13, 9, 28, 0.99) 100%)',
-        border: '1px solid rgba(168, 85, 247, 0.35)',
-        borderRadius: '16px',
-        boxShadow: '0 20px 50px rgba(0, 0, 0, 0.65), 0 0 30px rgba(139, 92, 246, 0.25)',
-        padding: '26px',
-        color: 'var(--text-white)',
-        position: 'relative'
-      }}>
+    <div className="atelier-auth-overlay" onClick={onClose}>
+      <div className="atelier-profile-box" onClick={(e) => e.stopPropagation()}>
         {/* Nút Đóng Modal (X) */}
         <button
           type="button"

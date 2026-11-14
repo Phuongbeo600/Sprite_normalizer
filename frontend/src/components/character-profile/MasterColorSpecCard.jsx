@@ -6,8 +6,8 @@ import React, { useState } from 'react';
 // ========================================================
 // 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
 // ========================================================
-// lucide-react: Biểu tượng bảng màu, sao chép và hoàn tất
-import { Palette, Copy, Check } from 'lucide-react';
+// lucide-react: Biểu tượng bảng màu ma thuật, sao chép nội dung và dấu tích hoàn tất
+import { Palette, Copy, Check, RotateCcw } from 'lucide-react';
 
 // ========================================================
 // 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Components & Dữ liệu)
@@ -17,19 +17,20 @@ import { Palette, Copy, Check } from 'lucide-react';
 // ========================================================
 // 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
 // ========================================================
-// Kế thừa các lớp CSS từ theme.css
+// analysis-atelier.css: Hệ thống phong cách Dark Fantasy Atelier huyền bí
+import '../../styles/analysis-atelier.css';
 
 /**
  * Khung To Nhất: Bảng Quy Định Màu Sắc & Đồ Họa Cốt Lõi (Master Color Specifications Card).
- * Cho phép người dùng xem dải ô màu chủ đạo, chỉnh sửa câu prompt quy chuẩn màu
- * và khôi phục về giá trị mặc định được tính toán từ ảnh mẫu.
+ * Cho phép người dùng kiểm tra dải ô màu chủ đạo, tinh chỉnh đặc tả prompt màu
+ * và khôi phục về giá trị mặc định được tính toán từ ảnh mẫu Pixel Art.
  * 
  * @param {Object} props Thuộc tính của component.
  * @param {string} props.masterColorPrompt Nội dung câu prompt màu sắc hiện tại.
  * @param {Function} props.setMasterColorPrompt Hàm cập nhật nội dung prompt màu sắc.
  * @param {string} props.defaultMasterColorPrompt Nội dung prompt màu sắc mặc định.
  * @param {Array<string>} [props.topHexList=[]] Danh sách mã màu HEX chủ đạo.
- * @returns {React.ReactElement} Thẻ giao diện khung màu sắc cốt lõi.
+ * @returns {React.ReactElement} Thẻ giao diện khung màu sắc cốt lõi phong cách Atelier.
  */
 export default function MasterColorSpecCard({
   masterColorPrompt,
@@ -37,10 +38,11 @@ export default function MasterColorSpecCard({
   defaultMasterColorPrompt,
   topHexList = []
 }) {
+  // Trạng thái đã sao chép câu prompt màu vào clipboard hay chưa
   const [copiedColor, setCopiedColor] = useState(false);
 
   /**
-   * Sao chép khung màu vào bộ nhớ tạm.
+   * Sao chép khung màu vào bộ nhớ tạm của hệ điều hành.
    */
   const handleCopyColor = () => {
     if (!masterColorPrompt) return;
@@ -50,76 +52,75 @@ export default function MasterColorSpecCard({
   };
 
   return (
-    <div style={{
-      marginTop: '16px',
-      padding: '14px',
-      background: 'rgba(139, 92, 246, 0.05)',
-      border: '1px solid var(--accent-purple)',
-      borderRadius: '8px'
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
-        <h4 style={{ margin: 0, color: 'var(--text-white)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem' }}>
-          <Palette size={16} color="var(--accent-purple)" />
-          KHUNG TO NHẤT: Bảng Quy Định Màu Sắc & Đồ Họa Cốt Lõi (Master Color Specifications)
+    <div className="atelier-master-color-card">
+      {/* Tiêu đề thanh công cụ và các nút thao tác nhanh */}
+      <div className="atelier-master-color-header">
+        <h4 className="atelier-master-color-title">
+          <Palette size={16} color="#c084fc" />
+          <span>KHUNG TO NHẤT: Bảng Quy Định Màu Sắc & Đồ Họa Cốt Lõi (Master Color Specifications)</span>
         </h4>
+
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {/* Nút khôi phục câu prompt mặc định */}
           <button
             type="button"
-            className="btn-ghost-studio"
+            className="atelier-matrix-dir-btn"
             onClick={() => setMasterColorPrompt(defaultMasterColorPrompt)}
-            style={{ fontSize: '0.725rem' }}
-            title="Khôi phục câu prompt màu mặc định đo từ ảnh mẫu"
+            title="Khôi phục câu prompt màu mặc định được trích xuất từ ảnh mẫu"
+            style={{ padding: '5px 10px', fontSize: '0.725rem' }}
           >
-            Khôi phục mặc định
+            <RotateCcw size={12} />
+            <span>Khôi phục mặc định</span>
           </button>
+
+          {/* Nút sao chép câu prompt màu vào bộ nhớ đệm */}
           <button
             type="button"
-            className="btn-ghost-studio"
+            className="atelier-matrix-dir-btn"
             onClick={handleCopyColor}
-            style={{ color: copiedColor ? '#10b981' : 'var(--text-highlight)', fontSize: '0.725rem' }}
+            title="Sao chép toàn bộ đặc tả màu sắc vào Clipboard"
+            style={{
+              padding: '5px 12px',
+              fontSize: '0.725rem',
+              color: copiedColor ? '#34d399' : '#c084fc',
+              borderColor: copiedColor ? 'rgba(52, 211, 153, 0.4)' : undefined,
+              background: copiedColor ? 'rgba(16, 185, 129, 0.15)' : undefined
+            }}
           >
-            {copiedColor ? <Check size={12} color="#10b981" /> : <Copy size={12} />}
-            {copiedColor ? 'Đã chép!' : 'Sao chép khung màu'}
+            {copiedColor ? <Check size={12} color="#34d399" /> : <Copy size={12} />}
+            <span>{copiedColor ? 'Đã sao chép!' : 'Sao chép khung màu'}</span>
           </button>
         </div>
       </div>
 
-      <p style={{ margin: '0 0 8px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+      {/* Lời giải thích ý nghĩa của khung đặc tả màu sắc */}
+      <p style={{ margin: 0, fontSize: '0.775rem', color: 'var(--atl-text-secondary, #a39bc2)', lineHeight: 1.5 }}>
         Khung to nhất này đặt ở đầu câu Prompt để AI ép buộc toàn bộ 15 Frame hoạt họa bên dưới tuân thủ nghiêm ngặt cùng bảng màu, số màu và phong cách đổ bóng của nhân vật mẫu.
       </p>
 
-      {/* Dải Swatches màu nếu có dữ liệu đo được */}
+      {/* Dải Swatches màu chủ đạo trích xuất từ mẫu pixel */}
       {topHexList && topHexList.length > 0 && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px', flexWrap: 'wrap' }}>
-          <span style={{ fontSize: '0.7rem', color: 'var(--text-dim)', fontWeight: 600 }}>MÀU CHỦ ĐẠO:</span>
+        <div className="atelier-color-swatches-row">
+          <span style={{ fontSize: '0.7rem', color: '#c084fc', fontWeight: 700, letterSpacing: '0.5px' }}>
+            MÀU CHỦ ĐẠO ({Math.min(10, topHexList.length)}):
+          </span>
           {topHexList.slice(0, 10).map((hex, i) => (
-            <span
-              key={i}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '4px',
-                padding: '2px 6px',
-                borderRadius: '4px',
-                background: 'rgba(255, 255, 255, 0.05)',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
-                fontSize: '0.7rem',
-                fontFamily: 'monospace'
-              }}
-            >
-              <span style={{ width: 10, height: 10, borderRadius: 2, background: hex, display: 'inline-block' }} />
+            <span key={i} className="atelier-color-swatch-chip">
+              <span className="atelier-color-swatch-dot" style={{ background: hex }} />
               {hex}
             </span>
           ))}
         </div>
       )}
 
+      {/* Hộp soạn thảo văn bản câu prompt màu sắc */}
       <textarea
-        className="studio-prompt-textarea"
+        className="atelier-matrix-frame-textarea"
         rows={5}
         value={masterColorPrompt}
         onChange={(e) => setMasterColorPrompt(e.target.value)}
-        style={{ borderRadius: '6px', border: '1px solid var(--border-card)', background: '#0a0f1d' }}
+        placeholder="Nhập quy định bảng màu cốt lõi..."
+        style={{ fontSize: '0.8rem', padding: '10px 12px', minHeight: '100px' }}
       />
     </div>
   );

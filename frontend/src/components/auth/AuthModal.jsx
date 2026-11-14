@@ -31,7 +31,8 @@ import {
 // ========================================================
 // 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
 // ========================================================
-// Kế thừa phong cách Dark UI từ theme.css thông qua index.css
+// Kế thừa phong cách Dark Fantasy Atelier từ auth-atelier.css
+import '../../styles/auth-atelier.css';
 
 /**
  * Biểu thức chính quy kiểm tra định dạng tài khoản bắt buộc là Gmail.
@@ -239,82 +240,42 @@ export default function AuthModal({ onLoginSuccess }) {
   };
 
   return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 9999,
-      background: 'rgba(6, 4, 15, 0.85)',
-      backdropFilter: 'blur(16px)',
-      padding: '16px'
-    }}>
-      <div style={{
-        width: '100%',
-        maxWidth: mode === 'register' ? '490px' : '430px',
-        background: 'linear-gradient(145deg, rgba(26, 18, 51, 0.96) 0%, rgba(13, 9, 28, 0.98) 100%)',
-        border: '1px solid rgba(168, 85, 247, 0.35)',
-        borderRadius: '16px',
-        boxShadow: '0 20px 50px rgba(0, 0, 0, 0.65), 0 0 30px rgba(139, 92, 246, 0.25)',
-        padding: '28px 26px',
-        color: 'var(--text-white)',
-        transition: 'all 0.3s ease'
-      }}>
+    <div className="atelier-auth-overlay">
+      <div
+        className="atelier-auth-box"
+        style={{
+          maxWidth: mode === 'register' ? '500px' : '440px'
+        }}
+      >
         {/* 1. Header Logo & Tiêu Đề */}
-        <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+        <div style={{ textAlign: 'center', marginBottom: '16px' }}>
           <div style={{
-            width: '50px',
-            height: '50px',
+            width: '52px',
+            height: '52px',
             margin: '0 auto 10px',
             borderRadius: '14px',
-            background: 'linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)',
+            background: 'linear-gradient(135deg, #7e22ce 0%, #9333ea 50%, #6366f1 100%)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            boxShadow: '0 8px 20px rgba(139, 92, 246, 0.4)'
+            boxShadow: '0 8px 24px rgba(147, 51, 234, 0.45)'
           }}>
             <Bot size={28} color="#ffffff" />
           </div>
-          <h2 style={{ margin: 0, fontSize: '1.3rem', fontWeight: 700 }}>
+          <h2 style={{ margin: 0, fontSize: '1.3rem', fontWeight: 700, color: '#ffffff' }}>
             Sprite AI Studio
           </h2>
-          <p style={{ margin: '3px 0 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+          <p style={{ margin: '3px 0 0', fontSize: '0.8rem', color: 'var(--atl-text-secondary)' }}>
             Hệ thống Chuẩn Hóa &amp; Hoạt Họa Pixel Game
           </p>
         </div>
 
         {/* 2. Thanh Chuyển Tab Đăng Nhập / Đăng Ký */}
-        <div style={{
-          display: 'flex',
-          background: 'rgba(0, 0, 0, 0.35)',
-          borderRadius: '10px',
-          padding: '4px',
-          marginBottom: '18px',
-          border: '1px solid rgba(255, 255, 255, 0.06)'
-        }}>
+        <div className="atelier-auth-tabs">
           <button
             type="button"
             onClick={() => { setMode('login'); setErrorMsg(''); setSuccessMsg(''); setGmailError(''); }}
-            style={{
-              flex: 1,
-              padding: '8px 12px',
-              borderRadius: '8px',
-              border: 'none',
-              background: mode === 'login' ? 'var(--accent-purple)' : 'transparent',
-              color: mode === 'login' ? '#ffffff' : 'var(--text-muted)',
-              fontWeight: 600,
-              fontSize: '0.85rem',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '6px',
-              transition: 'all 0.2s ease'
-            }}
+            className={`atelier-auth-tab-btn ${mode === 'login' ? 'active' : ''}`}
           >
             <LogIn size={15} />
             <span>Đăng nhập</span>
@@ -323,22 +284,7 @@ export default function AuthModal({ onLoginSuccess }) {
           <button
             type="button"
             onClick={() => { setMode('register'); setErrorMsg(''); setSuccessMsg(''); setGmailError(''); }}
-            style={{
-              flex: 1,
-              padding: '8px 12px',
-              borderRadius: '8px',
-              border: 'none',
-              background: mode === 'register' ? 'var(--accent-purple)' : 'transparent',
-              color: mode === 'register' ? '#ffffff' : 'var(--text-muted)',
-              fontWeight: 600,
-              fontSize: '0.85rem',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '6px',
-              transition: 'all 0.2s ease'
-            }}
+            className={`atelier-auth-tab-btn ${mode === 'register' ? 'active' : ''}`}
           >
             <UserPlus size={15} />
             <span>Đăng ký mới</span>

@@ -6,7 +6,7 @@ import React, { useState, useEffect } from 'react';
 // ========================================================
 // 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
 // ========================================================
-// lucide-react: Bộ icon minh họa quản trị, người dùng, thùng rác, làm mới, khiên bảo vệ
+// lucide-react: Bộ biểu tượng quản trị, người dùng, thùng rác, làm mới, khiên bảo vệ, ổ khóa
 import {
   Users,
   ShieldAlert,
@@ -29,10 +29,11 @@ import {
 // ========================================================
 // 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
 // ========================================================
-// Kế thừa phong cách Dark UI từ theme.css thông qua index.css
+// Kế thừa phong cách Dark Fantasy Atelier từ admin-atelier.css
+import '../styles/admin-atelier.css';
 
 /**
- * Màn hình Quản trị Tài khoản Người dùng (Admin Users Management).
+ * Màn hình Quản trị Tài khoản Người dùng (Admin Users Management) — Dark Fantasy Atelier Edition.
  * Dành riêng cho tài khoản Quản trị viên (Admin):
  * - Xem danh sách toàn bộ tài khoản trong CSDL MySQL.
  * - Xem số lượng dự án thuộc quyền sở hữu của từng tài khoản.
@@ -77,7 +78,6 @@ export default function AdminUsers({ currentUser }) {
 
   /**
    * Xử lý xóa một tài khoản người dùng thường khỏi MySQL.
-   * 
    * @param {Object} user Tài khoản cần xóa.
    */
   const handleDeleteUser = async (user) => {
@@ -123,39 +123,24 @@ export default function AdminUsers({ currentUser }) {
   };
 
   return (
-    <div style={{ padding: '24px 32px', maxWidth: '1100px', margin: '0 auto', color: 'var(--text-white)' }}>
+    <div className="atelier-admin-root">
       {/* 1. Header Trang Quản Trị */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '14px',
-        marginBottom: '24px'
-      }}>
-        <div>
-          <h1 style={{
-            margin: 0,
-            fontSize: '1.45rem',
-            fontWeight: 700,
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px'
-          }}>
-            <ShieldAlert size={26} color="#a855f7" />
-            Quản Lý Tài Khoản Người Dùng (Admin Panel)
+      <div className="atelier-admin-header">
+        <div className="atelier-admin-header-title">
+          <h1 className="atelier-admin-title-heading">
+            <ShieldAlert size={24} color="#c084fc" />
+            <span>Quản Trị Người Dùng Hệ Thống (Master Realm Control)</span>
           </h1>
-          <p style={{ margin: '6px 0 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-            Xem toàn bộ người dùng trong CSDL MySQL, theo dõi số lượng dự án và dọn dẹp tài khoản vi phạm.
+          <p className="atelier-admin-title-subtext">
+            Giám sát toàn bộ tài khoản trong MySQL, theo dõi quyền hạn và số lượng dự án thuộc sở hữu.
           </p>
         </div>
 
         <button
           type="button"
-          className="btn-secondary-studio"
+          className="atelier-assets-btn-refresh"
           onClick={fetchUsersList}
           disabled={loading}
-          style={{ minHeight: '36px', fontSize: '0.825rem', gap: '6px' }}
         >
           <RefreshCw size={14} className={loading ? 'spin' : ''} />
           <span>Làm mới danh sách</span>
@@ -163,35 +148,22 @@ export default function AdminUsers({ currentUser }) {
       </div>
 
       {/* 2. Thẻ Thống Kê Tổng Quan */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-        gap: '16px',
-        marginBottom: '24px'
-      }}>
-        <div className="studio-metric-card" style={{ padding: '16px 20px', borderRadius: '10px' }}>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            Tổng số tài khoản
-          </div>
-          <div style={{ fontSize: '1.6rem', fontWeight: 700, color: 'var(--text-white)', marginTop: '4px' }}>
-            {users.length}
-          </div>
+      <div className="atelier-admin-stats-grid">
+        <div className="atelier-admin-stat-card">
+          <div className="atelier-admin-stat-label">Tổng số tài khoản</div>
+          <div className="atelier-admin-stat-value">{users.length}</div>
         </div>
 
-        <div className="studio-metric-card" style={{ padding: '16px 20px', borderRadius: '10px' }}>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            Quản trị viên (Admin)
-          </div>
-          <div style={{ fontSize: '1.6rem', fontWeight: 700, color: '#c084fc', marginTop: '4px' }}>
+        <div className="atelier-admin-stat-card">
+          <div className="atelier-admin-stat-label">Quản trị viên (Admin)</div>
+          <div className="atelier-admin-stat-value amethyst">
             {users.filter((u) => u.role === 'admin').length}
           </div>
         </div>
 
-        <div className="studio-metric-card" style={{ padding: '16px 20px', borderRadius: '10px' }}>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            Người dùng thông thường
-          </div>
-          <div style={{ fontSize: '1.6rem', fontWeight: 700, color: '#38bdf8', marginTop: '4px' }}>
+        <div className="atelier-admin-stat-card">
+          <div className="atelier-admin-stat-label">Người dùng thông thường</div>
+          <div className="atelier-admin-stat-value cyan">
             {users.filter((u) => u.role !== 'admin').length}
           </div>
         </div>
@@ -200,16 +172,15 @@ export default function AdminUsers({ currentUser }) {
       {/* 3. Thông Báo Trạng Thái */}
       {feedback && (
         <div style={{
-          padding: '12px 16px',
-          borderRadius: '8px',
+          padding: '12px 18px',
+          borderRadius: '10px',
           background: feedback.type === 'success' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
-          border: `1px solid ${feedback.type === 'success' ? '#10b981' : '#ef4444'}`,
-          color: feedback.type === 'success' ? '#34d399' : '#f87171',
+          border: `1px solid ${feedback.type === 'success' ? 'rgba(16, 185, 129, 0.35)' : 'rgba(239, 68, 68, 0.35)'}`,
+          color: feedback.type === 'success' ? '#6ee7b7' : '#fca5a5',
           fontSize: '0.825rem',
           display: 'flex',
           alignItems: 'center',
-          gap: '8px',
-          marginBottom: '20px'
+          gap: '10px'
         }}>
           {feedback.type === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
           <span>{feedback.message}</span>
@@ -217,30 +188,22 @@ export default function AdminUsers({ currentUser }) {
       )}
 
       {/* 4. Bảng Danh Sách Tài Khoản Người Dùng Trong MySQL */}
-      <div className="studio-metric-card" style={{ padding: 0, borderRadius: '12px', overflow: 'hidden' }}>
-        <div style={{
-          padding: '16px 20px',
-          borderBottom: '1px solid var(--border-panel)',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px'
-        }}>
-          <Users size={18} color="var(--accent-purple)" />
-          <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 600 }}>
-            Danh Sách Tài Khoản Trong Cơ Sở Dữ Liệu MySQL ({users.length})
-          </h3>
+      <div className="atelier-admin-table-card">
+        <div className="atelier-admin-table-header">
+          <Users size={18} color="#c084fc" />
+          <h3>Danh Sách Tài Khoản Trong Cơ Sở Dữ Liệu MySQL ({users.length})</h3>
         </div>
 
         <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.85rem' }}>
+          <table className="atelier-admin-table">
             <thead>
-              <tr style={{ background: 'rgba(0, 0, 0, 0.3)', borderBottom: '1px solid var(--border-panel)', color: 'var(--text-dim)' }}>
-                <th style={{ padding: '12px 16px', width: '60px' }}>ID</th>
-                <th style={{ padding: '12px 16px' }}>Tên đăng nhập</th>
-                <th style={{ padding: '12px 16px' }}>Vai trò / Quyền hạn</th>
-                <th style={{ padding: '12px 16px' }}>Dự án sở hữu</th>
-                <th style={{ padding: '12px 16px' }}>Ngày tạo tài khoản</th>
-                <th style={{ padding: '12px 16px', textAlign: 'right' }}>Hành động</th>
+              <tr>
+                <th style={{ width: '60px' }}>ID</th>
+                <th>Tên đăng nhập</th>
+                <th>Vai trò / Quyền hạn</th>
+                <th>Dự án sở hữu</th>
+                <th>Ngày tạo tài khoản</th>
+                <th style={{ textAlign: 'right' }}>Hành động</th>
               </tr>
             </thead>
             <tbody>
@@ -251,132 +214,70 @@ export default function AdminUsers({ currentUser }) {
                 const isDeleting = deletingId === u.id;
 
                 return (
-                  <tr
-                    key={u.id}
-                    style={{
-                      borderBottom: '1px solid rgba(255, 255, 255, 0.04)',
-                      transition: 'background 0.2s ease'
-                    }}
-                    onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.02)'; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
-                  >
-                    <td style={{ padding: '14px 16px', fontFamily: 'monospace', color: 'var(--text-dim)' }}>
+                  <tr key={u.id}>
+                    <td style={{ fontFamily: 'monospace', color: '#6e658a' }}>
                       #{u.id}
                     </td>
 
-                    <td style={{ padding: '14px 16px', fontWeight: 600, color: 'var(--text-white)' }}>
+                    <td style={{ fontWeight: 600, color: '#ffffff' }}>
                       {u.username}
                       {u.username === currentUser?.username && (
-                        <span style={{ fontSize: '0.7rem', color: '#c084fc', marginLeft: '6px' }}>
+                        <span style={{ fontSize: '0.72rem', color: '#c084fc', marginLeft: '8px', fontWeight: 500 }}>
                           (Bạn đang đăng nhập)
                         </span>
                       )}
                     </td>
 
-                    <td style={{ padding: '14px 16px' }}>
+                    <td>
                       {isAdmin ? (
-                        <span style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                          padding: '3px 8px',
-                          borderRadius: '12px',
-                          background: 'rgba(168, 85, 247, 0.15)',
-                          border: '1px solid rgba(168, 85, 247, 0.4)',
-                          color: '#c084fc',
-                          fontSize: '0.75rem',
-                          fontWeight: 600
-                        }}>
+                        <span className="atelier-admin-badge admin">
                           <ShieldCheck size={12} />
-                          Admin Tối Cao
+                          <span>Admin Tối Cao</span>
                         </span>
                       ) : isOriginTest ? (
-                        <span style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                          padding: '3px 8px',
-                          borderRadius: '12px',
-                          background: 'rgba(16, 185, 129, 0.15)',
-                          border: '1px solid rgba(16, 185, 129, 0.4)',
-                          color: '#34d399',
-                          fontSize: '0.75rem',
-                          fontWeight: 600
-                        }}>
+                        <span className="atelier-admin-badge tester">
                           <Sparkles size={12} />
-                          Mẫu Kiểm Thử
+                          <span>Mẫu Kiểm Thử</span>
                         </span>
                       ) : (
-                        <span style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                          padding: '3px 8px',
-                          borderRadius: '12px',
-                          background: 'rgba(56, 189, 248, 0.15)',
-                          border: '1px solid rgba(56, 189, 248, 0.4)',
-                          color: '#38bdf8',
-                          fontSize: '0.75rem',
-                          fontWeight: 600
-                        }}>
-                          Người Dùng
+                        <span className="atelier-admin-badge user">
+                          <span>Người Dùng</span>
                         </span>
                       )}
                     </td>
 
-                    <td style={{ padding: '14px 16px', color: 'var(--text-white)' }}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                    <td style={{ color: '#f5f3ff' }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                         <FolderOpen size={14} color="#94a3b8" />
                         <strong>{u.project_count || 0}</strong> dự án
                       </span>
                     </td>
 
-                    <td style={{ padding: '14px 16px', fontSize: '0.775rem', color: 'var(--text-dim)' }}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    <td style={{ fontSize: '0.775rem', color: 'var(--atl-text-secondary)' }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
                         <Calendar size={13} />
                         {u.created_at || 'Mặc định ban đầu'}
                       </span>
                     </td>
 
-                    <td style={{ padding: '14px 16px', textAlign: 'right' }}>
+                    <td style={{ textAlign: 'right' }}>
                       {isUndeletable ? (
                         <span style={{
                           fontSize: '0.725rem',
-                          color: isOriginTest ? '#34d399' : 'var(--text-dim)',
+                          color: isOriginTest ? '#34d399' : '#6e658a',
                           display: 'inline-flex',
                           alignItems: 'center',
-                          gap: '4px'
+                          gap: '5px'
                         }}>
                           <Lock size={12} />
-                          {isOriginTest ? 'Kiểm thử (Không xóa)' : 'Không thể xóa'}
+                          <span>{isOriginTest ? 'Kiểm thử (Không xóa)' : 'Bảo vệ'}</span>
                         </span>
                       ) : (
                         <button
                           type="button"
                           disabled={isDeleting}
                           onClick={() => handleDeleteUser(u)}
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '5px',
-                            padding: '6px 12px',
-                            borderRadius: '6px',
-                            background: 'rgba(239, 68, 68, 0.12)',
-                            border: '1px solid rgba(239, 68, 68, 0.35)',
-                            color: '#f87171',
-                            fontSize: '0.75rem',
-                            fontWeight: 600,
-                            cursor: isDeleting ? 'wait' : 'pointer',
-                            transition: 'all 0.2s ease'
-                          }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.background = '#ef4444';
-                            e.currentTarget.style.color = '#ffffff';
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.background = 'rgba(239, 68, 68, 0.12)';
-                            e.currentTarget.style.color = '#f87171';
-                          }}
+                          className="atelier-admin-btn-delete"
                           title={`Xóa tài khoản ${u.username}`}
                         >
                           <Trash2 size={13} className={isDeleting ? 'spin' : ''} />

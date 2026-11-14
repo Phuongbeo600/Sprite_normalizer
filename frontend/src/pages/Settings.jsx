@@ -6,8 +6,16 @@ import React from 'react';
 // ========================================================
 // 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
 // ========================================================
-// lucide-react: Bộ icon hiển thị cài đặt chung, thông tin ứng dụng, robot AI và khóa bảo vệ
-import { Settings as SettingsIcon, Info, Bot, ShieldCheck, FolderGit2, Sparkles, ExternalLink } from 'lucide-react';
+// lucide-react: Bộ biểu tượng hiển thị cài đặt chung, thông tin ứng dụng, robot AI và khóa bảo vệ
+import {
+  Settings as SettingsIcon,
+  Info,
+  Bot,
+  ShieldCheck,
+  FolderGit2,
+  Sparkles,
+  ExternalLink
+} from 'lucide-react';
 
 // ========================================================
 // 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Components & Dữ liệu)
@@ -18,10 +26,11 @@ import { APP_CONFIG } from '../constants/initialProjects';
 // ========================================================
 // 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
 // ========================================================
-// Kế thừa phong cách Dark UI từ theme.css
+// Kế thừa phong cách Dark Fantasy Atelier từ settings-atelier.css
+import '../styles/settings-atelier.css';
 
 /**
- * Màn hình Cài đặt Chung Toàn cục (Global Application Settings).
+ * Màn hình Cài đặt Chung Toàn cục (Global Application Settings) — Dark Fantasy Atelier Edition.
  * Theo yêu cầu thiết kế mới:
  * - ĐÃ GỠ BỎ TOÀN BỘ CÁC Ô NHẬP API KEY Ở MÀN HÌNH NÀY.
  * - Chìa khóa API hiện được phân bổ và lưu trữ độc lập theo từng Dự án trong CSDL MySQL.
@@ -31,43 +40,42 @@ import { APP_CONFIG } from '../constants/initialProjects';
  */
 export default function Settings() {
   return (
-    <div className="studio-workspace-container" style={{ padding: '0 4px', maxWidth: '720px', margin: '0 auto' }}>
+    <div className="atelier-settings-root">
       {/* ========================================================
           1. THANH TIÊU ĐỀ CÀI ĐẶT CHUNG
           ======================================================== */}
-      <header className="studio-header-card">
-        <div className="studio-title-group">
-          <h1>
-            <SettingsIcon size={22} color="var(--accent-purple)" />
-            Cài Đặt Hệ Thống &amp; Thông Tin Ứng Dụng
-          </h1>
-          <p>
-            Quản trị thông tin phần mềm Sprite Normalizer &amp; AI Studio.
+      <div className="atelier-settings-header">
+        <div className="atelier-settings-header-title">
+          <h2 className="atelier-settings-title-heading">
+            <SettingsIcon size={22} color="#c084fc" />
+            <span>Cài Đặt Hệ Thống &amp; Thông Tin Ứng Dụng</span>
+          </h2>
+          <p className="atelier-settings-title-subtext">
+            Quản trị thông tin kiến trúc nền tảng Sprite Normalizer &amp; AI Studio.
           </p>
         </div>
-      </header>
+      </div>
 
       {/* ========================================================
           2. THÔNG BÁO CHUYỂN ĐỔI QUẢN LÝ API KEY THEO DỰ ÁN
           ======================================================== */}
       <div
-        className="profile-section-card"
+        className="atelier-settings-card"
         style={{
-          borderLeft: '3px solid var(--accent-purple)',
-          background: 'rgba(139, 92, 246, 0.08)',
-          marginBottom: '16px'
+          borderLeft: '4px solid #c084fc',
+          background: 'rgba(147, 51, 234, 0.08)'
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-          <Info size={20} color="var(--accent-purple)" style={{ flexShrink: 0, marginTop: '2px' }} />
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '14px' }}>
+          <Info size={22} color="#c084fc" style={{ flexShrink: 0, marginTop: '2px' }} />
           <div>
-            <h4 style={{ color: 'var(--text-white)', margin: '0 0 4px', fontSize: '0.9rem' }}>
-              Quản lý Chìa khóa API đã được chuyển vào từng Dự án
+            <h4 style={{ color: '#ffffff', margin: '0 0 6px', fontSize: '0.94rem', fontWeight: 700 }}>
+              Quản lý Chìa khóa API đã được chuyển vào từng Dự án độc lập
             </h4>
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', margin: '0 0 8px', lineHeight: '1.5' }}>
-              Chọn Gemini hoặc OpenAI và cấu hình khóa trong cài đặt từng dự án.
+            <p style={{ color: 'var(--atl-text-secondary)', fontSize: '0.825rem', margin: '0 0 10px', lineHeight: '1.5' }}>
+              Mỗi dự án game đều có thể sử dụng API Key riêng (Google Gemini hoặc OpenAI) được lưu tách biệt trong MySQL.
             </p>
-            <p style={{ color: 'var(--text-highlight)', fontSize: '0.8rem', margin: 0, fontWeight: 500 }}>
+            <p style={{ color: '#d8b4fe', fontSize: '0.825rem', margin: 0, fontWeight: 600 }}>
               👉 <strong>Cách cấu hình API Key:</strong> Mở một dự án trong danh sách ➔ Chọn mục <strong>"Cài đặt dự án"</strong> trên thanh điều hướng bên trái để kiểm tra hoặc nhập key riêng cho dự án đó.
             </p>
           </div>
@@ -77,41 +85,41 @@ export default function Settings() {
       {/* ========================================================
           3. THÔNG TIN PHIÊN BẢN & CÔNG NGHỆ ỨNG DỤNG
           ======================================================== */}
-      <div className="studio-metric-card" style={{ padding: '20px', borderRadius: '12px', marginBottom: '16px' }}>
-        <h4 style={{ color: 'var(--text-white)', fontSize: '0.9rem', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <Bot size={16} color="var(--accent-purple)" />
-          Thông tin Nền tảng
+      <div className="atelier-settings-card">
+        <h4 className="atelier-settings-card-title">
+          <Bot size={18} color="#c084fc" />
+          <span>Thông Tin Nền Tảng Kỹ Thuật</span>
         </h4>
 
-        <div className="profile-field-grid">
-          <div className="profile-field-item">
-            <strong>Tên ứng dụng</strong>
+        <div className="atelier-settings-info-grid">
+          <div className="atelier-settings-info-item">
+            <strong>Tên Ứng Dụng</strong>
             <span>Sprite Normalizer AI Studio</span>
           </div>
 
-          <div className="profile-field-item">
-            <strong>Phiên bản phần mềm</strong>
-            <span>v2.0.0 (Bản nâng cấp Kiến trúc MySQL)</span>
+          <div className="atelier-settings-info-item">
+            <strong>Phiên Bản Phần Mềm</strong>
+            <span>v2.0.0 (Bản nâng cấp Kiến trúc MySQL &amp; Atelier UI)</span>
           </div>
 
-          <div className="profile-field-item">
-            <strong>Công nghệ Frontend</strong>
-            <span>React 18 + Vite (Modern Dark Creative Studio)</span>
+          <div className="atelier-settings-info-item">
+            <strong>Công Nghệ Frontend</strong>
+            <span>React 18 + Vite (Dark Fantasy Atelier 70/30)</span>
           </div>
 
-          <div className="profile-field-item">
-            <strong>Công nghệ Backend</strong>
+          <div className="atelier-settings-info-item">
+            <strong>Công Nghệ Backend</strong>
             <span>FastAPI + OpenCV + NumPy + SQLAlchemy + Pydantic v2</span>
           </div>
 
-          <div className="profile-field-item">
-            <strong>Cơ sở dữ liệu</strong>
-            <span>MySQL (Hỗ trợ Multi-Project &amp; Preset DNA)</span>
+          <div className="atelier-settings-info-item">
+            <strong>Cơ Sở Dữ Liệu</strong>
+            <span>MySQL 8.0 (Multi-Project, Character Vault, Asset Sync)</span>
           </div>
 
-          <div className="profile-field-item">
-            <strong>Bài tập lớn</strong>
-            <span>Trí Tuệ Nhân Tạo - Đại học Công Nghệ (UET)</span>
+          <div className="atelier-settings-info-item">
+            <strong>Đồ Án Môn Học</strong>
+            <span>Trí Tuệ Nhân Tạo - Đại học Công Nghệ (UET - VNU)</span>
           </div>
         </div>
       </div>
@@ -119,24 +127,26 @@ export default function Settings() {
       {/* ========================================================
           4. TÀI LIỆU HƯỚNG DẪN LẤY API KEY
           ======================================================== */}
-      <div className="studio-metric-card" style={{ padding: '20px', borderRadius: '12px' }}>
-        <h4 style={{ color: 'var(--text-white)', fontSize: '0.9rem', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <Sparkles size={16} color="var(--accent-purple)" />
-          Hướng dẫn lấy Khóa API Miễn phí
+      <div className="atelier-settings-card">
+        <h4 className="atelier-settings-card-title">
+          <Sparkles size={18} color="#f59e0b" />
+          <span>Hướng Dẫn Lấy Khóa API Miễn Phí</span>
         </h4>
-        <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: '1.5', margin: '0 0 10px' }}>
+        <p style={{ fontSize: '0.825rem', color: 'var(--atl-text-secondary)', lineHeight: '1.55', margin: 0 }}>
           Hệ thống đề xuất sử dụng <strong>Google Gemini 1.5 Flash / Pro</strong> vì hoàn toàn miễn phí, hỗ trợ phân tích thị giác AI Vision cực kỳ chuẩn xác cho ảnh Pixel Art:
         </p>
-        <a
-          href="https://aistudio.google.com/app/apikey"
-          target="_blank"
-          rel="noreferrer"
-          className="btn-secondary-studio"
-          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', padding: '8px 14px' }}
-        >
-          <ExternalLink size={14} />
-          Truy cập Google AI Studio để lấy Key miễn phí
-        </a>
+        <div>
+          <a
+            href="https://aistudio.google.com/app/apikey"
+            target="_blank"
+            rel="noreferrer"
+            className="atelier-assets-btn-sub primary-link"
+            style={{ display: 'inline-flex', padding: '9px 16px', fontSize: '0.825rem' }}
+          >
+            <ExternalLink size={14} />
+            <span>Truy cập Google AI Studio để lấy Key miễn phí ➔</span>
+          </a>
+        </div>
       </div>
     </div>
   );

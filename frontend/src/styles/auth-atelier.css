@@ -1,0 +1,231 @@
+/**
+ * ============================================================================
+ * DARK FANTASY ATELIER — AUTHENTICATION & PROFILE MODAL STYLESHEET
+ * ============================================================================
+ * Phong cách: 70% Professional Creative Tool + 30% Dark Fantasy Pixel Art
+ * Chuẩn mực: Tasteskill 2.5 (Thanh lịch, công thái học, bảo mật cao)
+ * Tính năng: Đăng nhập/Đăng ký (AuthModal) & Quản lý Hồ sơ cá nhân (ProfileModal)
+ * ============================================================================
+ */
+
+/* ============================================================================
+   1. KHUNG LỚP PHỦ MÀN HÌNH (MODAL OVERLAY)
+   ============================================================================ */
+.atelier-auth-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(4, 2, 8, 0.88);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+/* ============================================================================
+   2. HỘP THOẠI XÁC THỰC (AUTH MODAL BOX)
+   ============================================================================ */
+.atelier-auth-box {
+  position: relative;
+  width: 100%;
+  max-width: 480px;
+  background: rgba(18, 13, 34, 0.95);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(192, 132, 252, 0.35);
+  border-radius: 18px;
+  padding: 28px 32px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.8), 0 0 35px rgba(147, 51, 234, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  color: var(--atl-text-primary, #f5f3ff);
+}
+
+.atelier-profile-box {
+  position: relative;
+  width: 100%;
+  max-width: 580px;
+  max-height: 90vh;
+  overflow-y: auto;
+  background: rgba(18, 13, 34, 0.95);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(192, 132, 252, 0.35);
+  border-radius: 18px;
+  padding: 28px 32px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.8), 0 0 35px rgba(147, 51, 234, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  color: var(--atl-text-primary, #f5f3ff);
+}
+
+/* ============================================================================
+   3. THANH CHUYỂN ĐỔI CHẾ ĐỘ ĐĂNG NHẬP / ĐĂNG KÝ (MODE TOGGLE TABS)
+   ============================================================================ */
+.atelier-auth-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 4px;
+  background: rgba(10, 7, 20, 0.85);
+  border: 1px solid rgba(168, 85, 247, 0.2);
+  border-radius: 10px;
+}
+
+.atelier-auth-tab-btn {
+  flex: 1;
+  padding: 8px 0;
+  border-radius: 7px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  color: var(--atl-text-secondary, #a39bc2);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.atelier-auth-tab-btn.active {
+  background: linear-gradient(135deg, rgba(147, 51, 234, 0.35) 0%, rgba(99, 102, 241, 0.28) 100%);
+  border: 1px solid rgba(192, 132, 252, 0.4);
+  color: #ffffff;
+  box-shadow: 0 2px 10px rgba(147, 51, 234, 0.25);
+}
+
+/* ============================================================================
+   4. Ô NHẬP LIỆU (FORM INPUTS)
+   ============================================================================ */
+.atelier-auth-input-group {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.atelier-auth-input {
+  width: 100%;
+  padding: 11px 14px 11px 40px;
+  border-radius: 9px;
+  background: rgba(10, 7, 20, 0.85);
+  border: 1px solid rgba(168, 85, 247, 0.22);
+  color: #ffffff;
+  font-size: 0.85rem;
+  outline: none;
+  box-sizing: border-box;
+  transition: all 0.18s ease;
+}
+
+.atelier-auth-input:focus {
+  border-color: #c084fc;
+  box-shadow: 0 0 0 3px rgba(192, 132, 252, 0.18);
+  background: rgba(14, 10, 26, 0.95);
+}
+
+.atelier-auth-input-icon {
+  position: absolute;
+  left: 13px;
+  color: #6e658a;
+  pointer-events: none;
+}
+
+.atelier-auth-btn-eye {
+  position: absolute;
+  right: 12px;
+  background: transparent;
+  border: none;
+  color: #6e658a;
+  cursor: pointer;
+  padding: 4px;
+}
+
+.atelier-auth-btn-eye:hover {
+  color: #c084fc;
+}
+
+/* Nút Submit Form Chính */
+.atelier-auth-btn-submit {
+  width: 100%;
+  padding: 12px 18px;
+  border-radius: 10px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  border: 1px solid rgba(192, 132, 252, 0.4);
+  background: linear-gradient(135deg, #7e22ce 0%, #9333ea 50%, #6366f1 100%);
+  color: #ffffff;
+  box-shadow: 0 4px 18px rgba(147, 51, 234, 0.35);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  letter-spacing: 0.01em;
+}
+
+.atelier-auth-btn-submit:hover:not(:disabled) {
+  background: linear-gradient(135deg, #9333ea 0%, #a855f7 50%, #4f46e5 100%);
+  box-shadow: 0 6px 24px rgba(168, 85, 247, 0.5);
+  transform: translateY(-1px);
+}
+
+.atelier-auth-btn-submit:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  background: rgba(30, 22, 45, 0.6);
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: none;
+}
+
+/* ============================================================================
+   5. KHU VỰC AVATAR TRONG PROFILE MODAL
+   ============================================================================ */
+.atelier-profile-avatar-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.atelier-profile-avatar-circle {
+  position: relative;
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  border: 2px solid #c084fc;
+  box-shadow: 0 0 20px rgba(168, 85, 247, 0.35);
+  overflow: hidden;
+  background: #07050e;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.atelier-profile-avatar-circle img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.atelier-profile-avatar-hover-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(4, 2, 8, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.atelier-profile-avatar-circle:hover .atelier-profile-avatar-hover-overlay {
+  opacity: 1;
+}

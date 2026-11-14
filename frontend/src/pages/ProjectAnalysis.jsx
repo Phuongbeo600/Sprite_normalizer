@@ -6,13 +6,25 @@ import React, { useEffect, useRef, useState } from 'react';
 // ========================================================
 // 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
 // ========================================================
-// lucide-react: Bộ icon vector SVG siêu nhẹ hiển thị thư mục, quét ảnh, tạo prompt, sao chép và chuyển đổi chế độ, ổ khóa
-import { Dna, FolderOpen, LoaderCircle, Ruler, Sparkles, Wand2, Lock } from 'lucide-react';
+// lucide-react: Bộ icon vector hiển thị thư mục, quét ảnh, tạo prompt, sao chép và chuyển đổi chế độ, ổ khóa
+import {
+  Dna,
+  FolderOpen,
+  LoaderCircle,
+  Ruler,
+  Sparkles,
+  Wand2,
+  Lock,
+  Layers,
+  ArrowRight,
+  ShieldCheck,
+  CheckCircle2
+} from 'lucide-react';
 
 // ========================================================
 // 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Components & Dữ liệu)
 // ========================================================
-// Component thanh điều hướng 3 phân hệ tra cứu hồ sơ nhân vật (đã loại bỏ tab trùng lặp)
+// Component thanh điều hướng 3 phân hệ tra cứu hồ sơ nhân vật
 import CharacterProfileTabs from '../components/character-profile/CharacterProfileTabs';
 // Component hiển thị phân hệ 1: Phong cách & Vật liệu toàn cục
 import TabGlobalView from '../components/character-profile/TabGlobalView';
@@ -20,18 +32,19 @@ import TabGlobalView from '../components/character-profile/TabGlobalView';
 import TabDirectionsView from '../components/character-profile/TabDirectionsView';
 // Component hiển thị phân hệ 3: Hoạt họa chuyển động (Idle, Walk)
 import TabAnimationsView from '../components/character-profile/TabAnimationsView';
-// TabReferenceView: Nạp ảnh và hiển thị hai báo cáo đo lường.
+// TabReferenceView: Nạp ảnh và hiển thị hai báo cáo đo lường
 import TabReferenceView from '../components/character-profile/TabReferenceView';
-// Component hiển thị phân hệ sinh prompt cho nhân vật mới.
+// Component hiển thị phân hệ sinh prompt cho nhân vật mới
 import TabConstraintsPromptView from '../components/character-profile/TabConstraintsPromptView';
 
 // ========================================================
 // 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
 // ========================================================
-// Định dạng giao diện được kế thừa từ theme.css thông qua index.css
+// Kế thừa phong cách Dark Fantasy Atelier từ analysis-atelier.css
+import '../styles/analysis-atelier.css';
 
 /**
- * Chọn các số đo Python để gửi cùng ảnh tham chiếu.
+ * Chọn các số đo Python để gửi cùng ảnh tham chiếu đến backend hoặc AI Vision.
  *
  * @param {Object} data Bảng màu, báo cáo pixel và số đo của ảnh đang mở.
  * @returns {Object} Dữ liệu đo có nguồn rõ ràng và không chứa mô tả AI.
@@ -76,10 +89,15 @@ function collectPythonMeasurements({ palette, pixelReport, metrics, profileData 
     if (entries.length) {
       report[name] = {
         image_size_px: regions.image_size_px,
-        measurements: Object.fromEntries(entries.map(([part, measurement]) => [part, {
-          type: measurement.polygon ? 'cross_section' : 'reference_segment',
-          width_px: measurement.width_px,
-        }])),
+        measurements: Object.fromEntries(
+          entries.map(([part, measurement]) => [
+            part,
+            {
+              type: measurement.polygon ? 'cross_section' : 'reference_segment',
+              width_px: measurement.width_px,
+            },
+          ])
+        ),
       };
     }
   }
@@ -87,11 +105,12 @@ function collectPythonMeasurements({ palette, pixelReport, metrics, profileData 
 }
 
 /**
- * Màn hình Studio Chuẩn Hóa & Thiết Kế Sprite AI (Project Analysis & Generation Studio).
- * Thiết kế tinh gọn theo chuẩn Modern Creative Workspace:
- * - Chọn ảnh một lần để đo bằng Python hoặc mô tả bằng Gemini theo yêu cầu.
- * - Tự động đọc và lưu trữ thông số theo dự án (currentProject.id) trong MySQL.
- * - Hỗ trợ lưu trữ bản phân tích và Prompt vào Thư viện Presets của dự án.
+ * Màn hình Studio Phân Tích & Sinh Prompt AI (Project Analysis & Generation Studio).
+ * Thiết kế tinh xảo theo phong cách Dark Fantasy Atelier:
+ * - Quy trình 3 phân hệ trực quan: Đo đạc Sprite ➔ Hồ sơ Mẫu AI ➔ Sinh Prompt 15-Frame.
+ * - Đo lường giải phẫu hình học tự động bằng Python thuần.
+ * - Khởi tạo phong cách và chỉ dẫn vẽ pixel qua AI Vision (Gemini / OpenAI).
+ * - Tự động lưu trữ và nạp lại cấu hình dự án từ CSDL MySQL.
  * 
  * @param {Object} props Thuộc tính truyền vào component.
  * @param {Object} props.currentProject Dự án hiện tại đang mở (chứa id, name).
@@ -101,7 +120,13 @@ function collectPythonMeasurements({ palette, pixelReport, metrics, profileData 
  * @param {boolean} [props.isAiEnabled=true] Trạng thái bật/tắt toàn bộ tính năng AI trong dự án.
  * @returns {React.ReactElement} Giao diện Creative Workspace hoàn chỉnh.
  */
-export default function ProjectAnalysis({ currentProject, loadedPresetData, isActive = true, onSendPromptToImageGen = null, isAiEnabled = true }) {
+export default function ProjectAnalysis({
+  currentProject,
+  loadedPresetData,
+  isActive = true,
+  onSendPromptToImageGen = null,
+  isAiEnabled = true,
+}) {
   // ========================================================
   // TRẠNG THÁI ẢNH THAM CHIẾU & LỚP PHỦ GIẢI PHẪU
   // ========================================================
@@ -124,9 +149,7 @@ export default function ProjectAnalysis({ currentProject, loadedPresetData, isAc
   // ========================================================
   // TRẠNG THÁI HỒ SƠ NHÂN VẬT THAM CHIẾU (CHARACTER PROFILE)
   // ========================================================
-  // Phân hệ tra cứu đang mở trong chế độ 'dna_profile': 'global' | 'directions' | 'animations'
   const [activeProfileTab, setActiveProfileTab] = useState('global');
-  // Dữ liệu hồ sơ nhân vật hoàn chỉnh
   const [profileData, setProfileData] = useState({
     global_analysis: null,
     direction_analysis: null,
@@ -137,7 +160,6 @@ export default function ProjectAnalysis({ currentProject, loadedPresetData, isAc
   const [visionStatus, setVisionStatus] = useState('checking');
   const [visionProvider, setVisionProvider] = useState(null);
   const [isGeneratingStyle, setIsGeneratingStyle] = useState(false);
-  // Thông báo lỗi phân tích hồ sơ
   const [profileError, setProfileError] = useState('');
 
   // ========================================================
@@ -226,7 +248,7 @@ export default function ProjectAnalysis({ currentProject, loadedPresetData, isAc
     event.target.value = '';
   };
 
-  // Chỉ đọc trạng thái cấu hình của dự án khi mở Hồ sơ mẫu.
+  // Chỉ đọc trạng thái cấu hình của dự án khi mở Hồ sơ mẫu
   const projectId = currentProject?.id;
   useEffect(() => {
     if (!isActive || workspaceMode !== 'dna_profile') return;
@@ -250,6 +272,7 @@ export default function ProjectAnalysis({ currentProject, loadedPresetData, isAc
 
   /**
    * Gửi tệp hiện tại cùng các trường của đúng thao tác đang chọn.
+   * 
    * @param {string} url Tuyến API xử lý ảnh.
    * @param {Object} fields Các tùy chọn riêng của thao tác.
    */
@@ -263,7 +286,11 @@ export default function ProjectAnalysis({ currentProject, loadedPresetData, isAc
     return payload;
   };
 
-  /** @param {'colors'|'size'} action Phép đo Python được yêu cầu. */
+  /**
+   * Chạy đo đạc cục bộ bằng thuật toán Python (size hoặc colors).
+   * 
+   * @param {'colors'|'size'} action Phép đo Python được yêu cầu.
+   */
   const handleLocalMeasure = async (action) => {
     if (!reference || localAction) return;
     const version = referenceVersion.current;
@@ -289,7 +316,9 @@ export default function ProjectAnalysis({ currentProject, loadedPresetData, isAc
     }
   };
 
-  /** Gửi ảnh và số đo đến nhà cung cấp AI đã cấu hình cho dự án. */
+  /**
+   * Gửi ảnh và số đo đến nhà cung cấp AI đã cấu hình cho dự án.
+   */
   const handleGenerateReferenceStyle = async () => {
     if (!reference || isGeneratingStyle || localAction || visionStatus !== 'ready') return;
     const version = referenceVersion.current;
@@ -310,8 +339,7 @@ export default function ProjectAnalysis({ currentProject, loadedPresetData, isAc
   };
 
   /**
-   * Sinh Prompt AI tiếng Anh tối ưu hóa cho Nhân vật Mới (Tự do sáng tạo).
-   * Tự động truyền project_id để Backend đọc API Key từ MySQL của dự án.
+   * Sinh Prompt AI tối ưu cho Nhân vật Mới (Tự do sáng tạo).
    * 
    * @param {Object} newCharConfig Thông số cấu hình nhân vật mới do người dùng nhập.
    */
@@ -432,39 +460,97 @@ export default function ProjectAnalysis({ currentProject, loadedPresetData, isAc
   ].filter(Boolean).join(' ');
 
   return (
-    <div className="studio-workspace-container">
-      <header className="studio-header-card">
-        <div className="studio-title-group">
-          <h1><Sparkles size={22} /> Phân tích &amp; Prompt</h1>
-          <p className="studio-source-name">{reference?.name || 'Chưa chọn ảnh sprite'}</p>
+    <div className="atelier-analysis-root" aria-label="Studio phân tích giải phẫu và sinh prompt">
+      {/* ================================================================ */}
+      {/* 1. THANH TIÊU ĐỀ STUDIO (STUDIO HEADER BANNER)                   */}
+      {/* ================================================================ */}
+      <header className="atelier-analysis-header">
+        <div className="atelier-analysis-title-group">
+          <h1 className="atelier-analysis-heading">
+            <Sparkles size={20} />
+            <span>Phân tích Giải Phẫu &amp; Sinh Prompt AI</span>
+          </h1>
+          <p className="atelier-analysis-subtext">
+            Bóc tách hình học pixel bằng Python thuần &amp; Tạo prompt hoạt họa ma trận 15-frame chuẩn xác.
+          </p>
         </div>
-        <label className="btn-secondary-studio studio-file-button">
-          <FolderOpen size={16} /> {reference ? 'Đổi ảnh' : 'Chọn ảnh sprite'}
-          <input type="file" accept="image/png,image/jpeg,image/webp" onChange={handleReferenceChange} disabled={Boolean(progress)} />
-        </label>
-      </header>
-      <div className="studio-scan-status" role="status" aria-live="polite">
-        {progress && <><LoaderCircle size={16} className="spin" /> {progress}</>}
-      </div>
 
-      <nav className="studio-segmented-switch studio-workspace-nav" aria-label="Khu vực làm việc">
-        {[
-          ['reference', 'Đo sprite', Ruler],
-          ['dna_profile', 'Hồ sơ mẫu', Dna],
-          ['prompt_studio', 'Sinh Prompt', Wand2],
-        ].map(([mode, label, Icon]) => (
-          <button
-            key={mode}
-            type="button"
-            className={`studio-segment-btn ${workspaceMode === mode ? 'active' : ''}`}
-            aria-pressed={workspaceMode === mode}
-            onClick={() => setWorkspaceMode(mode)}
-          >
-            <Icon size={16} /> {label}
-          </button>
-        ))}
+        <div className="atelier-analysis-header-actions">
+          {reference ? (
+            <span className="atelier-analysis-file-badge" title={reference.name}>
+              {reference.name}
+            </span>
+          ) : (
+            <span className="atelier-analysis-file-badge" style={{ color: '#94a3b8', borderColor: 'rgba(255,255,255,0.1)' }}>
+              Chưa nạp ảnh mẫu
+            </span>
+          )}
+
+          {/* Nút nạp ảnh tham chiếu */}
+          <label className="atelier-analysis-btn-upload">
+            <FolderOpen size={15} />
+            <span>{reference ? 'Đổi ảnh tham chiếu' : 'Chọn ảnh sprite mẫu'}</span>
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              onChange={handleReferenceChange}
+              disabled={Boolean(progress)}
+            />
+          </label>
+        </div>
+      </header>
+
+      {/* Thanh chỉ báo quét / tiến trình xử lý */}
+      {progress && (
+        <div className="atelier-analysis-progress-bar" role="status" aria-live="polite">
+          <LoaderCircle size={15} className="atelier-ws-spinner-icon" />
+          <span>{progress}</span>
+        </div>
+      )}
+
+      {/* ================================================================ */}
+      {/* 2. BỘ CHUYỂN ĐỔI CHẾ ĐỘ STUDIO (SEGMENTED WORKSPACE TABS)        */}
+      {/* ================================================================ */}
+      <nav className="atelier-analysis-nav" aria-label="Khu vực làm việc Studio">
+        <button
+          type="button"
+          className={`atelier-analysis-nav-btn ${workspaceMode === 'reference' ? 'active' : ''}`}
+          aria-pressed={workspaceMode === 'reference'}
+          onClick={() => setWorkspaceMode('reference')}
+        >
+          <Ruler size={16} />
+          <span>1. Đo đạc Sprite (Python)</span>
+          {metrics && <span className="atelier-analysis-nav-badge">Đã đo</span>}
+        </button>
+
+        <button
+          type="button"
+          className={`atelier-analysis-nav-btn ${workspaceMode === 'dna_profile' ? 'active' : ''}`}
+          aria-pressed={workspaceMode === 'dna_profile'}
+          onClick={() => setWorkspaceMode('dna_profile')}
+        >
+          <Dna size={16} />
+          <span>2. Hồ sơ Mẫu AI</span>
+          {referenceStyle && <span className="atelier-analysis-nav-badge">Sẵn sàng</span>}
+        </button>
+
+        <button
+          type="button"
+          className={`atelier-analysis-nav-btn ${workspaceMode === 'prompt_studio' ? 'active' : ''}`}
+          aria-pressed={workspaceMode === 'prompt_studio'}
+          onClick={() => setWorkspaceMode('prompt_studio')}
+        >
+          <Wand2 size={16} />
+          <span>3. Phòng tạo Prompt 15-Frame</span>
+          {generatedProfilePrompt && <span className="atelier-analysis-nav-badge">Đã sinh</span>}
+        </button>
       </nav>
 
+      {/* ================================================================ */}
+      {/* 3. NỘI DUNG TỪNG PHÂN HỆ WORKSPACE                               */}
+      {/* ================================================================ */}
+
+      {/* PHÂN HỆ 1: ĐO ĐẠC HÌNH HỌC & MÀU SẮC (TAB REFERENCE) */}
       {workspaceMode === 'reference' && (
         <TabReferenceView
           reference={reference}
@@ -476,10 +562,12 @@ export default function ProjectAnalysis({ currentProject, loadedPresetData, isAc
           metrics={metrics}
           regions={profileData.region_measurements}
           manualRegions={profileData.manual_region_measurements}
-          onManualReport={(report) => setProfileData((previous) => ({
-            ...previous,
-            manual_region_measurements: report,
-          }))}
+          onManualReport={(report) =>
+            setProfileData((previous) => ({
+              ...previous,
+              manual_region_measurements: report,
+            }))
+          }
           pixelReport={pixelReport}
           palette={palette}
           analysisError={analysisError}
@@ -488,6 +576,125 @@ export default function ProjectAnalysis({ currentProject, loadedPresetData, isAc
         />
       )}
 
+      {/* PHÂN HỆ 2: HỒ SƠ PHONG CÁCH AI (DNA PROFILE) */}
+      {workspaceMode === 'dna_profile' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {/* Card Sinh Prompt Phong Cách từ Ảnh Mẫu */}
+          <section className="atelier-dna-card" aria-busy={isGeneratingStyle}>
+            <div className="atelier-dna-heading">
+              <h2>Khởi tạo chỉ dẫn phong cách bằng AI Vision</h2>
+              <button
+                type="button"
+                className="atelier-btn-primary-action"
+                style={{ width: 'auto', padding: '8px 18px', margin: 0 }}
+                disabled={!reference || visionStatus !== 'ready' || isGeneratingStyle || Boolean(localAction) || !isAiEnabled}
+                onClick={handleGenerateReferenceStyle}
+              >
+                {isGeneratingStyle ? (
+                  <>
+                    <LoaderCircle size={15} className="atelier-ws-spinner-icon" />
+                    <span>Đang phân tích phong cách AI…</span>
+                  </>
+                ) : !isAiEnabled ? (
+                  <>
+                    <Lock size={15} />
+                    <span>Đã Khóa (Tính năng AI đang tắt)</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles size={15} />
+                    <span>Tạo prompt phong cách bằng {providerLabel}</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {!isAiEnabled && (
+              <p style={{ margin: 0, fontSize: '0.8rem', color: '#f87171', fontWeight: 600 }}>
+                ⚠️ Tính năng AI hiện đang bị TẮT trong Cài đặt dự án. Nút tạo chỉ dẫn phong cách AI đã được khóa an toàn.
+              </p>
+            )}
+
+            <p style={{ margin: 0, fontSize: '0.82rem', color: '#a39bc2' }}>
+              Hệ thống sẽ gửi ảnh sprite và toàn bộ số đo Python đến {providerLabel} để phân tích ngữ pháp nét viền, kỹ thuật đổ bóng và bảng màu tái sử dụng được.
+            </p>
+
+            {reference && Object.keys(pythonMeasurements).length === 0 && (
+              <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--atl-gold, #f59e0b)' }}>
+                💡 Gợi ý: Hãy chạy đo đạc sprite ở Tab 1 trước để AI có đầy đủ số đo chính xác.
+              </p>
+            )}
+
+            {visionStatus !== 'ready' && (
+              <p style={{ margin: 0, fontSize: '0.78rem', color: '#94a3b8' }}>
+                {visionStatus === 'checking' && 'Đang kiểm tra cấu hình kết nối AI…'}
+                {visionStatus === 'missing' && `Chưa cấu hình API Key ${providerLabel} cho dự án này.`}
+                {visionStatus === 'error' && 'Không đọc được cấu hình AI. Hãy kiểm tra kết nối mạng.'}
+              </p>
+            )}
+
+            {profileError && <p className="atelier-ws-error" role="alert">{profileError}</p>}
+          </section>
+
+          {/* Kết quả chỉ dẫn vẽ phong cách */}
+          {referenceStyle?.style_prompt && (
+            <section className="atelier-dna-card">
+              <div className="atelier-dna-heading">
+                <h2>Chỉ dẫn vẽ phong cách từ {resultProviderLabel}</h2>
+                <button
+                  className="atelier-btn-secondary-action"
+                  style={{ width: 'auto', padding: '6px 14px' }}
+                  type="button"
+                  onClick={() => setWorkspaceMode('prompt_studio')}
+                >
+                  <Wand2 size={15} />
+                  <span>Mở phòng tạo Prompt</span>
+                </button>
+              </div>
+
+              <div className="atelier-dna-result-box">
+                {referenceStyle.style_prompt}
+              </div>
+
+              {referenceStyle.observations?.length > 0 && (
+                <details className="studio-measure-details">
+                  <summary>{resultProviderLabel} quan sát được những gì?</summary>
+                  <ul style={{ margin: '8px 0 0', paddingLeft: '20px', fontSize: '0.82rem', color: '#cbd5e1' }}>
+                    {referenceStyle.observations.map((item, index) => (
+                      <li key={index} style={{ marginBottom: '4px' }}>{item}</li>
+                    ))}
+                  </ul>
+                </details>
+              )}
+            </section>
+          )}
+
+          {/* Hồ sơ chi tiết các phân hệ đã lưu */}
+          {Object.values(tabStatuses).some(Boolean) && (
+            <details className="studio-measure-details">
+              <summary>Hồ sơ phân tích chi tiết (Toàn cục, Hướng nhìn &amp; Hoạt họa)</summary>
+              <div style={{ marginTop: '12px' }}>
+                <CharacterProfileTabs
+                  activeTab={activeProfileTab}
+                  onSelectTab={setActiveProfileTab}
+                  tabStatuses={tabStatuses}
+                />
+                {activeProfileTab === 'global' && (
+                  <TabGlobalView data={profileData.global_analysis} showPalette={false} />
+                )}
+                {activeProfileTab === 'directions' && (
+                  <TabDirectionsView data={profileData.direction_analysis} />
+                )}
+                {activeProfileTab === 'animations' && (
+                  <TabAnimationsView data={profileData.animation_analysis} />
+                )}
+              </div>
+            </details>
+          )}
+        </div>
+      )}
+
+      {/* PHÂN HỆ 3: PHÒNG SINH PROMPT & RÀNG BUỘC 15-FRAME (TAB CONSTRAINTS PROMPT) */}
       <div hidden={workspaceMode !== 'prompt_studio'}>
         <TabConstraintsPromptView
           consistency={profileData.consistency_analysis}
@@ -505,96 +712,6 @@ export default function ProjectAnalysis({ currentProject, loadedPresetData, isAc
           isAiEnabled={isAiEnabled}
         />
       </div>
-
-      {workspaceMode === 'dna_profile' && (
-        <div className="studio-column-right">
-          <section className="studio-metric-card" aria-busy={isGeneratingStyle}>
-            <div className="studio-measure-heading">
-              <h2>Prompt phong cách từ ảnh mẫu</h2>
-              <button
-                type="button"
-                className="btn-primary-studio"
-                disabled={!reference || visionStatus !== 'ready' || isGeneratingStyle || Boolean(localAction) || !isAiEnabled}
-                onClick={handleGenerateReferenceStyle}
-                style={{
-                  opacity: !isAiEnabled ? 0.6 : 1,
-                  cursor: !isAiEnabled ? 'not-allowed' : undefined,
-                  background: !isAiEnabled ? '#374151' : undefined,
-                  borderColor: !isAiEnabled ? '#4b5563' : undefined,
-                  color: !isAiEnabled ? '#9ca3af' : undefined
-                }}
-                title={!isAiEnabled ? 'Tính năng AI đang bị tắt trong Cài đặt dự án' : ''}
-              >
-                {isGeneratingStyle ? (
-                  <LoaderCircle size={16} className="spin" />
-                ) : !isAiEnabled ? (
-                  <Lock size={16} />
-                ) : (
-                  <Sparkles size={16} />
-                )}
-                {isGeneratingStyle
-                  ? 'Đang phân tích phong cách…'
-                  : !isAiEnabled
-                  ? 'Đã Khóa (Tính năng AI đang tắt)'
-                  : `Tạo prompt phong cách bằng ${providerLabel}`}
-              </button>
-            </div>
-            {!isAiEnabled && (
-              <p className="studio-reference-meta" style={{ color: '#f87171', fontWeight: 600 }}>
-                ⚠️ Tính năng AI hiện đang bị TẮT trong Cài đặt dự án. Nút tạo chỉ dẫn phong cách AI đã bị khóa an toàn.
-              </p>
-            )}
-            <p className="studio-reference-meta">
-              Khi bấm tạo, app gửi ảnh và các số đo Python đang có tới {providerLabel} để viết chỉ dẫn vẽ dùng lại được.
-            </p>
-            {reference && Object.keys(pythonMeasurements).length === 0 && (
-              <p className="studio-reference-meta">Chưa có số đo. Bạn có thể đo sprite trước để bổ sung dữ liệu.</p>
-            )}
-            {visionStatus !== 'ready' && (
-              <p className="studio-reference-meta">
-                {visionStatus === 'checking' && 'Đang kiểm tra cấu hình AI…'}
-                {visionStatus === 'missing' && `Chưa cấu hình khóa ${providerLabel} cho dự án.`}
-                {visionStatus === 'error' && 'Không đọc được cấu hình AI. Hãy mở lại tab để thử lại.'}
-              </p>
-            )}
-            {profileError && <p className="studio-reference-error" role="alert">{profileError}</p>}
-          </section>
-
-          {referenceStyle?.style_prompt && (
-            <section className="studio-metric-card">
-              <div className="studio-measure-heading">
-                <h2>Chỉ dẫn vẽ từ {resultProviderLabel}</h2>
-                <button className="btn-secondary-studio" type="button" onClick={() => setWorkspaceMode('prompt_studio')}>
-                  <Wand2 size={16} /> Mở Sinh Prompt
-                </button>
-              </div>
-              <p className="studio-style-prompt-text">{referenceStyle.style_prompt}</p>
-              {referenceStyle.observations?.length > 0 && (
-                <details className="studio-measure-details">
-                  <summary>{resultProviderLabel} quan sát được gì?</summary>
-                  <ul className="studio-style-observations">
-                    {referenceStyle.observations.map((item, index) => <li key={index}>{item}</li>)}
-                  </ul>
-                </details>
-              )}
-            </section>
-          )}
-
-          {Object.values(tabStatuses).some(Boolean) && (
-            <details className="studio-metric-card studio-measure-details">
-              <summary>Hồ sơ chi tiết đã lưu</summary>
-              <CharacterProfileTabs
-                activeTab={activeProfileTab}
-                onSelectTab={setActiveProfileTab}
-                tabStatuses={tabStatuses}
-              />
-              {activeProfileTab === 'global' && <TabGlobalView data={profileData.global_analysis} showPalette={false} />}
-              {activeProfileTab === 'directions' && <TabDirectionsView data={profileData.direction_analysis} />}
-              {activeProfileTab === 'animations' && <TabAnimationsView data={profileData.animation_analysis} />}
-            </details>
-          )}
-        </div>
-      )}
     </div>
   );
 }

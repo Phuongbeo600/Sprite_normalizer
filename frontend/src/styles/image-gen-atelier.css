@@ -1,0 +1,676 @@
+/**
+ * ============================================================================
+ * DARK FANTASY ATELIER — IMAGE GENERATION STYLESHEET
+ * ============================================================================
+ * Phong cách: 70% Professional Creative Tool + 30% Dark Fantasy Pixel Art
+ * Chuẩn mực: Tasteskill 2.5 (Thanh lịch, tương phản cao, công thái học)
+ * Tính năng: Tạo ảnh Sprite AI (Google Imagen 3 & OpenAI DALL-E 3)
+ * ============================================================================
+ */
+
+/* ============================================================================
+   1. KHUNG GỐC TẠO ẢNH AI (ROOT CONTAINER)
+   ============================================================================ */
+.atelier-gen-root {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  width: 100%;
+  max-width: 1440px;
+  margin: 0 auto;
+  box-sizing: border-box;
+  color: var(--atl-text-primary, #f5f3ff);
+}
+
+/* ============================================================================
+   2. THANH TIÊU ĐỀ & TRẠNG THÁI KẾT NỐI (HEADER BANNER)
+   ============================================================================ */
+.atelier-gen-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 22px;
+  background: rgba(18, 13, 34, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--atl-border-amethyst, rgba(168, 85, 247, 0.18));
+  border-radius: 14px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  flex-wrap: wrap;
+}
+
+.atelier-gen-header-title {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: 650px;
+}
+
+.atelier-gen-title-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-size: 1.18rem;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: -0.01em;
+}
+
+.atelier-gen-title-subtext {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--atl-text-secondary, #a39bc2);
+  line-height: 1.4;
+}
+
+.atelier-gen-api-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 99px;
+  font-size: 0.775rem;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.atelier-gen-api-badge.connected {
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: #10b981;
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.15);
+}
+
+.atelier-gen-api-badge.warning {
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  color: #f59e0b;
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.15);
+}
+
+.atelier-gen-api-badge.loading {
+  background: rgba(147, 51, 234, 0.12);
+  border: 1px solid rgba(168, 85, 247, 0.25);
+  color: #c084fc;
+}
+
+.atelier-gen-link-btn {
+  background: none;
+  border: none;
+  color: #c084fc;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0 2px;
+  transition: color 0.15s ease;
+}
+
+.atelier-gen-link-btn:hover {
+  color: #e9d5ff;
+}
+
+/* ============================================================================
+   3. CẢNH BÁO TÍNH NĂNG AI BỊ KHÓA (AI DISABLED BANNER)
+   ============================================================================ */
+.atelier-gen-lock-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 20px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(24, 17, 44, 0.9) 100%);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #fca5a5;
+  box-shadow: 0 4px 16px rgba(239, 68, 68, 0.1);
+  flex-wrap: wrap;
+}
+
+.atelier-gen-lock-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.825rem;
+  line-height: 1.45;
+}
+
+.atelier-gen-btn-unlock {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 8px;
+  background: rgba(239, 68, 68, 0.2);
+  border: 1px solid rgba(239, 68, 68, 0.45);
+  color: #fecaca;
+  font-size: 0.775rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.atelier-gen-btn-unlock:hover {
+  background: rgba(239, 68, 68, 0.35);
+  color: #ffffff;
+  border-color: rgba(239, 68, 68, 0.7);
+}
+
+/* ============================================================================
+   4. THÔNG BÁO TRẠNG THÁI (STATUS ALERTS)
+   ============================================================================ */
+.atelier-gen-alert {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 18px;
+  border-radius: 10px;
+  font-size: 0.825rem;
+  line-height: 1.4;
+  animation: fadeInAtelier 0.2s ease;
+}
+
+.atelier-gen-alert.error {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #fca5a5;
+}
+
+.atelier-gen-alert.success {
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  color: #6ee7b7;
+}
+
+@keyframes fadeInAtelier {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ============================================================================
+   5. BỐ CỤC 2 CỘT: PROMPT CONSOLE & PARAMETERS DOCK
+   ============================================================================ */
+.atelier-gen-workspace-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.8fr) minmax(320px, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+@media (max-width: 960px) {
+  .atelier-gen-workspace-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Khung Soạn Thảo Prompt */
+.atelier-gen-card {
+  background: rgba(18, 13, 34, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--atl-border-amethyst, rgba(168, 85, 247, 0.18));
+  border-radius: 14px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  transition: border-color 0.2s ease;
+}
+
+.atelier-gen-card:focus-within {
+  border-color: rgba(192, 132, 252, 0.35);
+}
+
+.atelier-gen-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.atelier-gen-card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #f5f3ff;
+  margin: 0;
+}
+
+.atelier-gen-btn-clear {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--atl-text-secondary, #a39bc2);
+  font-size: 0.725rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.atelier-gen-btn-clear:hover {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.35);
+  color: #fca5a5;
+}
+
+.atelier-gen-textarea {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: rgba(10, 7, 20, 0.85);
+  border: 1px solid rgba(168, 85, 247, 0.18);
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 0.85rem;
+  line-height: 1.55;
+  resize: vertical;
+  box-sizing: border-box;
+  transition: all 0.2s ease;
+}
+
+.atelier-gen-textarea:focus {
+  outline: none;
+  border-color: #c084fc;
+  box-shadow: 0 0 0 3px rgba(192, 132, 252, 0.15);
+  background: rgba(12, 8, 24, 0.95);
+}
+
+.atelier-gen-textarea::placeholder {
+  color: #6e658a;
+}
+
+/* Thẻ Phong Cách Nhanh */
+.atelier-gen-tags-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--atl-text-secondary, #a39bc2);
+  display: block;
+  margin-bottom: 8px;
+}
+
+.atelier-gen-tags-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.atelier-gen-tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(26, 19, 48, 0.7);
+  border: 1px solid rgba(168, 85, 247, 0.2);
+  border-radius: 8px;
+  padding: 5px 10px;
+  color: #d8b4fe;
+  font-size: 0.74rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.atelier-gen-tag-chip:hover {
+  background: rgba(147, 51, 234, 0.22);
+  border-color: rgba(192, 132, 252, 0.5);
+  color: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(147, 51, 234, 0.2);
+}
+
+.atelier-gen-tag-chip:active {
+  transform: scale(0.97);
+}
+
+/* Khu vực Negative Prompt */
+.atelier-gen-negative-box {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 14px;
+  margin-top: 2px;
+}
+
+.atelier-gen-negative-textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(16, 10, 22, 0.85);
+  border: 1px solid rgba(244, 63, 94, 0.25);
+  color: #fda4af;
+  font-family: inherit;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  resize: vertical;
+  box-sizing: border-box;
+  transition: all 0.2s ease;
+}
+
+.atelier-gen-negative-textarea:focus {
+  outline: none;
+  border-color: rgba(244, 63, 94, 0.55);
+  box-shadow: 0 0 0 3px rgba(244, 63, 94, 0.12);
+}
+
+.atelier-gen-hint {
+  font-size: 0.7rem;
+  color: var(--atl-text-tertiary, #6e658a);
+  line-height: 1.4;
+}
+
+/* ============================================================================
+   6. BẢNG THAM SỐ (PARAMETERS DOCK)
+   ============================================================================ */
+.atelier-gen-select {
+  width: 100%;
+  padding: 9px 12px;
+  border-radius: 8px;
+  background: rgba(10, 7, 20, 0.85);
+  border: 1px solid rgba(168, 85, 247, 0.2);
+  color: #ffffff;
+  font-size: 0.8rem;
+  font-weight: 500;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+.atelier-gen-select:focus {
+  border-color: #c084fc;
+}
+
+.atelier-gen-count-selector {
+  display: flex;
+  gap: 8px;
+}
+
+.atelier-gen-count-btn {
+  flex: 1;
+  padding: 8px 0;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid rgba(168, 85, 247, 0.2);
+  background: rgba(14, 10, 26, 0.8);
+  color: var(--atl-text-secondary, #a39bc2);
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.atelier-gen-count-btn:hover {
+  border-color: rgba(192, 132, 252, 0.4);
+  color: #ffffff;
+}
+
+.atelier-gen-count-btn.active {
+  background: linear-gradient(135deg, rgba(147, 51, 234, 0.3) 0%, rgba(99, 102, 241, 0.3) 100%);
+  border-color: #c084fc;
+  color: #ffffff;
+  box-shadow: 0 0 14px rgba(168, 85, 247, 0.25);
+}
+
+/* Nút Tạo Ảnh Chính (Primary Forge Button) */
+.atelier-gen-btn-submit {
+  width: 100%;
+  padding: 12px 18px;
+  border-radius: 10px;
+  font-size: 0.875rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  border: 1px solid rgba(192, 132, 252, 0.4);
+  background: linear-gradient(135deg, #7e22ce 0%, #9333ea 50%, #6366f1 100%);
+  color: #ffffff;
+  box-shadow: 0 4px 18px rgba(147, 51, 234, 0.35);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  letter-spacing: 0.01em;
+}
+
+.atelier-gen-btn-submit:hover:not(:disabled) {
+  background: linear-gradient(135deg, #9333ea 0%, #a855f7 50%, #4f46e5 100%);
+  box-shadow: 0 6px 24px rgba(168, 85, 247, 0.5);
+  transform: translateY(-1px);
+}
+
+.atelier-gen-btn-submit:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.atelier-gen-btn-submit:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  background: rgba(30, 21, 56, 0.6);
+  border-color: rgba(255, 255, 255, 0.08);
+  color: #6e658a;
+  box-shadow: none;
+}
+
+/* ============================================================================
+   7. BỘ SƯU TẬP ẢNH KẾT QUẢ (GALLERY)
+   ============================================================================ */
+.atelier-gen-gallery-card {
+  background: rgba(18, 13, 34, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--atl-border-amethyst, rgba(168, 85, 247, 0.18));
+  border-radius: 14px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.atelier-gen-empty-state {
+  padding: 44px 20px;
+  text-align: center;
+  color: var(--atl-text-secondary, #a39bc2);
+  border: 1.5px dashed rgba(168, 85, 247, 0.2);
+  border-radius: 12px;
+  background: rgba(12, 8, 24, 0.4);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.atelier-gen-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+/* Thẻ ảnh trong thư viện */
+.atelier-gen-item {
+  background: rgba(12, 8, 24, 0.85);
+  border: 1px solid rgba(168, 85, 247, 0.18);
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+}
+
+.atelier-gen-item:hover {
+  border-color: rgba(192, 132, 252, 0.45);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(147, 51, 234, 0.2);
+}
+
+.atelier-gen-image-frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  background-color: #07050e;
+  background-image: 
+    linear-gradient(45deg, #0e0a1b 25%, transparent 25%), 
+    linear-gradient(-45deg, #0e0a1b 25%, transparent 25%), 
+    linear-gradient(45deg, transparent 75%, #0e0a1b 75%), 
+    linear-gradient(-45deg, transparent 75%, #0e0a1b 75%);
+  background-size: 16px 16px;
+  background-position: 0 0, 0 8px, 8px -8px, -8px 0px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.atelier-gen-image-frame img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  image-rendering: pixelated;
+  display: block;
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.atelier-gen-image-frame:hover img {
+  transform: scale(1.05);
+}
+
+.atelier-gen-zoom-overlay {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: rgba(10, 7, 20, 0.75);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  padding: 5px;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transform: scale(0.9);
+  transition: all 0.18s ease;
+}
+
+.atelier-gen-image-frame:hover .atelier-gen-zoom-overlay {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Nhóm nút hành động thẻ ảnh */
+.atelier-gen-item-actions {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(18, 13, 34, 0.6);
+}
+
+.atelier-gen-action-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.atelier-gen-btn-sub {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 6px 10px;
+  border-radius: 7px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  cursor: pointer;
+  background: rgba(26, 19, 48, 0.7);
+  border: 1px solid rgba(168, 85, 247, 0.25);
+  color: #e2e8f0;
+  transition: all 0.18s ease;
+}
+
+.atelier-gen-btn-sub:hover {
+  background: rgba(147, 51, 234, 0.25);
+  border-color: rgba(192, 132, 252, 0.5);
+  color: #ffffff;
+}
+
+.atelier-gen-btn-download {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: 7px;
+  font-size: 0.725rem;
+  font-weight: 500;
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--atl-text-secondary, #a39bc2);
+  transition: all 0.15s ease;
+}
+
+.atelier-gen-btn-download:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+/* ============================================================================
+   8. MODAL PHÓNG TO XEM CHI TIẾT (ZOOM MODAL)
+   ============================================================================ */
+.atelier-gen-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(4, 2, 8, 0.88);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  animation: fadeInAtelier 0.18s ease;
+}
+
+.atelier-gen-modal-box {
+  position: relative;
+  max-width: 90vw;
+  max-height: 88vh;
+  background: rgba(18, 13, 34, 0.95);
+  border: 1px solid rgba(192, 132, 252, 0.35);
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.8), 0 0 30px rgba(147, 51, 234, 0.15);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.atelier-gen-modal-image {
+  max-width: 100%;
+  max-height: 72vh;
+  object-fit: contain;
+  image-rendering: pixelated;
+  display: block;
+  margin: 0 auto;
+  border-radius: 8px;
+  background: #06040c;
+}
+
+.atelier-gen-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}

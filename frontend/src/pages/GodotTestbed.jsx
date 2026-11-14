@@ -47,7 +47,8 @@ import {
 // ========================================================
 // 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
 // ========================================================
-// Kế thừa các biến màu sắc và phong cách Dark Gaming từ theme.css
+// Kế thừa phong cách Dark Fantasy Atelier từ godot-atelier.css
+import '../styles/godot-atelier.css';
 
 
 /**
@@ -1828,9 +1829,9 @@ export default function GodotTestbed({
     : SLOT_DEFINITIONS_3_ROWS.filter((s) => s.direction === 'down');
 
   return (
-    <div className="godot-testbed-container" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+    <div className="atelier-godot-root">
       {/* 1. Thanh tiêu đề phòng thử nghiệm */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+      <div className="atelier-godot-header">
         <div>
           <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-white)' }}>
             <Gamepad2 size={24} color="#38bdf8" />

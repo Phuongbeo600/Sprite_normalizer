@@ -6,7 +6,7 @@ import React, { useState, useEffect } from 'react';
 // ========================================================
 // 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
 // ========================================================
-// lucide-react: Bộ icon minh họa chìa khóa, kiểm tra thành công, cảnh báo, lưu, làm mới và công tắc nguồn
+// lucide-react: Bộ biểu tượng chìa khóa, kiểm tra thành công, cảnh báo, lưu, làm mới và công tắc nguồn
 import {
   Key,
   CheckCircle2,
@@ -31,10 +31,11 @@ import {
 // ========================================================
 // 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
 // ========================================================
-// Kế thừa các lớp CSS từ theme.css
+// Kế thừa phong cách Dark Fantasy Atelier từ settings-atelier.css
+import '../styles/settings-atelier.css';
 
 /**
- * Màn hình Cài đặt Cấu hình API của Dự án (Project API Configuration).
+ * Màn hình Cài đặt Cấu hình API của Dự án (Project API Configuration) — Dark Fantasy Atelier Edition.
  * Quản lý chìa khóa API (Google Gemini / OpenAI ChatGPT) độc lập cho từng dự án:
  * - Bật / Tắt toàn bộ tính năng gọi API AI (Khi tắt: khóa tất cả nút AI trên toàn ứng dụng).
  * - Tự động kiểm tra trong CSDL MySQL xem dự án này đã có API Key chưa.
@@ -172,6 +173,7 @@ export default function ProjectSettings({ currentProject, onAiEnabledChange }) {
 
   /**
    * Lưu cấu hình API Key mới vào CSDL MySQL của dự án.
+   * @param {React.FormEvent} e Sự kiện gửi form
    */
   const handleSaveConfig = async (e) => {
     e.preventDefault();
@@ -215,45 +217,46 @@ export default function ProjectSettings({ currentProject, onAiEnabledChange }) {
   };
 
   return (
-    <div className="studio-workspace-container" style={{ padding: '0 4px', maxWidth: '720px', margin: '0 auto' }}>
+    <div className="atelier-settings-root">
       {/* ========================================================
           1. THANH TIÊU ĐỀ CÀI ĐẶT DỰ ÁN
           ======================================================== */}
-      <header className="studio-header-card">
-        <div className="studio-title-group">
-          <h1>
-            <Sliders size={22} color="var(--accent-purple)" />
-            Cài Đặt Cấu Hình API Cho Dự Án
-          </h1>
-          <p>
-            Chìa khóa API dưới đây được lưu vĩnh viễn trong CSDL MySQL của riêng dự án: <strong>{currentProject?.name}</strong>.
+      <div className="atelier-settings-header">
+        <div className="atelier-settings-header-title">
+          <h2 className="atelier-settings-title-heading">
+            <Sliders size={22} color="#c084fc" />
+            <span>Cài Đặt Cấu Hình API Cho Dự Án</span>
+          </h2>
+          <p className="atelier-settings-title-subtext">
+            Chìa khóa API được mã hóa và lưu trữ an toàn trong MySQL của riêng dự án: <strong>{currentProject?.name}</strong>.
           </p>
         </div>
 
         <button
           type="button"
-          className="btn-secondary-studio"
+          className="atelier-assets-btn-refresh"
           onClick={fetchProjectApiConfig}
           disabled={loading}
-          style={{ minHeight: '34px', fontSize: '0.8rem', gap: '6px' }}
+          title="Tải lại cấu hình từ MySQL"
         >
           <RefreshCw size={14} className={loading ? 'spin' : ''} />
-          Làm mới
+          <span>Làm mới</span>
         </button>
-      </header>
+      </div>
 
       {/* Thông báo kết quả thao tác */}
       {feedback && (
         <div
-          className="analysis-result"
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '8px',
-            marginBottom: '16px',
+            gap: '10px',
+            padding: '12px 18px',
+            borderRadius: '10px',
+            fontSize: '0.825rem',
             background: feedback.type === 'success' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
-            borderColor: feedback.type === 'success' ? '#10b981' : '#ef4444',
-            color: feedback.type === 'success' ? '#34d399' : '#f87171'
+            border: `1px solid ${feedback.type === 'success' ? 'rgba(16, 185, 129, 0.35)' : 'rgba(239, 68, 68, 0.35)'}`,
+            color: feedback.type === 'success' ? '#6ee7b7' : '#fca5a5'
           }}
         >
           {feedback.type === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
@@ -264,19 +267,7 @@ export default function ProjectSettings({ currentProject, onAiEnabledChange }) {
       {/* ========================================================
           2. CÔNG TẮC BẬT / TẮT TOÀN BỘ TÍNH NĂNG AI CHO DỰ ÁN
           ======================================================== */}
-      <section
-        className="studio-metric-card"
-        style={{
-          padding: '20px 24px',
-          borderRadius: '12px',
-          marginBottom: '20px',
-          border: `1px solid ${aiEnabled ? 'rgba(16, 185, 129, 0.35)' : 'rgba(239, 68, 68, 0.35)'}`,
-          background: aiEnabled
-            ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(19, 27, 46, 0.95) 100%)'
-            : 'linear-gradient(135deg, rgba(239, 68, 68, 0.08) 0%, rgba(19, 27, 46, 0.95) 100%)',
-          transition: 'all 0.3s ease'
-        }}
-      >
+      <section className={`atelier-settings-toggle-card ${aiEnabled ? 'enabled' : 'disabled'}`}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flex: '1 1 300px' }}>
             <div
@@ -288,7 +279,7 @@ export default function ProjectSettings({ currentProject, onAiEnabledChange }) {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                color: aiEnabled ? '#10b981' : '#ef4444',
+                color: aiEnabled ? '#10b981' : '#f43f5e',
                 flexShrink: 0
               }}
             >
@@ -297,27 +288,27 @@ export default function ProjectSettings({ currentProject, onAiEnabledChange }) {
 
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                <h3 style={{ margin: 0, fontSize: '0.975rem', color: 'var(--text-white)', fontWeight: 600 }}>
+                <h3 style={{ margin: 0, fontSize: '0.98rem', color: '#ffffff', fontWeight: 700 }}>
                   Công Tắc Kích Hoạt Tính Năng AI
                 </h3>
                 <span
                   style={{
-                    fontSize: '0.725rem',
+                    fontSize: '0.72rem',
                     padding: '2px 8px',
                     borderRadius: '12px',
-                    fontWeight: 600,
+                    fontWeight: 700,
                     background: aiEnabled ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)',
                     color: aiEnabled ? '#34d399' : '#f87171',
-                    border: `1px solid ${aiEnabled ? '#10b981' : '#ef4444'}`
+                    border: `1px solid ${aiEnabled ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)'}`
                   }}
                 >
                   {aiEnabled ? '🟢 ĐANG BẬT AI' : '🔴 ĐÃ TẮT AI'}
                 </span>
               </div>
-              <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>
+              <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: 'var(--atl-text-secondary)', lineHeight: '1.4' }}>
                 {aiEnabled
-                  ? 'Toàn bộ các nút gọi API sinh ảnh AI và phân tích phong cách đang được kích hoạt và sẵn sàng sử dụng.'
-                  : 'Toàn bộ nút gọi API AI trong dự án (Tạo ảnh AI, Cố vấn phong cách AI) đã bị khóa an toàn để tránh gọi API.'}
+                  ? 'Toàn bộ các cổng sinh ảnh AI và phân tích nhân vật đang sẵn sàng phục vụ.'
+                  : 'Toàn bộ nút gọi API AI trong dự án đã bị tạm khóa an toàn.'}
               </p>
             </div>
           </div>
@@ -327,22 +318,7 @@ export default function ProjectSettings({ currentProject, onAiEnabledChange }) {
             type="button"
             disabled={togglingAi || loading}
             onClick={() => handleToggleAi(!aiEnabled)}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '10px 18px',
-              borderRadius: '24px',
-              fontWeight: 600,
-              fontSize: '0.85rem',
-              cursor: togglingAi ? 'wait' : 'pointer',
-              border: `1px solid ${aiEnabled ? '#10b981' : '#6b7280'}`,
-              transition: 'all 0.25s ease',
-              background: aiEnabled ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : '#374151',
-              color: '#ffffff',
-              boxShadow: aiEnabled ? '0 0 16px rgba(16, 185, 129, 0.35)' : 'none',
-              flexShrink: 0
-            }}
+            className={`atelier-settings-toggle-btn ${aiEnabled ? 'on' : 'off'}`}
             title={aiEnabled ? 'Nhấn để tắt toàn bộ tính năng AI của dự án' : 'Nhấn để bật lại tính năng AI cho dự án'}
           >
             <Power size={16} className={togglingAi ? 'spin' : ''} />
@@ -354,7 +330,6 @@ export default function ProjectSettings({ currentProject, onAiEnabledChange }) {
         {!aiEnabled && (
           <div
             style={{
-              marginTop: '14px',
               padding: '10px 14px',
               borderRadius: '8px',
               background: 'rgba(245, 158, 11, 0.1)',
@@ -368,7 +343,7 @@ export default function ProjectSettings({ currentProject, onAiEnabledChange }) {
           >
             <Lock size={15} flexShrink={0} />
             <span>
-              <strong>Chế độ an toàn đang bật:</strong> Mọi nút bấm tạo ảnh AI, phân tích phong cách AI trong dự án này đã bị vô hiệu hóa. Bạn vẫn có thể điền và lưu chìa khóa API bên dưới, khi nào cần dùng chỉ cần bấm nút <strong>"Đang Tắt AI (Bấm để Bật)"</strong> ở trên.
+              <strong>Chế độ an toàn đang bật:</strong> Mọi nút bấm tạo ảnh AI và phân tích phong cách AI trong dự án này đã bị vô hiệu hóa. Bạn vẫn có thể điền và lưu chìa khóa API bên dưới.
             </span>
           </div>
         )}
@@ -377,65 +352,45 @@ export default function ProjectSettings({ currentProject, onAiEnabledChange }) {
       {/* ========================================================
           3. FORM CẤU HÌNH API KEY CỦA DỰ ÁN
           ======================================================== */}
-      <form onSubmit={handleSaveConfig} className="studio-metric-card" style={{ padding: '24px', borderRadius: '12px' }}>
+      <form onSubmit={handleSaveConfig} className="atelier-settings-card">
         {/* Chọn nhà cung cấp AI */}
-        <div style={{ marginBottom: '20px' }}>
-          <label style={{ display: 'block', fontSize: '0.825rem', color: 'var(--text-white)', fontWeight: 600, marginBottom: '8px' }}>
+        <div>
+          <label style={{ display: 'block', fontSize: '0.825rem', color: '#ffffff', fontWeight: 600, marginBottom: '8px' }}>
             Nhà cung cấp AI mặc định cho dự án:
           </label>
-          <div style={{ display: 'flex', gap: '12px' }}>
-            <label style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '10px 16px',
-              borderRadius: '8px',
-              border: `1px solid ${provider === 'gemini' ? 'var(--accent-purple)' : 'var(--border-panel)'}`,
-              background: provider === 'gemini' ? 'rgba(139, 92, 246, 0.12)' : 'rgba(0, 0, 0, 0.2)',
-              cursor: 'pointer',
-              fontSize: '0.85rem',
-              color: 'var(--text-white)'
-            }}>
+          <div className="atelier-settings-provider-pills">
+            <label className={`atelier-settings-provider-label ${provider === 'gemini' ? 'selected' : ''}`}>
               <input
                 type="radio"
                 name="provider"
                 value="gemini"
                 checked={provider === 'gemini'}
                 onChange={() => setProvider('gemini')}
+                style={{ accentColor: '#c084fc' }}
               />
-              Google Gemini (Đề xuất - Miễn phí)
+              <span>Google Gemini (Đề xuất - Miễn phí)</span>
             </label>
 
-            <label style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '10px 16px',
-              borderRadius: '8px',
-              border: `1px solid ${provider === 'openai' ? 'var(--accent-purple)' : 'var(--border-panel)'}`,
-              background: provider === 'openai' ? 'rgba(139, 92, 246, 0.12)' : 'rgba(0, 0, 0, 0.2)',
-              cursor: 'pointer',
-              fontSize: '0.85rem',
-              color: 'var(--text-white)'
-            }}>
+            <label className={`atelier-settings-provider-label ${provider === 'openai' ? 'selected' : ''}`}>
               <input
                 type="radio"
                 name="provider"
                 value="openai"
                 checked={provider === 'openai'}
                 onChange={() => setProvider('openai')}
+                style={{ accentColor: '#c084fc' }}
               />
-              OpenAI
+              <span>OpenAI ChatGPT / DALL-E</span>
             </label>
           </div>
         </div>
 
         {/* Khối cấu hình Google Gemini */}
         {provider === 'gemini' && (
-          <div className="profile-section-card" style={{ marginBottom: '20px' }}>
-            <h4 style={{ color: 'var(--text-white)', fontSize: '0.9rem', marginBottom: '12px' }}>
-              <Key size={16} color="var(--accent-purple)" />
-              Google Gemini API Key
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <h4 className="atelier-settings-card-title">
+              <Key size={16} color="#c084fc" />
+              <span>Google Gemini API Key</span>
             </h4>
 
             {/* Trạng thái key hiện tại trong MySQL */}
@@ -444,64 +399,45 @@ export default function ProjectSettings({ currentProject, onAiEnabledChange }) {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                padding: '12px 14px',
+                padding: '12px 16px',
                 background: 'rgba(16, 185, 129, 0.08)',
                 border: '1px solid rgba(16, 185, 129, 0.25)',
-                borderRadius: '8px',
-                marginBottom: '10px'
+                borderRadius: '10px'
               }}>
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#10b981', fontSize: '0.825rem', fontWeight: 600 }}>
                     <CheckCircle2 size={15} />
                     <span>Dự án này đã có API Key trong MySQL</span>
                   </div>
-                  <div style={{ fontSize: '0.775rem', color: 'var(--text-muted)', marginTop: '2px', fontFamily: 'monospace' }}>
+                  <div style={{ fontSize: '0.775rem', color: 'var(--atl-text-secondary)', marginTop: '2px', fontFamily: 'monospace' }}>
                     Khóa hiện tại: {geminiMaskedKey}
                   </div>
                 </div>
                 <button
                   type="button"
-                  className="btn-secondary-studio"
+                  className="atelier-assets-btn-sub"
                   onClick={() => setShowGeminiInput(true)}
-                  style={{ fontSize: '0.75rem', padding: '5px 10px', minHeight: '28px' }}
                 >
                   Thay đổi Key
                 </button>
               </div>
             ) : (
               <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '6px' }}>
+                <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--atl-text-secondary)', marginBottom: '6px' }}>
                   {geminiHasKey ? 'Nhập khóa API mới để thay thế khóa hiện tại:' : 'Nhập Google Gemini API Key cho dự án này:'}
                 </label>
-                <div style={{ position: 'relative' }}>
+                <div className="atelier-settings-input-group">
                   <input
                     type={showPassword ? 'text' : 'password'}
                     value={geminiKeyInput}
                     placeholder="Dán mã khóa AIzaSy... vào đây"
                     onChange={(e) => setGeminiKeyInput(e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '10px 40px 10px 12px',
-                      background: 'rgba(0, 0, 0, 0.3)',
-                      border: '1px solid var(--border-panel)',
-                      borderRadius: '8px',
-                      color: 'var(--text-white)',
-                      fontSize: '0.85rem'
-                    }}
+                    className="atelier-settings-input"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    style={{
-                      position: 'absolute',
-                      right: '10px',
-                      top: '50%',
-                      transform: 'translateY(-50%)',
-                      background: 'transparent',
-                      border: 'none',
-                      color: 'var(--text-dim)',
-                      cursor: 'pointer'
-                    }}
+                    className="atelier-settings-input-btn-eye"
                   >
                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
@@ -510,16 +446,16 @@ export default function ProjectSettings({ currentProject, onAiEnabledChange }) {
                   <button
                     type="button"
                     onClick={() => { setShowGeminiInput(false); setGeminiKeyInput(''); }}
-                    style={{ background: 'transparent', border: 'none', color: 'var(--text-dim)', fontSize: '0.75rem', marginTop: '6px', cursor: 'pointer', textDecoration: 'underline' }}
+                    style={{ background: 'transparent', border: 'none', color: '#a39bc2', fontSize: '0.75rem', marginTop: '6px', cursor: 'pointer', textDecoration: 'underline' }}
                   >
                     Hủy thay đổi (Giữ nguyên khóa cũ)
                   </button>
                 )}
               </div>
             )}
-            <p style={{ margin: '8px 0 0', fontSize: '0.75rem', color: 'var(--text-dim)' }}>
+            <p style={{ margin: '4px 0 0', fontSize: '0.75rem', color: '#6e658a' }}>
               Chưa có khóa? Lấy miễn phí tại{' '}
-              <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" style={{ color: 'var(--accent-purple)' }}>
+              <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" style={{ color: '#c084fc' }}>
                 Google AI Studio <ExternalLink size={11} style={{ display: 'inline' }} />
               </a>
             </p>
@@ -528,10 +464,10 @@ export default function ProjectSettings({ currentProject, onAiEnabledChange }) {
 
         {/* Khối cấu hình OpenAI ChatGPT */}
         {provider === 'openai' && (
-          <div className="profile-section-card" style={{ marginBottom: '20px' }}>
-            <h4 style={{ color: 'var(--text-white)', fontSize: '0.9rem', marginBottom: '12px' }}>
-              <Key size={16} color="var(--accent-purple)" />
-              OpenAI API Key
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <h4 className="atelier-settings-card-title">
+              <Key size={16} color="#c084fc" />
+              <span>OpenAI API Key</span>
             </h4>
 
             {openaiHasKey && !showOpenaiInput ? (
@@ -539,64 +475,45 @@ export default function ProjectSettings({ currentProject, onAiEnabledChange }) {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                padding: '12px 14px',
+                padding: '12px 16px',
                 background: 'rgba(16, 185, 129, 0.08)',
                 border: '1px solid rgba(16, 185, 129, 0.25)',
-                borderRadius: '8px',
-                marginBottom: '10px'
+                borderRadius: '10px'
               }}>
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#10b981', fontSize: '0.825rem', fontWeight: 600 }}>
                     <CheckCircle2 size={15} />
                     <span>Dự án này đã có OpenAI API Key trong MySQL</span>
                   </div>
-                  <div style={{ fontSize: '0.775rem', color: 'var(--text-muted)', marginTop: '2px', fontFamily: 'monospace' }}>
+                  <div style={{ fontSize: '0.775rem', color: 'var(--atl-text-secondary)', marginTop: '2px', fontFamily: 'monospace' }}>
                     Khóa hiện tại: {openaiMaskedKey}
                   </div>
                 </div>
                 <button
                   type="button"
-                  className="btn-secondary-studio"
+                  className="atelier-assets-btn-sub"
                   onClick={() => setShowOpenaiInput(true)}
-                  style={{ fontSize: '0.75rem', padding: '5px 10px', minHeight: '28px' }}
                 >
                   Thay đổi Key
                 </button>
               </div>
             ) : (
               <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '6px' }}>
+                <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--atl-text-secondary)', marginBottom: '6px' }}>
                   {openaiHasKey ? 'Nhập khóa OpenAI mới để thay thế khóa hiện tại:' : 'Nhập OpenAI API Key cho dự án này:'}
                 </label>
-                <div style={{ position: 'relative' }}>
+                <div className="atelier-settings-input-group">
                   <input
                     type={showPassword ? 'text' : 'password'}
                     value={openaiKeyInput}
                     placeholder="Dán mã khóa sk-... vào đây"
                     onChange={(e) => setOpenaiKeyInput(e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '10px 40px 10px 12px',
-                      background: 'rgba(0, 0, 0, 0.3)',
-                      border: '1px solid var(--border-panel)',
-                      borderRadius: '8px',
-                      color: 'var(--text-white)',
-                      fontSize: '0.85rem'
-                    }}
+                    className="atelier-settings-input"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    style={{
-                      position: 'absolute',
-                      right: '10px',
-                      top: '50%',
-                      transform: 'translateY(-50%)',
-                      background: 'transparent',
-                      border: 'none',
-                      color: 'var(--text-dim)',
-                      cursor: 'pointer'
-                    }}
+                    className="atelier-settings-input-btn-eye"
                   >
                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
@@ -605,7 +522,7 @@ export default function ProjectSettings({ currentProject, onAiEnabledChange }) {
                   <button
                     type="button"
                     onClick={() => { setShowOpenaiInput(false); setOpenaiKeyInput(''); }}
-                    style={{ background: 'transparent', border: 'none', color: 'var(--text-dim)', fontSize: '0.75rem', marginTop: '6px', cursor: 'pointer', textDecoration: 'underline' }}
+                    style={{ background: 'transparent', border: 'none', color: '#a39bc2', fontSize: '0.75rem', marginTop: '6px', cursor: 'pointer', textDecoration: 'underline' }}
                   >
                     Hủy thay đổi (Giữ nguyên khóa cũ)
                   </button>
@@ -613,9 +530,9 @@ export default function ProjectSettings({ currentProject, onAiEnabledChange }) {
               </div>
             )}
 
-            {/* Base URL Proxy nếu có */}
-            <div style={{ marginTop: '14px' }}>
-              <label style={{ display: 'block', fontSize: '0.775rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
+            {/* Base URL Proxy */}
+            <div style={{ marginTop: '6px' }}>
+              <label style={{ display: 'block', fontSize: '0.775rem', color: 'var(--atl-text-secondary)', marginBottom: '4px' }}>
                 OpenAI Base URL (Tùy chọn nếu dùng Proxy / Cloudflare):
               </label>
               <input
@@ -623,30 +540,22 @@ export default function ProjectSettings({ currentProject, onAiEnabledChange }) {
                 value={openaiBaseUrl}
                 placeholder="https://api.openai.com/v1"
                 onChange={(e) => setOpenaiBaseUrl(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '8px 12px',
-                  background: 'rgba(0, 0, 0, 0.25)',
-                  border: '1px solid var(--border-panel)',
-                  borderRadius: '6px',
-                  color: 'var(--text-white)',
-                  fontSize: '0.8rem'
-                }}
+                className="atelier-settings-input"
+                style={{ paddingRight: '14px' }}
               />
             </div>
           </div>
         )}
 
         {/* Nút lưu cấu hình */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', paddingTop: '10px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
           <button
             type="submit"
-            className="btn-primary-studio"
+            className="atelier-settings-btn-save"
             disabled={saving || loading}
-            style={{ minHeight: '38px', padding: '8px 20px', fontSize: '0.85rem', fontWeight: 600 }}
           >
             <Save size={15} className={saving ? 'spin' : ''} />
-            {saving ? 'Đang lưu vào MySQL…' : 'Lưu Cấu hình vào Dự án'}
+            <span>{saving ? 'Đang lưu vào MySQL…' : 'Lưu Cấu Hình Vào Dự Án'}</span>
           </button>
         </div>
       </form>
