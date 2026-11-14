@@ -65,6 +65,8 @@ export default function Workspace({ currentProject, incomingFile = null }) {
   const [nativeGrid, setNativeGrid] = useState(null);
   const [detectingGrid, setDetectingGrid] = useState(false);
   const [gridError, setGridError] = useState('');
+  // Mã ID của bản ghi sprite đang xử lý trong bảng project_sprites của MySQL
+  const [spriteDbId, setSpriteDbId] = useState(null);
   const viewport = useRef(null);
   const drag = useRef(null);
   const uploadVersion = useRef(0);
@@ -172,6 +174,23 @@ export default function Workspace({ currentProject, incomingFile = null }) {
     setZoom(null);
     setError('');
     setShowResult(true);
+
+    // Tự động lưu ảnh thô ban đầu vào MySQL (bảng project_sprites, cột raw_image_data)
+    if (currentProject?.id) {
+      const form = new FormData();
+      form.append('file', file);
+      form.append('project_id', currentProject.id);
+      form.append('name', file.name || 'sprite_raw');
+      fetch('/api/sprites/save-raw', { method: 'POST', body: form })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (data && data.id) {
+            setSpriteDbId(data.id);
+          }
+        })
+        .catch((err) => console.error('Lỗi khi lưu ảnh gốc vào MySQL:', err));
+    }
+
     image.onload = () => {
       if (version !== uploadVersion.current) return;
       const width = image.naturalWidth;
@@ -202,6 +221,23 @@ export default function Workspace({ currentProject, incomingFile = null }) {
     setZoom(null);
     setError('');
     setShowResult(true);
+
+    // Tự động lưu ảnh thô ban đầu chuyển tiếp từ AI vào MySQL
+    if (currentProject?.id) {
+      const form = new FormData();
+      form.append('file', incomingFile);
+      form.append('project_id', currentProject.id);
+      form.append('name', incomingFile.name || 'sprite_ai_raw');
+      fetch('/api/sprites/save-raw', { method: 'POST', body: form })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (data && data.id) {
+            setSpriteDbId(data.id);
+          }
+        })
+        .catch((err) => console.error('Lỗi khi lưu ảnh gốc vào MySQL:', err));
+    }
+
     image.onload = () => {
       if (version !== uploadVersion.current) return;
       const width = image.naturalWidth;
@@ -249,6 +285,15 @@ export default function Workspace({ currentProject, incomingFile = null }) {
         const blob = await response.blob();
         setResult({ url: URL.createObjectURL(blob), width: Number(target.width), height: Number(target.height) });
         setShowResult(true);
+
+        // Tự động lưu ảnh đã xử lý/chuẩn hóa vào MySQL (bảng project_sprites, cột processed_image_data)
+        if (currentProject?.id && spriteDbId) {
+          const form = new FormData();
+          form.append('file', blob, 'processed.png');
+          form.append('project_id', currentProject.id);
+          fetch(`/api/sprites/${spriteDbId}/save-processed`, { method: 'POST', body: form })
+            .catch((err) => console.error('Lỗi khi lưu ảnh tối ưu vào MySQL:', err));
+        }
       }
       setZoom(null);
     } catch (failure) {

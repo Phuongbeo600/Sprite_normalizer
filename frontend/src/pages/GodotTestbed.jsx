@@ -316,7 +316,12 @@ function extractSlotsFromSheet(charObj) {
  * @param {File|null} [props.incomingFile] Tệp ảnh được chuyển tiếp từ mục Tạo ảnh AI.
  * @returns {React.ReactElement} Màn hình phòng thử nghiệm.
  */
-export default function GodotTestbed({ currentProject, incomingFile = null }) {
+export default function GodotTestbed({
+  currentProject,
+  incomingFile = null,
+  deployedCharacterIds = null,
+  onResetDeployedFilter = null
+}) {
   // ========================================================
   // TRẠNG THÁI BẢN ĐỒ NỀN (BACKGROUND MAP)
   // ========================================================
@@ -439,6 +444,114 @@ export default function GodotTestbed({ currentProject, incomingFile = null }) {
     setActiveCharIdx(0);
   }, []);
 
+  // ========================================================
+  // ĐỒNG BỘ CƠ SỞ DỮ LIỆU MYSQL CHO BẢN ĐỒ & ĐỘI HÌNH NHÂN VẬT
+  // ========================================================
+  useEffect(() => {
+    if (!currentProject?.id) return;
+    const projectId = currentProject.id;
+
+    // 1. Tự động tải bản đồ nền từ MySQL (testbed_maps)
+    fetch(`/api/testbed/map?project_id=${projectId}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data && data.status === 'success' && data.map_image_base64) {
+          const img = new Image();
+          img.onload = () => {
+            setMapImage(img);
+            setMapUrl(data.map_image_base64);
+            setMapFileName(data.name || 'map_background.png');
+            if (data.ground_y) setGroundY(data.ground_y);
+            if (data.show_ground_line !== undefined) setShowGroundLine(data.show_ground_line);
+          };
+          img.src = data.map_image_base64;
+        }
+      })
+      .catch((err) => console.error('Lỗi khi tải bản đồ từ MySQL:', err));
+
+    // 2. Tự động tải danh sách nhân vật & 15 ô frame từ MySQL (testbed_characters, testbed_character_frames)
+    fetch(`/api/testbed/characters?project_id=${projectId}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data && data.characters && data.characters.length > 0) {
+          // Lọc danh sách theo nhân vật được chọn từ Kho tài nguyên (nếu có yêu cầu chọn lọc)
+          let targetChars = data.characters;
+          if (Array.isArray(deployedCharacterIds) && deployedCharacterIds.length > 0) {
+            const filtered = data.characters.filter((c) => deployedCharacterIds.includes(c.id));
+            if (filtered.length > 0) {
+              targetChars = filtered;
+            }
+          }
+
+          const loaded = [];
+          rosterStateRef.current = [];
+
+          targetChars.forEach((charDb, idx) => {
+            const slotsObj = {};
+            const slotKeys = Object.keys(charDb.slots_data || {});
+
+            // Khôi phục các ô ảnh frame từ dữ liệu Base64
+            slotKeys.forEach((key) => {
+              const dataUrl = charDb.slots_data[key];
+              if (dataUrl) {
+                const fImg = new Image();
+                fImg.src = dataUrl;
+                slotsObj[key] = {
+                  img: fImg,
+                  url: dataUrl,
+                  name: `${key}.png`
+                };
+              }
+            });
+
+            // Tự động ghép nối các ô slot thành tấm Sprite Sheet chuẩn
+            const stitched = stitchSlotsToSheet(slotsObj, true, true);
+            let sheetImg = new Image();
+            if (stitched) {
+              sheetImg.src = stitched.dataUrl;
+            }
+
+            loaded.push({
+              id: `char_db_${charDb.id}`,
+              dbId: charDb.id,
+              name: charDb.name,
+              icon: '🦸‍♂️',
+              sheetImage: sheetImg,
+              sheetUrl: stitched ? stitched.dataUrl : '',
+              sheetFileName: `${charDb.name.toLowerCase()}_sheet.png`,
+              rows: stitched ? stitched.rows : 3,
+              columns: stitched ? stitched.columns : 5,
+              fps: charDb.fps || 8,
+              moveSpeed: charDb.move_speed || 140,
+              cellWidth: stitched ? stitched.cellW : 32,
+              cellHeight: stitched ? stitched.cellH : 48,
+              scale: charDb.scale || 1.0,
+              isCustom: true,
+              slotsData: slotsObj,
+              slotMode: '3_rows'
+            });
+
+            rosterStateRef.current.push({
+              x: charDb.pos_x || (160 + idx * 100),
+              y: groundY,
+              direction: 'down',
+              facingLeft: false,
+              animTime: 0,
+              animFrameIdx: 0,
+              isMoving: false
+            });
+          });
+
+          if (loaded.length > 0) {
+            setCharacters(loaded);
+            setActiveCharIdx(0);
+          }
+        }
+      })
+      .catch((err) => console.error('Lỗi khi tải nhân vật từ MySQL:', err));
+  }, [currentProject?.id, deployedCharacterIds]);
+
+  // Cập nhật toạ độ Y của nhân vật trên sàn khi độ cao sàn groundY thay đổi
   useEffect(() => {
     if (rosterStateRef.current) {
       rosterStateRef.current.forEach((charState) => {
@@ -446,6 +559,23 @@ export default function GodotTestbed({ currentProject, incomingFile = null }) {
       });
     }
   }, [groundY]);
+
+  // Tự động lưu độ cao sàn mặt đất groundY vào MySQL (có debounce 400ms để tối ưu hiệu năng)
+  useEffect(() => {
+    if (!currentProject?.id) return;
+    const timer = setTimeout(() => {
+      fetch('/api/testbed/map/ground-y', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          project_id: currentProject.id,
+          ground_y: groundY
+        })
+      }).catch((err) => console.error('Lỗi khi cập nhật ground_y vào MySQL:', err));
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [groundY, currentProject?.id]);
 
   // Tự động nạp nhân vật mới khi có tệp được chuyển từ Tạo ảnh AI
   useEffect(() => {
@@ -495,37 +625,64 @@ export default function GodotTestbed({ currentProject, incomingFile = null }) {
     img.src = url;
   }, [incomingFile]);
 
-  // Xử lý nạp bản đồ nền
+  // Xử lý nạp bản đồ nền và lưu trực tiếp vào MySQL (testbed_maps)
   const handleUploadMap = (event) => {
     const file = event.target.files[0];
     event.target.value = '';
     if (!file) return;
 
-    if (mapUrl) {
+    if (mapUrl && !mapUrl.startsWith('data:')) {
       URL.revokeObjectURL(mapUrl);
     }
 
-    const url = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = () => {
-      setMapImage(img);
-      setMapUrl(url);
-      setMapFileName(file.name);
-      setErrorMsg('');
+    const reader = new FileReader();
+    reader.onload = (re) => {
+      const dataUrl = re.target.result;
+      const img = new Image();
+      img.onload = () => {
+        setMapImage(img);
+        setMapUrl(dataUrl);
+        setMapFileName(file.name);
+        setErrorMsg('');
+
+        // Tự động lưu bản đồ nền thật dạng MEDIUMBLOB vào MySQL
+        if (currentProject?.id) {
+          fetch('/api/testbed/map', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              project_id: currentProject.id,
+              name: file.name,
+              map_image_base64: dataUrl,
+              ground_y: groundY,
+              show_ground_line: showGroundLine
+            })
+          }).catch((err) => console.error('Lỗi khi lưu bản đồ vào MySQL:', err));
+        }
+      };
+      img.onerror = () => {
+        setErrorMsg('Không đọc được tệp ảnh Map nền. Vui lòng chọn tệp PNG hoặc JPEG hợp lệ.');
+      };
+      img.src = dataUrl;
     };
-    img.onerror = () => {
-      setErrorMsg('Không đọc được tệp ảnh Map nền. Vui lòng chọn tệp PNG hoặc JPEG hợp lệ.');
-    };
-    img.src = url;
+    reader.readAsDataURL(file);
   };
 
+  // Xóa bản đồ nền và đồng bộ xóa khỏi MySQL
   const handleResetMap = () => {
-    if (mapUrl) {
+    if (mapUrl && !mapUrl.startsWith('data:')) {
       URL.revokeObjectURL(mapUrl);
     }
     setMapImage(null);
     setMapUrl('');
     setMapFileName('');
+
+    // Xóa bản đồ nền khỏi MySQL nếu đang mở dự án
+    if (currentProject?.id) {
+      fetch(`/api/testbed/map?project_id=${currentProject.id}`, {
+        method: 'DELETE'
+      }).catch((err) => console.error('Lỗi khi xóa bản đồ khỏi MySQL:', err));
+    }
   };
 
   // CHỨC NĂNG 1: THÊM NHÂN VẬT TỪ SPRITE SHEET GỘP
@@ -571,6 +728,36 @@ export default function GodotTestbed({ currentProject, incomingFile = null }) {
         animFrameIdx: 0,
         isMoving: false
       });
+
+      // Tự động trích xuất các ô frame từ Sheet và lưu vĩnh viễn vào MySQL
+      if (currentProject?.id) {
+        const extracted = extractSlotsFromSheet(newChar);
+        const slotsPayload = {};
+        Object.entries(extracted).forEach(([k, v]) => {
+          if (v && v.url) slotsPayload[k] = v.url;
+        });
+
+        fetch('/api/testbed/characters', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            project_id: currentProject.id,
+            name: newChar.name,
+            scale: 1.0,
+            pos_x: Math.min(1150, newX),
+            fps: 8,
+            move_speed: 130,
+            slots_data: slotsPayload
+          })
+        })
+          .then((res) => (res.ok ? res.json() : null))
+          .then((data) => {
+            if (data && data.id) {
+              newChar.dbId = data.id;
+            }
+          })
+          .catch((err) => console.error('Lỗi khi lưu nhân vật từ Sheet vào MySQL:', err));
+      }
 
       const updated = [...characters, newChar];
       setCharacters(updated);
@@ -628,28 +815,32 @@ export default function GodotTestbed({ currentProject, incomingFile = null }) {
     if (!file) return;
     if (file.name.endsWith('.import')) return;
 
-    const url = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = () => {
-      const c = document.createElement('canvas');
-      c.width = img.naturalWidth || img.width;
-      c.height = img.naturalHeight || img.height;
-      const ctx = c.getContext('2d');
-      ctx.imageSmoothingEnabled = false;
-      ctx.drawImage(img, 0, 0);
+    const reader = new FileReader();
+    reader.onload = (re) => {
+      const dataUrl = re.target.result;
+      const img = new Image();
+      img.onload = () => {
+        const c = document.createElement('canvas');
+        c.width = img.naturalWidth || img.width;
+        c.height = img.naturalHeight || img.height;
+        const ctx = c.getContext('2d');
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(img, 0, 0);
 
-      setSlotsData((prev) => ({
-        ...prev,
-        [slotId]: {
-          img,
-          canvas: c,
-          url,
-          name: file.name,
-          file
-        }
-      }));
+        setSlotsData((prev) => ({
+          ...prev,
+          [slotId]: {
+            img,
+            canvas: c,
+            url: dataUrl,
+            name: file.name,
+            file
+          }
+        }));
+      };
+      img.src = dataUrl;
     };
-    img.src = url;
+    reader.readAsDataURL(file);
   };
 
   /**
@@ -782,8 +973,8 @@ export default function GodotTestbed({ currentProject, incomingFile = null }) {
 
   /**
    * Xác nhận ghép toàn bộ các ô Slot thành Sprite Sheet:
-   * - Nếu editingCharIdx !== null: Cập nhật nhân vật đang có (không mất vị trí trên map).
-   * - Nếu editingCharIdx === null: Tạo nhân vật mới vào đội hình.
+   * - Nếu editingCharIdx !== null: Cập nhật nhân vật đang có (giữ nguyên toạ độ trên sàn và đồng bộ MySQL).
+   * - Nếu editingCharIdx === null: Tạo nhân vật mới vào đội hình và lưu vào MySQL.
    */
   const handleConfirmSlotTemplate = () => {
     const hasAnyImage = Object.keys(slotsData).length > 0;
@@ -802,6 +993,18 @@ export default function GodotTestbed({ currentProject, incomingFile = null }) {
     const charName = stagedCharName.trim() || 'Hero';
     const stitchedImg = new Image();
     stitchedImg.onload = () => {
+      // Chuẩn bị dữ liệu 15 ô frame dạng Base64 gửi lên MySQL (ưu tiên toDataURL từ canvas để đảm bảo chuẩn Base64)
+      const slotsPayload = {};
+      Object.entries(slotsData).forEach(([k, v]) => {
+        if (v) {
+          if (v.canvas && typeof v.canvas.toDataURL === 'function') {
+            slotsPayload[k] = v.canvas.toDataURL('image/png');
+          } else if (v.url && v.url.startsWith('data:image')) {
+            slotsPayload[k] = v.url;
+          }
+        }
+      });
+
       if (editingCharIdx !== null && characters[editingCharIdx]) {
         // CẬP NHẬT NHÂN VẬT ĐANG CÓ (Giữ nguyên toạ độ X, Y, Scale và ID)
         const existingChar = characters[editingCharIdx];
@@ -822,11 +1025,64 @@ export default function GodotTestbed({ currentProject, incomingFile = null }) {
 
         setCharacters((prev) => prev.map((c, i) => i === editingCharIdx ? updatedChar : c));
         setEditingCharIdx(null);
+
+        // Đồng bộ cập nhật nhân vật và 15 ô frame vào MySQL
+        if (currentProject?.id) {
+          if (existingChar.dbId) {
+            // Trường hợp 1: Nhân vật đã có trong MySQL -> Gửi PUT cập nhật thông số và các ô ảnh
+            fetch(`/api/testbed/characters/${existingChar.dbId}?project_id=${currentProject.id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                name: charName,
+                scale: existingChar.scale || 1.0,
+                pos_x: rosterStateRef.current[editingCharIdx]?.x || 260,
+                fps: stagedFps
+              })
+            }).catch((err) => console.error('Lỗi khi cập nhật thông tin nhân vật vào MySQL:', err));
+
+            // Cập nhật từng ô ảnh rời vào bảng testbed_character_frames
+            Object.entries(slotsPayload).forEach(([slotKey, imgBase64]) => {
+              fetch(`/api/testbed/characters/${existingChar.dbId}/slots`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ slot_key: slotKey, image_base64: imgBase64 })
+              }).catch((err) => console.error(`Lỗi cập nhật ô ${slotKey} vào MySQL:`, err));
+            });
+          } else {
+            // Trường hợp 2: Nhân vật mẫu ban đầu (chưa có trong MySQL) được người dùng đè asset lên
+            // Tự động lưu thành nhân vật thật trong MySQL và gán mã dbId
+            fetch('/api/testbed/characters', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                project_id: currentProject.id,
+                name: charName,
+                scale: existingChar.scale || 1.0,
+                pos_x: rosterStateRef.current[editingCharIdx]?.x || 260,
+                fps: stagedFps,
+                move_speed: existingChar.moveSpeed || 135,
+                slots_data: slotsPayload
+              })
+            })
+              .then((res) => (res.ok ? res.json() : null))
+              .then((data) => {
+                if (data && data.id) {
+                  existingChar.dbId = data.id;
+                  updatedChar.dbId = data.id;
+                  setCharacters((prev) => prev.map((c, i) => i === editingCharIdx ? { ...c, dbId: data.id } : c));
+                }
+              })
+              .catch((err) => console.error('Lỗi khi lưu nhân vật mẫu đã sửa vào MySQL:', err));
+          }
+        }
       } else {
         // TẠO MỚI NHÂN VẬT
         const newId = `char_${Date.now()}`;
+        const newX = Math.min(1150, 160 + characters.length * 90);
         const newChar = {
           id: newId,
+          dbId: null, // Sẽ được gán sau khi MySQL trả về ID
           name: charName,
           icon: '🖼️',
           sheetImage: stitchedImg,
@@ -844,9 +1100,8 @@ export default function GodotTestbed({ currentProject, incomingFile = null }) {
           slotMode: slotMode
         };
 
-        const newX = 160 + characters.length * 90;
         rosterStateRef.current.push({
-          x: Math.min(1150, newX),
+          x: newX,
           y: groundY,
           direction: 'down',
           facingLeft: false,
@@ -854,6 +1109,30 @@ export default function GodotTestbed({ currentProject, incomingFile = null }) {
           animFrameIdx: 0,
           isMoving: false
         });
+
+        // Lưu mới vào MySQL và nhận ID tự tăng
+        if (currentProject?.id) {
+          fetch('/api/testbed/characters', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              project_id: currentProject.id,
+              name: charName,
+              scale: 1.0,
+              pos_x: newX,
+              fps: stagedFps,
+              move_speed: 135,
+              slots_data: slotsPayload
+            })
+          })
+            .then((res) => (res.ok ? res.json() : null))
+            .then((data) => {
+              if (data && data.id) {
+                newChar.dbId = data.id;
+              }
+            })
+            .catch((err) => console.error('Lỗi khi lưu nhân vật mới vào MySQL:', err));
+        }
 
         const updated = [...characters, newChar];
         setCharacters(updated);
@@ -972,14 +1251,41 @@ export default function GodotTestbed({ currentProject, incomingFile = null }) {
     setActiveCharIdx(targetIdx);
   };
 
+  // Cập nhật thông số nhân vật đang chọn (tên, tỉ lệ phóng to scale, FPS) và lưu vào MySQL
   const handleUpdateActiveChar = (updates) => {
-    setCharacters((prev) => prev.map((c, i) => i === activeCharIdx ? { ...c, ...updates } : c));
+    setCharacters((prev) => prev.map((c, i) => {
+      if (i !== activeCharIdx) return c;
+      const updated = { ...c, ...updates };
+
+      // Tự động đồng bộ lên MySQL nếu nhân vật đã có dbId
+      if (currentProject?.id && updated.dbId) {
+        fetch(`/api/testbed/characters/${updated.dbId}?project_id=${currentProject.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: updated.name,
+            scale: updated.scale || 1.0,
+            pos_x: rosterStateRef.current[activeCharIdx]?.x || 260,
+            fps: updated.fps || 8
+          })
+        }).catch((err) => console.error('Lỗi khi cập nhật thông số nhân vật vào MySQL:', err));
+      }
+      return updated;
+    }));
   };
 
+  // Xóa nhân vật khỏi phòng thử nghiệm và tự động xóa khỏi MySQL
   const handleRemoveCharacter = (idxToRemove) => {
     if (characters.length <= 1) {
       setErrorMsg('Cần giữ lại ít nhất một nhân vật trong phòng thử nghiệm.');
       return;
+    }
+
+    const charToRemove = characters[idxToRemove];
+    if (charToRemove?.dbId && currentProject?.id) {
+      fetch(`/api/testbed/characters/${charToRemove.dbId}?project_id=${currentProject.id}`, {
+        method: 'DELETE'
+      }).catch((err) => console.error('Lỗi khi xóa nhân vật khỏi MySQL:', err));
     }
 
     const updated = characters.filter((_, idx) => idx !== idxToRemove);
@@ -1533,6 +1839,43 @@ export default function GodotTestbed({ currentProject, incomingFile = null }) {
           <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
             Đặt nhân vật mới đứng cạnh nhân vật cũ trên cùng sàn đất để so sánh tỉ lệ pixel, chiều cao và nhịp chạy trước khi đưa vào game.
           </p>
+
+          {/* Huy hiệu hiển thị khi đang nạp đội hình được chọn lọc từ Kho tài nguyên */}
+          {Array.isArray(deployedCharacterIds) && deployedCharacterIds.length > 0 && (
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              background: 'rgba(16, 185, 129, 0.15)',
+              border: '1px solid rgba(16, 185, 129, 0.3)',
+              borderRadius: '20px',
+              padding: '3px 10px',
+              fontSize: '0.75rem',
+              color: '#34d399',
+              marginTop: '6px'
+            }}>
+              <span>🎮 Đang nạp {characters.length} nhân vật từ Kho tài nguyên</span>
+              {onResetDeployedFilter && (
+                <button
+                  type="button"
+                  onClick={onResetDeployedFilter}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: '#fff',
+                    textDecoration: 'underline',
+                    cursor: 'pointer',
+                    fontSize: '0.75rem',
+                    padding: 0,
+                    marginLeft: '4px'
+                  }}
+                  title="Hiển thị tất cả nhân vật có trong MySQL"
+                >
+                  (Hiện tất cả)
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>

@@ -117,7 +117,7 @@ class ProjectRepository(BaseRepository):
         try:
             row = db.execute(
                 text("""
-                    SELECT id, name, api_provider, gemini_api_key, openai_api_key, openai_base_url
+                    SELECT id, name, api_provider, gemini_api_key, openai_api_key, openai_base_url, ai_enabled
                     FROM projects WHERE id = :id
                 """),
                 {"id": project_id}
@@ -129,7 +129,7 @@ class ProjectRepository(BaseRepository):
             db.commit()
             row = db.execute(
                 text("""
-                    SELECT id, name, api_provider, gemini_api_key, openai_api_key, openai_base_url
+                    SELECT id, name, api_provider, gemini_api_key, openai_api_key, openai_base_url, ai_enabled
                     FROM projects WHERE id = :id
                 """),
                 {"id": project_id}
@@ -157,6 +157,7 @@ class ProjectRepository(BaseRepository):
             "openai_has_key": bool(openai_key),
             "openai_masked_key": _mask(openai_key),
             "openai_base_url": data.get("openai_base_url") or "https://api.openai.com/v1",
+            "ai_enabled": bool(data.get("ai_enabled") if data.get("ai_enabled") is not None else True),
             # Trả về key thực tế cho tầng backend gọi AI
             "_gemini_raw_key": gemini_key,
             "_openai_raw_key": openai_key
@@ -169,10 +170,11 @@ class ProjectRepository(BaseRepository):
         api_provider: str = "gemini",
         gemini_api_key: Optional[str] = None,
         openai_api_key: Optional[str] = None,
-        openai_base_url: Optional[str] = None
+        openai_base_url: Optional[str] = None,
+        ai_enabled: Optional[bool] = None
     ) -> bool:
         """
-        Cập nhật cấu hình API Key và nhà cung cấp AI cho dự án trong MySQL.
+        Cập nhật cấu hình API Key và trạng thái kích hoạt AI cho dự án trong MySQL.
 
         @param {Session} db Phiên làm việc cơ sở dữ liệu.
         @param {int} project_id ID dự án.
@@ -180,6 +182,7 @@ class ProjectRepository(BaseRepository):
         @param {Optional[str]} gemini_api_key Khóa Google Gemini mới nếu có.
         @param {Optional[str]} openai_api_key Khóa OpenAI mới nếu có.
         @param {Optional[str]} openai_base_url Địa chỉ proxy nếu có.
+        @param {Optional[bool]} ai_enabled Trạng thái bật/tắt toàn bộ AI trong dự án.
         @returns {bool} True nếu cập nhật thành công.
         """
         updates = ["api_provider = :api_provider"]
@@ -199,6 +202,10 @@ class ProjectRepository(BaseRepository):
         if openai_base_url is not None:
             updates.append("openai_base_url = :openai_base_url")
             params["openai_base_url"] = openai_base_url.strip() or "https://api.openai.com/v1"
+
+        if ai_enabled is not None:
+            updates.append("ai_enabled = :ai_enabled")
+            params["ai_enabled"] = bool(ai_enabled)
 
         query_str = f"UPDATE projects SET {', '.join(updates)} WHERE id = :id"
 

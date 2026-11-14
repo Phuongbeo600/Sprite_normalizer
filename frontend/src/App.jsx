@@ -55,6 +55,20 @@ export default function App() {
   // Tệp ảnh được chuyển tiếp từ Tạo ảnh AI sang Workspace hoặc Godot
   const [transferredImageForWorkspace, setTransferredImageForWorkspace] = useState(null);
   const [transferredImageForGodot, setTransferredImageForGodot] = useState(null);
+  // Danh sách ID nhân vật được tích chọn từ Kho tài nguyên để đưa vào Godot Testbed
+  const [selectedGodotCharIds, setSelectedGodotCharIds] = useState(null);
+  // Trạng thái bật/tắt toàn bộ tính năng AI của dự án hiện tại (mặc định true)
+  const [isAiEnabled, setIsAiEnabled] = useState(true);
+
+  /**
+   * Đưa danh sách các nhân vật được tích chọn từ Kho tài nguyên sang phòng thử nghiệm Godot.
+   * 
+   * @param {number[]} charIds Mảng ID nhân vật trong MySQL.
+   */
+  const handleDeployCharactersToGodot = (charIds) => {
+    setSelectedGodotCharIds(charIds);
+    setActiveTab('godot_testbed');
+  };
 
   /**
    * Chuyển prompt và negative prompt từ màn hình Phân tích sang màn hình Tạo ảnh AI.
@@ -90,6 +104,7 @@ export default function App() {
 
   /**
    * Mở mục phân tích của dự án được chọn từ danh sách.
+   * Đồng thời tự động nạp trạng thái Bật/Tắt AI của dự án từ MySQL.
    * 
    * @param {Object} project Dự án được chọn.
    */
@@ -97,6 +112,20 @@ export default function App() {
     setCurrentProject(project);
     setActiveTab('analysis');
     setLoadedPresetData(null);
+
+    // Đọc trạng thái cấu hình AI của dự án từ MySQL
+    if (project?.id) {
+      fetch(`/api/projects/${project.id}/api-config`)
+        .then((res) => (res.ok ? res.json() : null))
+        .then((resJson) => {
+          if (resJson?.data) {
+            setIsAiEnabled(resJson.data.ai_enabled !== false);
+          }
+        })
+        .catch(() => {
+          setIsAiEnabled(true);
+        });
+    }
   };
 
   /**
@@ -125,6 +154,7 @@ export default function App() {
         activeTab={activeTab}
         currentProject={currentProject}
         onSelectTab={setActiveTab}
+        isAiEnabled={isAiEnabled}
       />
 
       {/* 2. Vùng Hiển Thị Nội Dung Chính (Có hình nền Hiệp sĩ & Lâu đài Gothic) */}
@@ -154,6 +184,7 @@ export default function App() {
                   loadedPresetData={loadedPresetData}
                   isActive={activeTab === 'analysis'}
                   onSendPromptToImageGen={handleSendPromptToImageGen}
+                  isAiEnabled={isAiEnabled}
                 />
               </div>
 
@@ -166,6 +197,7 @@ export default function App() {
                   onSelectTab={setActiveTab}
                   onTransferToWorkspace={handleTransferToWorkspace}
                   onTransferToGodot={handleTransferToGodot}
+                  isAiEnabled={isAiEnabled}
                 />
               </div>
 
@@ -177,11 +209,14 @@ export default function App() {
                 />
               </div>
 
-              {/* Mục 4: Hồ sơ đã lưu (Nằm dưới "Xử lý ảnh") */}
+              {/* Mục 4: Kho tài nguyên dự án (Quản lý hồ sơ, ảnh sprite, đội hình Godot, map nền) */}
               <div hidden={activeTab !== 'saved_presets'}>
                 <ProjectSavedPresets
                   currentProject={currentProject}
                   onLoadPresetToStudio={handleLoadPresetToStudio}
+                  onLoadSpriteToWorkspace={handleTransferToWorkspace}
+                  onDeployCharactersToGodot={handleDeployCharactersToGodot}
+                  onSelectTab={setActiveTab}
                 />
               </div>
 
@@ -190,12 +225,17 @@ export default function App() {
                 <GodotTestbed
                   currentProject={currentProject}
                   incomingFile={transferredImageForGodot}
+                  deployedCharacterIds={selectedGodotCharIds}
+                  onResetDeployedFilter={() => setSelectedGodotCharIds(null)}
                 />
               </div>
 
               {/* Mục 6: Cài đặt dự án (Quản lý API Key riêng của dự án này) */}
               <div hidden={activeTab !== 'project_settings'}>
-                <ProjectSettings currentProject={currentProject} />
+                <ProjectSettings
+                  currentProject={currentProject}
+                  onAiEnabledChange={setIsAiEnabled}
+                />
               </div>
             </div>
           </div>

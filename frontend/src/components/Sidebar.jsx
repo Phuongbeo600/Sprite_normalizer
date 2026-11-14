@@ -7,7 +7,7 @@ import React from 'react';
 // 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
 // ========================================================
 // lucide-react: Bộ biểu tượng vector SVG cho logo và các mục điều hướng Sidebar
-import { Folder, Settings, Bot, ScanSearch, Image, Bookmark, Sliders, Gamepad2, Sparkles } from 'lucide-react';
+import { Folder, Settings, Bot, ScanSearch, Image, Bookmark, Sliders, Gamepad2, Sparkles, FolderOpen, Lock } from 'lucide-react';
 
 // ========================================================
 // 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Components & Dữ liệu)
@@ -38,9 +38,10 @@ import { CURRENT_USER, APP_CONFIG } from '../constants/initialProjects';
  * @param {string} props.activeTab Mục đang được kích hoạt hiển thị.
  * @param {Object|null} props.currentProject Dự án đang được mở.
  * @param {Function} props.onSelectTab Hàm chuyển đổi mục hiển thị.
+ * @param {boolean} [props.isAiEnabled=true] Trạng thái bật/tắt toàn bộ tính năng AI trong dự án.
  * @returns {React.ReactElement} Giao diện thanh Sidebar.
  */
-export default function Sidebar({ activeTab, currentProject, onSelectTab }) {
+export default function Sidebar({ activeTab, currentProject, onSelectTab, isAiEnabled = true }) {
   return (
     <aside className="minimal-sidebar">
       <div>
@@ -76,9 +77,30 @@ export default function Sidebar({ activeTab, currentProject, onSelectTab }) {
               <button
                 className={`minimal-nav-item ${activeTab === 'image_gen' ? 'active' : ''}`}
                 onClick={() => onSelectTab('image_gen')}
+                style={{ opacity: isAiEnabled ? 1 : 0.75 }}
+                title={!isAiEnabled ? 'Tính năng AI đang tắt trong Cài đặt dự án' : 'Tạo ảnh AI Sprite Sheet'}
               >
                 <Sparkles size={18} />
                 <span>Tạo ảnh AI</span>
+                {!isAiEnabled && (
+                  <span
+                    style={{
+                      marginLeft: 'auto',
+                      fontSize: '0.625rem',
+                      padding: '1px 5px',
+                      borderRadius: '4px',
+                      background: 'rgba(239, 68, 68, 0.2)',
+                      color: '#f87171',
+                      border: '1px solid rgba(239, 68, 68, 0.4)',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '2px'
+                    }}
+                  >
+                    <Lock size={9} />
+                    Tắt
+                  </span>
+                )}
               </button>
 
               {/* Mục 3: Xử lý ảnh */}
@@ -90,13 +112,13 @@ export default function Sidebar({ activeTab, currentProject, onSelectTab }) {
                 <span>Xử lý ảnh</span>
               </button>
 
-              {/* Mục 3: Hồ sơ đã lưu (Nằm ngay dưới Xử lý ảnh, trên Cài đặt) */}
+              {/* Mục 4: Kho tài nguyên dự án (Quản lý hồ sơ, ảnh sprite, đội hình Godot, map nền) */}
               <button
                 className={`minimal-nav-item ${activeTab === 'saved_presets' ? 'active' : ''}`}
                 onClick={() => onSelectTab('saved_presets')}
               >
-                <Bookmark size={18} />
-                <span>Hồ sơ đã lưu</span>
+                <FolderOpen size={18} />
+                <span>Kho tài nguyên</span>
               </button>
 
               {/* Mục 4: Thử nghiệm Godot (Kiểm thử nhân vật & xuất scene Godot 4) */}

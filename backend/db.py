@@ -56,7 +56,8 @@ def ensure_project_columns(conn_or_session):
         ("api_provider", "VARCHAR(50) DEFAULT 'gemini'"),
         ("gemini_api_key", "TEXT NULL"),
         ("openai_api_key", "TEXT NULL"),
-        ("openai_base_url", "VARCHAR(255) DEFAULT 'https://api.openai.com/v1'")
+        ("openai_base_url", "VARCHAR(255) DEFAULT 'https://api.openai.com/v1'"),
+        ("ai_enabled", "BOOLEAN DEFAULT TRUE")
     ]
     for col_name, col_type in columns_to_ensure:
         try:
@@ -96,7 +97,8 @@ def init_db():
                     api_provider VARCHAR(50) DEFAULT 'gemini',
                     gemini_api_key TEXT NULL,
                     openai_api_key TEXT NULL,
-                    openai_base_url VARCHAR(255) DEFAULT 'https://api.openai.com/v1'
+                    openai_base_url VARCHAR(255) DEFAULT 'https://api.openai.com/v1',
+                    ai_enabled BOOLEAN DEFAULT TRUE
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
             """))
 

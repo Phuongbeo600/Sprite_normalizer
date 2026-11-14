@@ -110,12 +110,24 @@ class ImageGenService:
         has_key = bool(key and key.strip())
         masked_key = SettingsService.mask_api_key(key) if has_key else ""
 
+        ai_enabled = True
+        if project_id:
+            try:
+                service = ProjectService()
+                with SessionLocal() as db:
+                    cfg = service.get_api_config(db, project_id)
+                    if cfg and cfg.get("ai_enabled") is False:
+                        ai_enabled = False
+            except Exception:
+                pass
+
         return {
             "status": "success",
             "provider": provider,
             "has_key": has_key,
             "masked_key": masked_key,
-            "ready": has_key,
+            "ready": has_key and ai_enabled,
+            "ai_enabled": ai_enabled,
             "base_url": base_url if provider == "openai" else None
         }
 
@@ -128,6 +140,22 @@ class ImageGenService:
         @param {ImageGenRequest} request Yêu cầu chứa prompt, tỉ lệ, số lượng ảnh và mã dự án.
         @returns {ImageGenResponse} Danh sách các ảnh đã được tạo kèm metadata.
         """
+        # Kiểm tra công tắc AI của dự án
+        if request.project_id:
+            try:
+                service = ProjectService()
+                with SessionLocal() as db:
+                    cfg = service.get_api_config(db, request.project_id)
+                    if cfg and cfg.get("ai_enabled") is False:
+                        raise ValueError(
+                            "Tính năng AI hiện đang bị tắt trong 'Cài đặt dự án'. "
+                            "Vui lòng bật lại công tắc AI trước khi thực hiện tạo ảnh!"
+                        )
+            except ValueError:
+                raise
+            except Exception:
+                pass
+
         # 1. Trích xuất thông tin xác thực hiệu lực
         key, provider, base_url = cls.resolve_credentials(
             project_id=request.project_id,

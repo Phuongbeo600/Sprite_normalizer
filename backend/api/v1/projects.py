@@ -32,11 +32,12 @@ project_service = ProjectService()
 
 
 class ProjectApiConfigRequest(BaseModel):
-    """Schema cập nhật cấu hình API Key của riêng dự án trong MySQL."""
+    """Schema cập nhật cấu hình API Key và trạng thái AI của riêng dự án trong MySQL."""
     api_provider: str = Field("gemini", description="Nhà cung cấp: 'gemini' hoặc 'openai'")
     gemini_api_key: Optional[str] = Field(None, description="Khóa Google Gemini API")
     openai_api_key: Optional[str] = Field(None, description="Khóa OpenAI API")
     openai_base_url: Optional[str] = Field("https://api.openai.com/v1", description="Địa chỉ API proxy")
+    ai_enabled: Optional[bool] = Field(None, description="Trạng thái bật/tắt toàn bộ tính năng AI của dự án")
 
 
 class SaveCharacterPresetRequest(BaseModel):
@@ -143,7 +144,8 @@ def get_project_api_config(project_id: int, db: Session = Depends(get_db)):
             "gemini_masked_key": config["gemini_masked_key"],
             "openai_has_key": config["openai_has_key"],
             "openai_masked_key": config["openai_masked_key"],
-            "openai_base_url": config["openai_base_url"]
+            "openai_base_url": config["openai_base_url"],
+            "ai_enabled": config.get("ai_enabled", True)
         }
         return {"status": "success", "data": safe_config}
     except ValueError as e:
@@ -168,7 +170,8 @@ def update_project_api_config(
             api_provider=req.api_provider,
             gemini_api_key=req.gemini_api_key,
             openai_api_key=req.openai_api_key,
-            openai_base_url=req.openai_base_url
+            openai_base_url=req.openai_base_url,
+            ai_enabled=req.ai_enabled
         )
         return {
             "status": "success",

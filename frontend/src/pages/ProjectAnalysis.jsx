@@ -6,8 +6,8 @@ import React, { useEffect, useRef, useState } from 'react';
 // ========================================================
 // 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
 // ========================================================
-// lucide-react: Bộ icon vector SVG siêu nhẹ hiển thị thư mục, quét ảnh, tạo prompt, sao chép và chuyển đổi chế độ
-import { Dna, FolderOpen, LoaderCircle, Ruler, Sparkles, Wand2 } from 'lucide-react';
+// lucide-react: Bộ icon vector SVG siêu nhẹ hiển thị thư mục, quét ảnh, tạo prompt, sao chép và chuyển đổi chế độ, ổ khóa
+import { Dna, FolderOpen, LoaderCircle, Ruler, Sparkles, Wand2, Lock } from 'lucide-react';
 
 // ========================================================
 // 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Components & Dữ liệu)
@@ -98,9 +98,10 @@ function collectPythonMeasurements({ palette, pixelReport, metrics, profileData 
  * @param {Object|null} props.loadedPresetData Bản ghi preset được nạp từ trang Thư viện Presets.
  * @param {boolean} props.isActive Studio đang được hiển thị trong dự án.
  * @param {Function} [props.onSendPromptToImageGen] Hàm chuyển tiếp prompt sang màn hình Tạo ảnh AI.
+ * @param {boolean} [props.isAiEnabled=true] Trạng thái bật/tắt toàn bộ tính năng AI trong dự án.
  * @returns {React.ReactElement} Giao diện Creative Workspace hoàn chỉnh.
  */
-export default function ProjectAnalysis({ currentProject, loadedPresetData, isActive = true, onSendPromptToImageGen = null }) {
+export default function ProjectAnalysis({ currentProject, loadedPresetData, isActive = true, onSendPromptToImageGen = null, isAiEnabled = true }) {
   // ========================================================
   // TRẠNG THÁI ẢNH THAM CHIẾU & LỚP PHỦ GIẢI PHẪU
   // ========================================================
@@ -501,6 +502,7 @@ export default function ProjectAnalysis({ currentProject, loadedPresetData, isAc
           saveSuccessMsg={saveSuccessMsg}
           initialConfig={loadedPresetConfig}
           onSendPromptToImageGen={onSendPromptToImageGen}
+          isAiEnabled={isAiEnabled}
         />
       </div>
 
@@ -512,13 +514,36 @@ export default function ProjectAnalysis({ currentProject, loadedPresetData, isAc
               <button
                 type="button"
                 className="btn-primary-studio"
-                disabled={!reference || visionStatus !== 'ready' || isGeneratingStyle || Boolean(localAction)}
+                disabled={!reference || visionStatus !== 'ready' || isGeneratingStyle || Boolean(localAction) || !isAiEnabled}
                 onClick={handleGenerateReferenceStyle}
+                style={{
+                  opacity: !isAiEnabled ? 0.6 : 1,
+                  cursor: !isAiEnabled ? 'not-allowed' : undefined,
+                  background: !isAiEnabled ? '#374151' : undefined,
+                  borderColor: !isAiEnabled ? '#4b5563' : undefined,
+                  color: !isAiEnabled ? '#9ca3af' : undefined
+                }}
+                title={!isAiEnabled ? 'Tính năng AI đang bị tắt trong Cài đặt dự án' : ''}
               >
-                {isGeneratingStyle ? <LoaderCircle size={16} className="spin" /> : <Sparkles size={16} />}
-                {isGeneratingStyle ? 'Đang phân tích phong cách…' : `Tạo prompt phong cách bằng ${providerLabel}`}
+                {isGeneratingStyle ? (
+                  <LoaderCircle size={16} className="spin" />
+                ) : !isAiEnabled ? (
+                  <Lock size={16} />
+                ) : (
+                  <Sparkles size={16} />
+                )}
+                {isGeneratingStyle
+                  ? 'Đang phân tích phong cách…'
+                  : !isAiEnabled
+                  ? 'Đã Khóa (Tính năng AI đang tắt)'
+                  : `Tạo prompt phong cách bằng ${providerLabel}`}
               </button>
             </div>
+            {!isAiEnabled && (
+              <p className="studio-reference-meta" style={{ color: '#f87171', fontWeight: 600 }}>
+                ⚠️ Tính năng AI hiện đang bị TẮT trong Cài đặt dự án. Nút tạo chỉ dẫn phong cách AI đã bị khóa an toàn.
+              </p>
+            )}
             <p className="studio-reference-meta">
               Khi bấm tạo, app gửi ảnh và các số đo Python đang có tới {providerLabel} để viết chỉ dẫn vẽ dùng lại được.
             </p>

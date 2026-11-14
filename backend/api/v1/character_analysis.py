@@ -102,10 +102,26 @@ def _resolve_project_api_key(
 @character_analysis_router.get("/vision-status")
 def get_vision_status(project_id: Optional[int] = None):
     """Đọc trạng thái cấu hình AI cục bộ, không gọi nhà cung cấp."""
+    ai_enabled = True
+    if project_id:
+        try:
+            service = ProjectService()
+            with SessionLocal() as db:
+                cfg = service.get_api_config(db, project_id)
+                if cfg and cfg.get("ai_enabled") is False:
+                    ai_enabled = False
+        except Exception:
+            pass
+
     credentials = _resolve_project_api_key(project_id, None, None, None)
     key, provider, _ = CharacterAnalysisService._resolve_credentials(*credentials)
-    ready = provider in VISION_PROVIDERS and bool((key or "").strip())
-    return {"provider": provider, "ready": ready, "gemini_ready": provider == "gemini" and ready}
+    ready = provider in VISION_PROVIDERS and bool((key or "").strip()) and ai_enabled
+    return {
+        "provider": provider,
+        "ready": ready,
+        "ai_enabled": ai_enabled,
+        "gemini_ready": provider == "gemini" and ready
+    }
 
 
 @character_analysis_router.post("/style-prompt", response_model=ReferenceStylePrompt)
@@ -115,6 +131,21 @@ async def generate_reference_style_prompt(
     project_id: Annotated[Optional[int], Form()] = None,
 ) -> ReferenceStylePrompt:
     """Tạo chỉ dẫn phong cách từ ảnh đã chọn và các số đo của Studio."""
+    if project_id:
+        try:
+            service = ProjectService()
+            with SessionLocal() as db:
+                cfg = service.get_api_config(db, project_id)
+                if cfg and cfg.get("ai_enabled") is False:
+                    raise HTTPException(
+                        status_code=403,
+                        detail="Tính năng AI đang bị tắt trong Cài đặt dự án. Vui lòng bật lại công tắc AI trước khi thực hiện."
+                    )
+        except HTTPException:
+            raise
+        except Exception:
+            pass
+
     credentials = await run_in_threadpool(_resolve_project_api_key, project_id, None, None, None)
     key, provider, base_url = CharacterAnalysisService._resolve_credentials(*credentials)
     if provider not in VISION_PROVIDERS or not (key or "").strip():
@@ -161,6 +192,21 @@ async def analyze_character_tab(
         raise HTTPException(status_code=400, detail="Tệp tải lên phải là định dạng hình ảnh.")
 
     try:
+        if vision_only and project_id:
+            try:
+                service = ProjectService()
+                with SessionLocal() as db:
+                    cfg = service.get_api_config(db, project_id)
+                    if cfg and cfg.get("ai_enabled") is False:
+                        raise HTTPException(
+                            status_code=403,
+                            detail="Tính năng AI đang bị tắt trong Cài đặt dự án."
+                        )
+            except HTTPException:
+                raise
+            except Exception:
+                pass
+
         # Tự động lấy key từ MySQL của dự án nếu cần
         eff_key, eff_prov, eff_base = _resolve_project_api_key(project_id, api_key, provider, base_url)
         if vision_only:

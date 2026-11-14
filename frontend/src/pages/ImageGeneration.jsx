@@ -6,7 +6,7 @@ import React, { useState, useEffect } from 'react';
 // ========================================================
 // 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
 // ========================================================
-// lucide-react: Bộ biểu tượng tia sáng AI, tải về, chuyển tab, làm mới, kính lúp, thông báo
+// lucide-react: Bộ biểu tượng tia sáng AI, tải về, chuyển tab, làm mới, kính lúp, thông báo, ổ khóa
 import {
   Sparkles,
   Download,
@@ -23,7 +23,8 @@ import {
   ExternalLink,
   Layers,
   Wand2,
-  ShieldAlert
+  ShieldAlert,
+  Lock
 } from 'lucide-react';
 
 // ========================================================
@@ -69,6 +70,7 @@ const ASPECT_RATIO_OPTIONS = [
  * @param {Function} [props.onSelectTab] Hàm chuyển đổi tab điều hướng.
  * @param {Function} [props.onTransferToWorkspace] Hàm chuyển ảnh sang Xử lý ảnh.
  * @param {Function} [props.onTransferToGodot] Hàm chuyển ảnh sang Thử nghiệm Godot.
+ * @param {boolean} [props.isAiEnabled=true] Trạng thái bật/tắt toàn bộ tính năng AI trong dự án.
  * @returns {React.ReactElement} Giao diện màn hình tạo ảnh.
  */
 export default function ImageGeneration({
@@ -77,7 +79,8 @@ export default function ImageGeneration({
   incomingNegativePrompt = '',
   onSelectTab,
   onTransferToWorkspace,
-  onTransferToGodot
+  onTransferToGodot,
+  isAiEnabled = true
 }) {
   // Trạng thái cấu hình API Key đọc từ hệ thống (0 Token)
   const [configStatus, setConfigStatus] = useState(null);
@@ -328,6 +331,54 @@ export default function ImageGeneration({
         </div>
       </div>
 
+      {/* CẢNH BÁO: TÍNH NĂNG AI ĐANG BỊ TẮT TRONG CÀI ĐẶT DỰ ÁN */}
+      {!isAiEnabled && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '12px',
+            padding: '12px 18px',
+            borderRadius: '8px',
+            background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(19, 27, 46, 0.9) 100%)',
+            border: '1px solid rgba(239, 68, 68, 0.45)',
+            color: '#f87171',
+            flexWrap: 'wrap'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <Lock size={18} flexShrink={0} />
+            <span style={{ fontSize: '0.825rem', lineHeight: '1.4' }}>
+              <strong>Chức năng AI đang TẮT:</strong> Toàn bộ các nút gọi API sinh ảnh AI trong dự án này đã bị khóa an toàn theo cấu hình trong Cài Đặt.
+            </span>
+          </div>
+
+          {onSelectTab && (
+            <button
+              type="button"
+              onClick={() => onSelectTab('project_settings')}
+              style={{
+                background: 'rgba(239, 68, 68, 0.25)',
+                border: '1px solid rgba(239, 68, 68, 0.55)',
+                color: '#fca5a5',
+                padding: '6px 14px',
+                borderRadius: '6px',
+                fontSize: '0.775rem',
+                cursor: 'pointer',
+                fontWeight: 600,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+            >
+              <span>Vào Cài Đặt Dự Án để Bật lại AI</span>
+              <span>➔</span>
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Thông báo lỗi / thành công */}
       {errorMsg && (
         <div style={{
@@ -563,11 +614,11 @@ export default function ImageGeneration({
             </span>
           </div>
 
-          {/* NÚT BẮT ĐẦU TẠO ẢNH CHÍNH */}
+          {/* NÚT BẮT ĐẦU TẠO ẢNH CHÍNH (TỰ ĐỘNG KHÓA NẾU TẮT AI) */}
           <button
             type="button"
             className="btn-primary-studio"
-            disabled={generating || !prompt.trim()}
+            disabled={generating || !prompt.trim() || !isAiEnabled}
             onClick={handleGenerateImage}
             style={{
               width: '100%',
@@ -578,13 +629,24 @@ export default function ImageGeneration({
               alignItems: 'center',
               justifyContent: 'center',
               gap: '8px',
-              marginTop: '4px'
+              marginTop: '4px',
+              cursor: !isAiEnabled ? 'not-allowed' : (generating || !prompt.trim() ? 'not-allowed' : 'pointer'),
+              opacity: !isAiEnabled ? 0.6 : 1,
+              background: !isAiEnabled ? '#374151' : undefined,
+              borderColor: !isAiEnabled ? '#4b5563' : undefined,
+              color: !isAiEnabled ? '#9ca3af' : undefined
             }}
+            title={!isAiEnabled ? 'Tính năng AI đang bị tắt trong Cài đặt dự án' : ''}
           >
             {generating ? (
               <>
                 <RefreshCw size={17} className="spin" />
                 <span>Đang kết nối AI sinh ảnh...</span>
+              </>
+            ) : !isAiEnabled ? (
+              <>
+                <Lock size={17} />
+                <span>Đã Khóa (Tính Năng AI Đang Tắt)</span>
               </>
             ) : (
               <>

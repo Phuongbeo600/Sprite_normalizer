@@ -26,6 +26,8 @@ from backend.api.v1.character_analysis import character_analysis_router
 from backend.api.v1.image_gen import image_gen_router
 # translation_router: Phân hệ dịch thuật prompt 2 chiều offline không cần API key (/api/translate)
 from backend.api.v1.translation import translation_router
+# testbed_router: Phân hệ phòng thử nghiệm Godot Testbed lưu nhân vật, 15 ô rời và map nền (/api/testbed)
+from backend.api.v1.testbed import testbed_router
 
 # ========================================================
 # 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
@@ -42,6 +44,7 @@ api_router.include_router(settings_router)
 api_router.include_router(character_analysis_router)
 api_router.include_router(image_gen_router)
 api_router.include_router(translation_router)
+api_router.include_router(testbed_router)
 
 
 @api_router.get("/health", tags=["Health Check"])

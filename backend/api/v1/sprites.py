@@ -16,14 +16,20 @@ from typing import Annotated, Literal, Optional
 # 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
 # ========================================================
 # fastapi: Khởi tạo router, nhận file upload và xử lý HTTP response
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends, Query
 from fastapi.responses import Response
+# sqlalchemy: Quản lý phiên làm việc Session với MySQL
+from sqlalchemy.orm import Session
 # PIL (Pillow): Mở ảnh tải lên và áp dụng hướng ảnh theo thông tin EXIF.
 from PIL import Image, ImageOps
 
 # ========================================================
-# 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Services)
+# 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Services & Repositories)
 # ========================================================
+# get_db: Phiên làm việc cơ sở dữ liệu MySQL
+from backend.db import get_db
+# SpriteRepository: Kho lưu trữ ảnh sprite gốc, ảnh tối ưu và khung cắt rời trong MySQL
+from backend.repositories.sprite_repository import SpriteRepository
 # SpriteService: Dịch vụ cắt viền và chuẩn hóa kích thước sprite
 from backend.services.sprite_service import SpriteService
 # AnatomyService: Dịch vụ phân tích giải phẫu học và tạo ảnh trực quan
@@ -221,3 +227,117 @@ def export_godot_package(
         raise HTTPException(status_code=422, detail=str(error)) from error
     except Exception as error:
         raise HTTPException(status_code=500, detail=f"Lỗi khi đóng gói tài nguyên Godot: {str(error)}") from error
+
+
+# ========================================================
+# CÁC TUYẾN API LƯU TRỮ ẢNH THẬT VÀO MYSQL (project_sprites & sprite_frames)
+# ========================================================
+sprite_repo = SpriteRepository()
+
+
+@sprites_router.get("/sprites")
+def list_project_sprites(
+    project_id: int = Query(..., description="Mã dự án"),
+    db: Session = Depends(get_db)
+):
+    """
+    Lấy danh sách các tấm ảnh sprite đã lưu của dự án.
+    """
+    try:
+        sprites = sprite_repo.get_sprites_by_project(db, project_id)
+        return {"status": "success", "sprites": sprites}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Lỗi khi lấy danh sách sprite: {str(exc)}")
+
+
+@sprites_router.post("/sprites/save-raw")
+async def save_raw_sprite(
+    file: UploadFile = File(...),
+    project_id: int = Form(...),
+    name: Optional[str] = Form(None),
+    db: Session = Depends(get_db)
+):
+    """
+    Lưu trực tiếp ảnh thô ban đầu (chưa qua xử lý) vào cột raw_image_data (MEDIUMBLOB) trong MySQL.
+    """
+    try:
+        raw_bytes = await file.read()
+        sprite_name = name or file.filename or "sprite_raw"
+        sprite_id = sprite_repo.save_raw_sprite(
+            db=db,
+            project_id=project_id,
+            name=sprite_name,
+            raw_image_bytes=raw_bytes,
+            metadata={"filename": file.filename, "size_bytes": len(raw_bytes)}
+        )
+        return {"status": "success", "id": sprite_id, "name": sprite_name, "message": "Đã lưu ảnh gốc vào MySQL thành công!"}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Lỗi khi lưu ảnh gốc vào CSDL: {str(exc)}")
+
+
+@sprites_router.post("/sprites/{sprite_id}/save-processed")
+async def save_processed_sprite(
+    sprite_id: int,
+    file: UploadFile = File(...),
+    project_id: int = Form(...),
+    db: Session = Depends(get_db)
+):
+    """
+    Lưu trực tiếp ảnh sau khi đã tối ưu/chuẩn hóa vào cột processed_image_data (MEDIUMBLOB) trong MySQL.
+    """
+    try:
+        proc_bytes = await file.read()
+        success = sprite_repo.update_processed_sprite(
+            db=db,
+            sprite_id=sprite_id,
+            project_id=project_id,
+            processed_image_bytes=proc_bytes,
+            metadata={"filename": file.filename, "size_bytes": len(proc_bytes)}
+        )
+        return {"status": "success" if success else "failed", "id": sprite_id, "message": "Đã lưu ảnh tối ưu vào MySQL thành công!"}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Lỗi khi lưu ảnh tối ưu: {str(exc)}")
+
+
+@sprites_router.get("/sprites/{sprite_id}/raw")
+def get_raw_sprite_image(
+    sprite_id: int,
+    project_id: int = Query(..., description="Mã dự án"),
+    db: Session = Depends(get_db)
+):
+    """
+    Tải ra dữ liệu ảnh gốc thật dạng image/png từ MySQL.
+    """
+    sprite = sprite_repo.get_sprite_by_id(db, sprite_id, project_id)
+    if not sprite or not sprite.get("raw_image_data"):
+        raise HTTPException(status_code=404, detail="Không tìm thấy ảnh gốc trong MySQL.")
+    return Response(content=sprite["raw_image_data"], media_type="image/png")
+
+
+@sprites_router.get("/sprites/{sprite_id}/processed")
+def get_processed_sprite_image(
+    sprite_id: int,
+    project_id: int = Query(..., description="Mã dự án"),
+    db: Session = Depends(get_db)
+):
+    """
+    Tải ra dữ liệu ảnh tối ưu thật dạng image/png từ MySQL.
+    """
+    sprite = sprite_repo.get_sprite_by_id(db, sprite_id, project_id)
+    if not sprite or not sprite.get("processed_image_data"):
+        raise HTTPException(status_code=404, detail="Không tìm thấy ảnh tối ưu trong MySQL.")
+    return Response(content=sprite["processed_image_data"], media_type="image/png")
+
+
+@sprites_router.delete("/sprites/{sprite_id}")
+def delete_sprite(
+    sprite_id: int,
+    project_id: int = Query(..., description="Mã dự án"),
+    db: Session = Depends(get_db)
+):
+    """
+    Xóa vĩnh viễn tấm ảnh sprite và toàn bộ khung cắt liên quan khỏi MySQL.
+    """
+    success = sprite_repo.delete_sprite(db, sprite_id, project_id)
+    return {"status": "success" if success else "failed", "message": f"Đã xóa sprite ID {sprite_id} khỏi MySQL"}
+
