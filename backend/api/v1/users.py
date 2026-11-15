@@ -1,8 +1,8 @@
 # ========================================================
 # 1. THƯ VIỆN NỀN TẢNG PYTHON (Cấu trúc & Kiểu)
 # ========================================================
-# typing: Định nghĩa kiểu tùy chọn
-from typing import Optional
+# typing: Định nghĩa kiểu tùy chọn và từ điển
+from typing import Optional, Dict, Any
 
 # ========================================================
 # 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
@@ -17,6 +17,8 @@ from sqlalchemy.orm import Session
 # ========================================================
 # get_db: Dependency cấp phiên MySQL
 from backend.db import get_db
+# get_current_user_optional: Dependency xác thực danh tính qua JWT Bearer Token
+from backend.core.dependencies import get_current_user_optional
 # UserService: Dịch vụ nghiệp vụ quản lý tài khoản người dùng
 from backend.services.user_service import UserService
 
@@ -31,14 +33,17 @@ user_service = UserService()
 
 @users_router.get("")
 def list_users(
-    admin_role: Optional[str] = Query("admin", description="Quyền người thực hiện"),
+    admin_role: Optional[str] = Query("admin", description="Quyền người thực hiện fallback"),
+    current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
     """
     Lấy danh sách toàn bộ tài khoản người dùng trong CSDL MySQL (Chỉ dành cho Admin).
+    Hỗ trợ xác thực danh tính qua JWT Bearer Token hoặc tham số truy vấn admin_role.
     """
+    effective_role = current_user.get("role") if current_user and current_user.get("role") else admin_role
     try:
-        users = user_service.get_all_users(db, current_user_role=admin_role)
+        users = user_service.get_all_users(db, current_user_role=effective_role)
         return {
             "status": "success",
             "data": users
@@ -52,7 +57,8 @@ def list_users(
 @users_router.delete("/{user_id}")
 def delete_user(
     user_id: int,
-    admin_role: Optional[str] = Query("admin", description="Quyền người thực hiện"),
+    admin_role: Optional[str] = Query("admin", description="Quyền người thực hiện fallback"),
+    current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
     """
@@ -60,8 +66,9 @@ def delete_user(
     - Xóa sạch toàn bộ các dự án, sprite, 15 frame của người dùng đó khỏi MySQL.
     - Chặn tuyệt đối hành vi xóa tài khoản Admin.
     """
+    effective_role = current_user.get("role") if current_user and current_user.get("role") else admin_role
     try:
-        success = user_service.delete_user(db, user_id=user_id, current_user_role=admin_role)
+        success = user_service.delete_user(db, user_id=user_id, current_user_role=effective_role)
         if not success:
             raise HTTPException(status_code=404, detail="Không tìm thấy người dùng để xóa.")
         return {

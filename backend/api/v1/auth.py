@@ -45,12 +45,15 @@ def login(req: LoginRequest, db: Session = Depends(get_db)):
     Xác thực thông tin đăng nhập của người dùng hoặc Admin:
     - Admin: username = 'admin', password = '1'
     - User thường: tài khoản Gmail đã đăng ký trong hệ thống
+    Trả về Access Token chuẩn JWT Bearer và hồ sơ người dùng.
     """
     try:
         user_info = user_service.authenticate(db, req.username, req.password)
         return {
             "status": "success",
             "message": "Đăng nhập thành công!",
+            "access_token": user_info.get("access_token"),
+            "token_type": user_info.get("token_type", "bearer"),
             "data": user_info
         }
     except ValueError as e:
@@ -63,6 +66,7 @@ def login(req: LoginRequest, db: Session = Depends(get_db)):
 def register(req: RegisterRequest, db: Session = Depends(get_db)):
     """
     Đăng ký tài khoản người dùng mới (bắt buộc định dạng Gmail hợp lệ).
+    Mật khẩu được băm an toàn bằng Bcrypt và trả về mã JWT Bearer Token.
     """
     try:
         created_user = user_service.register(
@@ -76,6 +80,8 @@ def register(req: RegisterRequest, db: Session = Depends(get_db)):
         return {
             "status": "success",
             "message": "Đăng ký tài khoản thành công!",
+            "access_token": created_user.get("access_token"),
+            "token_type": created_user.get("token_type", "bearer"),
             "data": created_user
         }
     except ValueError as e:

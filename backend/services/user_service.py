@@ -18,6 +18,12 @@ from sqlalchemy.orm import Session
 # ========================================================
 # UserRepository: Tầng truy xuất CSDL bảng 'users'
 from backend.repositories.user_repository import UserRepository
+# security: Các hàm băm mật khẩu Bcrypt và tạo mã JSON Web Token (JWT)
+from backend.core.security import (
+    hash_password,
+    verify_password,
+    create_access_token
+)
 
 # ========================================================
 # 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
@@ -67,15 +73,18 @@ class UserService:
 
         # TỰ ĐỘNG ĐỒNG BỘ: Đảm bảo tài khoản kiểm thử Origin (123456) luôn đăng nhập thành công
         if clean_user.lower() == "origin@gmail.com" and clean_pass == "123456":
-            if not user or user.get("password") != clean_pass:
+            stored_pwd = user.get("password") if user else ""
+            is_valid_origin, _ = verify_password(clean_pass, stored_pwd) if stored_pwd else (False, False)
+            if not user or not is_valid_origin:
                 try:
+                    hashed_origin = hash_password(clean_pass)
                     if not user:
                         db.execute(text("""
                             INSERT INTO users (id, username, password, role, first_name, full_name)
-                            VALUES (2, 'origin@gmail.com', '123456', 'user', 'Origin', 'Origin (Tài khoản mẫu kiểm thử)');
-                        """))
+                            VALUES (2, 'origin@gmail.com', :pwd, 'user', 'Origin', 'Origin (Tài khoản mẫu kiểm thử)');
+                        """), {"pwd": hashed_origin})
                     else:
-                        db.execute(text("UPDATE users SET password = '123456', role = 'user' WHERE username = 'origin@gmail.com';"))
+                        db.execute(text("UPDATE users SET password = :pwd, role = 'user' WHERE username = 'origin@gmail.com';"), {"pwd": hashed_origin})
                     db.commit()
                     user = self.repository.get_by_username(db, "origin@gmail.com")
                 except Exception:
@@ -83,15 +92,18 @@ class UserService:
 
         # TỰ ĐỘNG ĐỒNG BỘ: Đảm bảo tài khoản Admin (admin / 1) luôn đăng nhập thành công
         if clean_user == "admin" and clean_pass == "1":
-            if not user or user.get("password") != clean_pass:
+            stored_admin_pwd = user.get("password") if user else ""
+            is_valid_admin, _ = verify_password(clean_pass, stored_admin_pwd) if stored_admin_pwd else (False, False)
+            if not user or not is_valid_admin:
                 try:
+                    hashed_admin = hash_password(clean_pass)
                     if not user:
                         db.execute(text("""
                             INSERT INTO users (id, username, password, role, full_name)
-                            VALUES (1, 'admin', '1', 'admin', 'Quản trị viên tối cao');
-                        """))
+                            VALUES (1, 'admin', :pwd, 'admin', 'Quản trị viên tối cao');
+                        """), {"pwd": hashed_admin})
                     else:
-                        db.execute(text("UPDATE users SET password = '1', role = 'admin' WHERE username = 'admin';"))
+                        db.execute(text("UPDATE users SET password = :pwd, role = 'admin' WHERE username = 'admin';"), {"pwd": hashed_admin})
                     db.commit()
                     user = self.repository.get_by_username(db, "admin")
                 except Exception:
@@ -101,9 +113,24 @@ class UserService:
         if not user:
             raise ValueError(f"Tài khoản '{clean_user}' chưa tồn tại trong cơ sở dữ liệu. Vui lòng kiểm tra lại hoặc chuyển sang tab Đăng ký mới!")
 
-        # 2. KIỂM TRA MẬT KHẨU: Nếu có tài khoản rồi thì so khớp mật khẩu
-        if user.get("password") != clean_pass:
+        # 2. KIỂM TRA MẬT KHẨU: Xác thực mật khẩu Bcrypt hoặc Plaintext cũ kèm tự động nâng cấp bảo mật (Rehash)
+        is_valid, needs_rehash = verify_password(clean_pass, user.get("password") or "")
+        if not is_valid:
             raise ValueError("Mật khẩu không chính xác. Vui lòng kiểm tra lại mật khẩu!")
+
+        # Tự động di chuyển mật khẩu cũ sang dạng băm Bcrypt chuẩn an toàn cao
+        if needs_rehash:
+            try:
+                self.repository.update_password(db, user["id"], hash_password(clean_pass))
+            except Exception:
+                pass
+
+        # 3. SINH MÃ TRUY CẬP JWT BEARER TOKEN CHUẨN OAUTH2
+        access_token = create_access_token({
+            "sub": str(user["id"]),
+            "username": user["username"],
+            "role": user["role"]
+        })
 
         return {
             "id": user["id"],
@@ -114,7 +141,9 @@ class UserService:
             "first_name": user.get("first_name") or "",
             "full_name": user.get("full_name") or user["username"],
             "avatar_url": user.get("avatar_url") or "",
-            "created_at": str(user.get("created_at") or "")
+            "created_at": str(user.get("created_at") or ""),
+            "access_token": access_token,
+            "token_type": "bearer"
         }
 
     def register(
@@ -160,17 +189,27 @@ class UserService:
         parts = [last_name, middle_name, first_name]
         combined_name = " ".join([p.strip() for p in parts if p and p.strip()]) or clean_user
 
-        # Tạo tài khoản với quyền user thường
+        # Tạo tài khoản với quyền user thường và băm mật khẩu Bcrypt an toàn
+        hashed_password = hash_password(clean_pass)
         created = self.repository.create(
             db=db,
             username=clean_user,
-            password=clean_pass,
+            password=hashed_password,
             role="user",
             last_name=last_name,
             middle_name=middle_name,
             first_name=first_name,
             full_name=combined_name
         )
+
+        # Sinh mã JWT Bearer Token chuẩn OAuth2
+        access_token = create_access_token({
+            "sub": str(created["id"]),
+            "username": created["username"],
+            "role": created["role"]
+        })
+        created["access_token"] = access_token
+        created["token_type"] = "bearer"
 
         return created
 
@@ -211,9 +250,11 @@ class UserService:
         # 2. Nếu có yêu cầu đổi mật khẩu
         verified_new_pass = None
         if new_password and new_password.strip():
-            if not current_password or current_password.strip() != current_user.get("password"):
+            stored_pwd = current_user.get("password") or ""
+            is_valid, _ = verify_password(current_password.strip() if current_password else "", stored_pwd)
+            if not is_valid:
                 raise ValueError("Mật khẩu hiện tại không chính xác. Không thể đổi mật khẩu mới.")
-            verified_new_pass = new_password.strip()
+            verified_new_pass = hash_password(new_password.strip())
 
         # 3. Cập nhật vào CSDL MySQL
         self.repository.update_profile(

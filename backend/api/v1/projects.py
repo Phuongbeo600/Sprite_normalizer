@@ -17,6 +17,8 @@ from sqlalchemy.orm import Session
 # ========================================================
 # get_db: Dependency cấp phiên MySQL
 from backend.db import get_db
+# get_current_user_optional: Dependency xác thực người dùng an toàn qua JWT hoặc Fallback
+from backend.core.dependencies import get_current_user_optional
 # ProjectService: Dịch vụ nghiệp vụ quản lý dự án
 from backend.services.project_service import ProjectService
 # Schemas: DTO cấu hình API dự án và lưu trữ bản phân tích preset
@@ -50,10 +52,13 @@ __all__ = [
 def list_projects(
     user_id: Optional[int] = None,
     role: Optional[str] = None,
+    current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
-    """Đọc danh sách dự án từ MySQL theo phân quyền người dùng/admin."""
-    projects = project_service.get_all_projects(db, user_id=user_id, role=role)
+    """Đọc danh sách dự án từ MySQL theo phân quyền người dùng/admin (hỗ trợ JWT Bearer Token hoặc Query fallback)."""
+    effective_user_id = user_id if user_id is not None else (current_user.get("id") if current_user else None)
+    effective_role = role if role is not None else (current_user.get("role") if current_user else None)
+    projects = project_service.get_all_projects(db, user_id=effective_user_id, role=effective_role)
     return {"status": "success", "data": projects}
 
 
@@ -61,11 +66,13 @@ def list_projects(
 def create_project(
     name: str = Form(...),
     user_id: Optional[int] = Form(None),
+    current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
-    """Tạo một dự án mới trong MySQL có gắn quyền sở hữu của user_id."""
+    """Tạo một dự án mới trong MySQL có gắn quyền sở hữu của user_id (hỗ trợ tự động nhận diện từ JWT)."""
+    effective_user_id = user_id if user_id is not None else (current_user.get("id") if current_user else None)
     try:
-        new_project = project_service.create_project(db, name, user_id=user_id)
+        new_project = project_service.create_project(db, name, user_id=effective_user_id)
         return {
             "status": "success",
             "message": "Tạo dự án thành công!",

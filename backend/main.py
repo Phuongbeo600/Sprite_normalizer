@@ -6,9 +6,10 @@ Tại sao tồn tại: Thiết lập cấu hình ứng dụng web, kích hoạt 
 """
 
 # ========================================================
-# 1. THƯ VIỆN NỀN TẢNG PYTHON (Khởi tạo hệ thống)
+# 1. THƯ VIỆN NỀN TẢNG PYTHON (Khởi tạo hệ thống & Quản lý vòng đời)
 # ========================================================
-# (Không có phụ thuộc nền tảng)
+# asynccontextmanager: Trình quản lý ngữ cảnh bất đồng bộ hỗ trợ vòng đời ứng dụng FastAPI (Lifespan)
+from contextlib import asynccontextmanager
 
 # ========================================================
 # 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
@@ -31,17 +32,25 @@ from backend.db import init_db
 # ========================================================
 # (Không áp dụng cho file backend)
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Quản lý vòng đời khởi động và tắt của ứng dụng FastAPI (Lifespan Context Manager).
+    Khởi tạo và cập nhật cấu trúc cơ sở dữ liệu MySQL khi ứng dụng bắt đầu khởi chạy.
+    """
+    try:
+        init_db()
+    except Exception as err:
+        print(f"[Lifespan] Cảnh báo khởi tạo CSDL: {err}")
+    yield
+
+
 app = FastAPI(
     title="Sprite Normalizer API",
     description="Backend FastAPI hỗ trợ chuẩn hóa Sprite cho Bài Tập Lớn Trí Tuệ Nhân Tạo (UET)",
-    version="2.0.0"
+    version="2.0.0",
+    lifespan=lifespan
 )
-
-# Tự động cập nhật bảng CSDL MySQL khi máy chủ khởi động
-@app.on_event("startup")
-def on_startup():
-    """Khởi động và cập nhật cấu trúc cơ sở dữ liệu."""
-    init_db()
 
 # Cấu hình CORS để frontend React kết nối thuận tiện
 app.add_middleware(

@@ -287,8 +287,4 @@ def get_db():
         yield session
 
 
-# Tự động đồng bộ và cập nhật bảng CSDL MySQL ngay khi module db được nạp
-try:
-    init_db()
-except Exception:
-    pass
+

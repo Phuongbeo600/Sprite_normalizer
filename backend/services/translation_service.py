@@ -9,10 +9,8 @@ from typing import List, Dict, Tuple, Optional
 # ========================================================
 # 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
 # ========================================================
-# argostranslate: Thư viện mô hình nơ-ron dịch thuật offline mã nguồn mở (OpenNMT / CTranslate2)
-import argostranslate.package
-import argostranslate.translate
-import argostranslate.sbd
+# argostranslate: Được nạp lười (Lazy Import) qua hàm _get_argos() khi có yêu cầu dịch thực sự
+# Giúp tối ưu hóa tốc độ khởi động máy chủ backend từ ~20 giây xuống dưới 1 giây.
 
 # ========================================================
 # 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Internal modules)
@@ -24,11 +22,31 @@ import argostranslate.sbd
 # ========================================================
 # (Không áp dụng cho file backend)
 
+# Biến bộ nhớ lưu trữ module argostranslate sau khi nạp lười
+_argos_module = None
 
-class OfflinePromptSentencizer(argostranslate.sbd.ISentenceBoundaryDetectionModel):
+
+def _get_argos():
+    """
+    Nạp lười (Lazy Import) thư viện argostranslate nhằm tăng tốc độ khởi động hệ thống.
+    Chỉ thực thi import khi nghiệp vụ dịch thuật được triệu gọi lần đầu tiên.
+    
+    @returns Module argostranslate đã được nạp đầy đủ các gói dịch.
+    """
+    global _argos_module
+    if _argos_module is None:
+        import argostranslate.package
+        import argostranslate.translate
+        import argostranslate.sbd
+        _argos_module = argostranslate
+    return _argos_module
+
+
+class OfflinePromptSentencizer:
     """
     Bộ phân tách câu thuần Offline dành cho câu lệnh Prompt và mô tả hoạt họa Sprite.
     Thay thế cho Stanza để hoạt động 100% không cần kết nối mạng hay tải thêm tài nguyên.
+    Tuân thủ giao diện ISentenceBoundaryDetectionModel của Argos Translate.
     """
     def __init__(self, pkg=None):
         self.pkg = pkg
@@ -117,8 +135,9 @@ class TranslationService:
             return
 
         try:
+            argos = _get_argos()
             # Gán Sentencizer thuần offline vào các gói ngôn ngữ đã nạp sẵn
-            installed = argostranslate.translate.get_installed_languages()
+            installed = argos.translate.get_installed_languages()
             sentencizer = OfflinePromptSentencizer()
 
             for lang in installed:
@@ -155,8 +174,9 @@ class TranslationService:
         cls._ensure_initialized()
 
         try:
+            argos = _get_argos()
             # Bước 1: Dùng mô hình nơ-ron CTranslate2 offline dịch thô
-            raw_result = argostranslate.translate.translate(clean_text, source_lang, target_lang)
+            raw_result = argos.translate.translate(clean_text, source_lang, target_lang)
             translated = raw_result.strip() if raw_result else clean_text
 
             # Bước 2: Tinh chỉnh thuật ngữ đặc thù chuyên ngành Pixel Art

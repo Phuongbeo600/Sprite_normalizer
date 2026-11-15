@@ -220,6 +220,21 @@ class UserRepository:
         db.commit()
         return res.rowcount > 0
 
+    def update_password(self, db: Session, user_id: int, hashed_password: str) -> bool:
+        """
+        Cập nhật trực tiếp chuỗi mật khẩu đã băm (Bcrypt) vào cơ sở dữ liệu.
+        Dùng cho cơ chế tự động di chuyển mật khẩu (Rehash Migration) và đổi mật khẩu an toàn.
+
+        @param {Session} db Phiên làm việc cơ sở dữ liệu.
+        @param {int} user_id Mã định danh tài khoản.
+        @param {str} hashed_password Mật khẩu đã được băm an toàn bằng Bcrypt.
+        @returns {bool} True nếu cập nhật thành công.
+        """
+        sql = text("UPDATE users SET password = :password WHERE id = :id;")
+        res = db.execute(sql, {"password": hashed_password.strip(), "id": user_id})
+        db.commit()
+        return res.rowcount > 0
+
     def assign_project_to_user(self, db: Session, project_id: int, user_id: int) -> bool:
         """
         Gán quyền sở hữu một dự án (như dự án mẫu ID = 2) sang cho một tài khoản cụ thể.
