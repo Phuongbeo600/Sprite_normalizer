@@ -73,7 +73,7 @@ def slice_sheet(
     normalizer = None
     if auto_anchor:
         # SpriteNormalizer: Chuẩn hóa căn giữa và neo đáy chân
-        from backend.core.normalizer import SpriteNormalizer
+        from .normalizer import SpriteNormalizer
         normalizer = SpriteNormalizer(target_width=width, target_height=height, anchor="bottom_center")
 
     for row in range(rows):

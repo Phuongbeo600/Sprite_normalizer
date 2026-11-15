@@ -393,19 +393,25 @@ def analyze_palette(ctx: Ctx, top: int = 16) -> Dict[str, Any]:
 # =============================================================================
 # 4. VIỀN (outline)
 # =============================================================================
-def analyze_outline(ctx: Ctx) -> Tuple[Dict[str, Any], np.ndarray]:
-    idx, vis, K = ctx.idx, ctx.vis, ctx.K
-    interior = _erode4(vis)
-    boundary = vis & ~interior
-    B = int(boundary.sum())
-    base = {"style": "none", "coverage": 0.0, "n_colors": 0, "colors": [], "thickness_px": 0.0,
-            "thickness_hist": {}, "conditional_entropy_ratio": None}
-    is_out = np.zeros(K, dtype=bool)
-    if B == 0:
-        return base, is_out
+def _detect_outline_candidates(
+    ctx: Ctx,
+    boundary: np.ndarray,
+    interior: np.ndarray,
+    total_boundary_px: int,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Xác định các màu ứng viên viền ngoài dựa trên tỷ lệ xuất hiện ở đường biên ngoài
+    và độ tương phản ánh sáng so với phần thân nhân vật.
 
+    @param ctx: Ngữ cảnh chứa ảnh chỉ số màu, bảng màu và tọa độ LCH.
+    @param boundary: Mặt nạ nhị phân đánh dấu các pixel ở đường biên ngoài.
+    @param interior: Mặt nạ nhị phân phần bên trong sau khi xói mòn 4 hướng.
+    @param total_boundary_px: Tổng số pixel của đường biên ngoài.
+    @returns: Tuple gồm (mảng boolean đánh dấu màu viền, số lượng pixel biên của từng màu).
+    """
+    idx, K = ctx.idx, ctx.K
     b_count = np.bincount(idx[boundary], minlength=K)
-    body = interior if interior.any() else vis
+    body = interior if interior.any() else ctx.vis
     body_L = float(np.median(ctx.lch[idx[body], 0]))
 
     # Nhận diện màu viền:
@@ -414,43 +420,78 @@ def analyze_outline(ctx: Ctx) -> Tuple[Dict[str, Any], np.ndarray]:
     # Không để việc màu viền được dùng thêm làm inlines/bóng bên trong làm mất dấu viền.
     is_dark = (ctx.lch[:, 0] <= body_L - 0.12) | (ctx.lch[:, 0] < 0.35)
     dedicated_boundary = (b_count / np.maximum(ctx.counts, 1)) >= 0.40
-    major_dark_boundary = is_dark & (b_count >= 0.10 * B)
+    major_dark_boundary = is_dark & (b_count >= 0.10 * total_boundary_px)
 
-    cand = (b_count >= 0.02 * B) & (dedicated_boundary | major_dark_boundary) & (
-        (ctx.lch[:, 0] <= body_L - 0.08) | ((ctx.lch[:, 0] >= 0.85) & (b_count / np.maximum(ctx.counts, 1) >= 0.70))
+    cand = (
+        (b_count >= 0.02 * total_boundary_px)
+        & (dedicated_boundary | major_dark_boundary)
+        & (
+            (ctx.lch[:, 0] <= body_L - 0.08)
+            | ((ctx.lch[:, 0] >= 0.85) & (b_count / np.maximum(ctx.counts, 1) >= 0.70))
+        )
     )
-    coverage = float(b_count[cand].sum() / B)
-    base["coverage"] = round(coverage, 3)
-    if coverage < 0.5:
-        base["style"] = "lineless"
-        return base, is_out
-    is_out = cand
-    out_ext = np.append(is_out, False)
-    out_mask = vis & out_ext[idx]
+    return cand, b_count
 
-    # ---- kiểu viền: entropy có điều kiện H(màu viền | màu thân kề bên) ----
+
+def _classify_outline_style(
+    ctx: Ctx,
+    idx: np.ndarray,
+    boundary: np.ndarray,
+    is_out: np.ndarray,
+    out_mask: np.ndarray,
+    out_ext: np.ndarray,
+) -> Tuple[str, Optional[float]]:
+    """
+    Phân loại kiểu viền dựa trên entropy có điều kiện H(màu viền | màu thân kề bên).
+
+    @param ctx: Ngữ cảnh pixel art chứa bảng màu và số đếm pixel.
+    @param idx: Mảng chỉ số màu 2 chiều.
+    @param boundary: Mặt nạ biên ngoài.
+    @param is_out: Mảng boolean đánh dấu màu nào là màu viền.
+    @param out_mask: Mặt nạ nhị phân 2 chiều của các pixel viền.
+    @param out_ext: Mảng boolean mở rộng có thêm phần tử nền False ở cuối.
+    @returns: Tuple gồm (tên kiểu viền: str, tỷ lệ entropy có điều kiện: Optional[float]).
+    """
+    K = ctx.K
     nb_color = np.full(idx.shape, -1, dtype=int)
     for dy, dx in DIRS4:
         nb = _shift(idx, dy, dx, -1)
         ok = (nb >= 0) & ~out_ext[nb] & (nb_color == -1)
         nb_color[ok] = nb[ok]
+
     sel = out_mask & boundary & (nb_color >= 0)
     n_out = int(is_out.sum())
     h_o = _entropy(np.bincount(idx[sel], minlength=K)) if sel.any() else 0.0
-    ratio = None
+
     if n_out == 1 or h_o < 0.15:
         c = int(np.flatnonzero(is_out)[np.argmax(ctx.counts[is_out])])
         dark_neutral = ctx.lch[c, 0] < 0.25 and ctx.lch[c, 1] < 0.05
         style = "uniform_black" if dark_neutral else "uniform_colored"
-    else:
-        joint = np.bincount(nb_color[sel] * K + idx[sel], minlength=K * K).reshape(K, K)
-        h_cond = sum(joint[n].sum() * _entropy(joint[n]) for n in range(K)) / max(joint.sum(), 1)
-        ratio = float(h_cond / h_o) if h_o > 0 else 0.0
-        style = "selout" if ratio < 0.5 else "multicolor_nonselective"
+        return style, None
 
-    # ---- độ dày: đi từ pixel viền sát nền vào trong, đếm run liên tiếp màu viền ----
-    H, W = idx.shape
+    joint = np.bincount(nb_color[sel] * K + idx[sel], minlength=K * K).reshape(K, K)
+    h_cond = sum(joint[n].sum() * _entropy(joint[n]) for n in range(K)) / max(joint.sum(), 1)
+    ratio = float(h_cond / h_o) if h_o > 0 else 0.0
+    style = "selout" if ratio < 0.5 else "multicolor_nonselective"
+    return style, ratio
+
+
+def _measure_outline_thickness_raywalk(
+    idx: np.ndarray,
+    vis: np.ndarray,
+    out_mask: np.ndarray,
+) -> Tuple[float, Dict[int, int]]:
+    """
+    Đo độ dày đường viền (tính bằng pixel) bằng thuật toán ray-walk từ biên ngoài vào thân.
+
+    @param idx: Mảng chỉ số màu 2 chiều.
+    @param vis: Mặt nạ các pixel nhìn thấy được (alpha >= ngưỡng).
+    @param out_mask: Mặt nạ các pixel thuộc viền ngoài.
+    @returns: Tuple gồm (độ dày phổ biến nhất: float, biểu đồ đếm tần suất độ dày: Dict[int, int]).
+    """
+    h_dim, w_dim = idx.shape
     runs: List[np.ndarray] = []
+
     for dy, dx in DIRS4:
         facing_bg = vis & ~_shift(vis, dy, dx, False) & out_mask
         ys, xs = np.nonzero(facing_bg)
@@ -458,22 +499,65 @@ def analyze_outline(ctx: Ctx) -> Tuple[Dict[str, Any], np.ndarray]:
         alive = np.ones(len(ys), dtype=bool)
         for k in range(8):
             y, x = ys - dy * k, xs - dx * k
-            inb = (y >= 0) & (y < H) & (x >= 0) & (x < W)
+            inb = (y >= 0) & (y < h_dim) & (x >= 0) & (x < w_dim)
             cond = np.zeros(len(ys), dtype=bool)
             cond[inb] = out_mask[y[inb], x[inb]]
             alive &= cond
             run += alive
         runs.append(run)
+
     runs_all = np.concatenate(runs) if runs else np.array([], dtype=int)
     hist = np.bincount(runs_all, minlength=2)[1:] if runs_all.size else np.array([])
     thickness = float(np.argmax(hist) + 1) if hist.size and hist.sum() else 0.0
+    thickness_hist = {int(i + 1): int(v) for i, v in enumerate(hist) if v}
+    return thickness, thickness_hist
+
+
+def analyze_outline(ctx: Ctx) -> Tuple[Dict[str, Any], np.ndarray]:
+    """
+    Phân tích đường viền ngoài của sprite: độ phủ, phong cách, độ dày và màu sắc.
+
+    @param ctx: Ngữ cảnh pixel art chứa ảnh chỉ số màu và thông tin bảng màu.
+    @returns: Tuple gồm (thông tin chi tiết đường viền: Dict, mảng boolean đánh dấu màu viền: np.ndarray).
+    """
+    idx, vis, K = ctx.idx, ctx.vis, ctx.K
+    interior = _erode4(vis)
+    boundary = vis & ~interior
+    total_boundary_px = int(boundary.sum())
+    base = {
+        "style": "none",
+        "coverage": 0.0,
+        "n_colors": 0,
+        "colors": [],
+        "thickness_px": 0.0,
+        "thickness_hist": {},
+        "conditional_entropy_ratio": None,
+    }
+    is_out = np.zeros(K, dtype=bool)
+    if total_boundary_px == 0:
+        return base, is_out
+
+    cand, b_count = _detect_outline_candidates(ctx, boundary, interior, total_boundary_px)
+    coverage = float(b_count[cand].sum() / total_boundary_px)
+    base["coverage"] = round(coverage, 3)
+    if coverage < 0.5:
+        base["style"] = "lineless"
+        return base, is_out
+
+    is_out = cand
+    out_ext = np.append(is_out, False)
+    out_mask = vis & out_ext[idx]
+
+    # Xác định kiểu dáng viền và độ dày bằng các hàm con tách biệt
+    style, ratio = _classify_outline_style(ctx, idx, boundary, is_out, out_mask, out_ext)
+    thickness, thickness_hist = _measure_outline_thickness_raywalk(idx, vis, out_mask)
 
     base.update({
         "style": style,
-        "n_colors": n_out,
+        "n_colors": int(is_out.sum()),
         "colors": ["#%02x%02x%02x" % tuple(int(v) for v in ctx.rgb[i]) for i in np.flatnonzero(is_out)],
         "thickness_px": thickness,
-        "thickness_hist": {int(i + 1): int(v) for i, v in enumerate(hist) if v},
+        "thickness_hist": thickness_hist,
         "conditional_entropy_ratio": None if ratio is None else round(ratio, 3),
         "partial": coverage < 0.85,
     })
@@ -492,31 +576,29 @@ def _contact_matrix(ctx: Ctx) -> np.ndarray:
     return M + M.T
 
 
-def analyze_ramps(ctx: Ctx, is_outline: np.ndarray, warm_axis_deg: float = 65.0,
-                  max_step_dL: float = 0.25, max_step_hue: float = 45.0,
-                  max_ramp_span: float = 85.0, max_steps: int = 10) -> Dict[str, Any]:
+def _collect_ramp_candidate_edges(
+    ctx: Ctx,
+    contact: np.ndarray,
+    tot: np.ndarray,
+    usable: np.ndarray,
+    max_step_dL: float,
+    max_step_hue: float,
+) -> List[Tuple[int, int, int]]:
     """
-    Hai màu thuộc cùng một ramp (vật liệu) nếu: kề nhau thật sự trong ảnh (đủ tỷ lệ tiếp xúc),
-    chênh sáng vừa phải (một bậc), và cùng vùng hue/chroma.
-    Ràng buộc chặn bao đóng bắc cầu: tổng cung hue của các màu có sắc độ không vượt quá max_ramp_span
-    và không vượt quá max_steps, ngăn chặn gom toàn bộ nhân vật thành một ramp khổng lồ.
+    Thu thập các cặp màu kề nhau có khả năng thuộc cùng dải chuyển tiếp bóng (ramp).
+
+    @param ctx: Ngữ cảnh pixel art chứa tọa độ không gian màu LCH.
+    @param contact: Ma trận số lượng điểm tiếp xúc giữa các cặp màu.
+    @param tot: Tổng số điểm tiếp xúc biên của từng màu.
+    @param usable: Mảng boolean đánh dấu màu hợp lệ (không phải viền và có tần suất >= 2).
+    @param max_step_dL: Ngưỡng chênh lệch sáng tối đa giữa 2 bậc kề.
+    @param max_step_hue: Ngưỡng chênh lệch góc hue tối đa giữa 2 bậc kề.
+    @returns: Danh sách các cạnh (số lượng pixel tiếp xúc, màu i, màu j) sắp xếp giảm dần theo trọng số tiếp xúc.
     """
     K = ctx.K
-    contact = _contact_matrix(ctx)
-    tot = contact.sum(axis=1)
     L, C, h = ctx.lch[:, 0], ctx.lch[:, 1], ctx.lch[:, 2]
-    parent = list(range(K))
-    members: Dict[int, List[int]] = {i: [i] for i in range(K)}
-    usable = (~is_outline) & (ctx.counts >= 2)
+    edges: List[Tuple[int, int, int]] = []
 
-    def find(i: int) -> int:
-        while parent[i] != i:
-            parent[i] = parent[parent[i]]
-            i = parent[i]
-        return i
-
-    # Thu thập tất cả các cặp có khả năng chuyển tiếp bậc bóng
-    edges = []
     for i in range(K):
         for j in range(i + 1, K):
             if not (usable[i] and usable[j]) or contact[i, j] < 2:
@@ -527,15 +609,49 @@ def analyze_ramps(ctx: Ctx, is_outline: np.ndarray, warm_axis_deg: float = 65.0,
             if not (0.015 <= dL <= max_step_dL):
                 continue
             if max(C[i], C[j]) < 0.035:
-                ok = True                                       # ramp xám / trung tính
+                ok = True  # Ramp xám hoặc màu trung tính
             else:
                 dh = abs((h[i] - h[j] + 180.0) % 360.0 - 180.0)
-                ok = abs(C[i] - C[j]) <= 0.12 and (dh <= max_step_hue or (min(C[i], C[j]) < 0.025 and abs(C[i] - C[j]) <= 0.06))
+                ok = abs(C[i] - C[j]) <= 0.12 and (
+                    dh <= max_step_hue or (min(C[i], C[j]) < 0.025 and abs(C[i] - C[j]) <= 0.06)
+                )
             if ok:
-                edges.append((contact[i, j], i, j))
+                edges.append((int(contact[i, j]), i, j))
 
     # Ưu tiên gộp từ cặp tiếp xúc mạnh nhất trước (Greedy Kruskal theo trọng số kề)
     edges.sort(reverse=True, key=lambda x: x[0])
+    return edges
+
+
+def _merge_ramp_components(
+    K: int,
+    edges: List[Tuple[int, int, int]],
+    C: np.ndarray,
+    h: np.ndarray,
+    usable: np.ndarray,
+    max_steps: int,
+    max_ramp_span: float,
+) -> Dict[int, List[int]]:
+    """
+    Gộp các màu kề thành từng dải màu ramp theo thuật toán Union-Find (Kruskal có ràng buộc).
+
+    @param K: Tổng số màu trong bảng màu.
+    @param edges: Danh sách các cạnh kề tiềm năng đã sắp xếp.
+    @param C: Mảng độ bão hòa màu (Chroma).
+    @param h: Mảng góc sắc tướng (Hue).
+    @param usable: Mảng boolean đánh dấu màu hợp lệ.
+    @param max_steps: Số bậc màu tối đa trong một ramp.
+    @param max_ramp_span: Tổng cung góc hue tối đa của một ramp có sắc độ.
+    @returns: Dictionary ánh xạ chỉ số nhóm đại diện -> danh sách chỉ số màu thành viên.
+    """
+    parent = list(range(K))
+    members: Dict[int, List[int]] = {i: [i] for i in range(K)}
+
+    def find(i: int) -> int:
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
 
     for _, i, j in edges:
         ri, rj = find(i), find(j)
@@ -557,56 +673,149 @@ def analyze_ramps(ctx: Ctx, is_outline: np.ndarray, warm_axis_deg: float = 65.0,
     for i in range(K):
         if usable[i]:
             groups.setdefault(find(i), []).append(i)
+    return groups
 
+
+def _calculate_single_ramp_metrics(
+    m_list: List[int],
+    ctx: Ctx,
+    L: np.ndarray,
+    C: np.ndarray,
+    h: np.ndarray,
+    warm: np.ndarray,
+) -> Dict[str, Any]:
+    """
+    Tính toán các chỉ số cho một dải màu đổ bóng (độ chênh sáng, hue shift, warmth shift).
+
+    @param m_list: Danh sách chỉ số màu thuộc dải ramp.
+    @param ctx: Ngữ cảnh pixel art chứa bảng màu và số lượng pixel.
+    @param L: Mảng độ sáng Lightness.
+    @param C: Mảng độ bão hòa Chroma.
+    @param h: Mảng góc sắc tướng Hue.
+    @param warm: Mảng giá trị độ ấm màu.
+    @returns: Dict chứa thông tin bậc màu, mã hex, dải sáng, hue shift và warmth shift.
+    """
+    m = np.array(sorted(m_list, key=lambda i: L[i]))
+    dL = float(L[m].max() - L[m].min())
+    w = ctx.counts[m].astype(float)
+    hue_total: Optional[float] = None
+    warm_total: Optional[float] = None
+    chroma_m = C[m] >= 0.03
+
+    if chroma_m.sum() >= 2:
+        dL_chroma = float(L[m][chroma_m].max() - L[m][chroma_m].min())
+        if dL_chroma > 1e-4:
+            ang = np.radians(h[m][chroma_m])
+            ref = math.degrees(
+                math.atan2((np.sin(ang) * w[chroma_m]).sum(), (np.cos(ang) * w[chroma_m]).sum())
+            )
+            dh = (h[m][chroma_m] - ref + 180.0) % 360.0 - 180.0
+            if np.ptp(L[m][chroma_m]) > 1e-4:
+                slope = np.polyfit(L[m][chroma_m], dh, 1, w=np.sqrt(w[chroma_m] * C[m][chroma_m]))[0]
+                # Nhân với dL_chroma thực tế thay vì ngoại suy mù quáng qua toàn dải dL
+                hue_total = float(slope * dL_chroma)
+
+    if dL > 1e-4:
+        warm_total = float(np.polyfit(L[m], warm[m], 1, w=np.sqrt(w))[0] * dL)
+
+    return {
+        "steps": int(len(m)),
+        "pixels": int(w.sum()),
+        "hex_dark_to_light": ["#%02x%02x%02x" % tuple(int(v) for v in ctx.rgb[i]) for i in m],
+        "lightness_range": round(dL, 3),
+        "hue_shift_deg_dark_to_light": None if hue_total is None else round(hue_total, 1),
+        "warmth_shift_dark_to_light": None if warm_total is None else round(warm_total, 3),
+    }
+
+
+def _determine_hue_shift_direction(hue_abs: float, warm_mean: float) -> str:
+    """
+    Xác định hướng dịch chuyển sắc tướng / độ ấm tổng thể của toàn bộ các ramp.
+
+    @param hue_abs: Độ dịch chuyển sắc tướng tuyệt đối trung bình (độ).
+    @param warm_mean: Độ dịch chuyển ấm/lạnh trung bình có dấu.
+    @returns: Chuỗi mô tả hướng dịch chuyển màu.
+    """
+    if hue_abs < 6.0 and abs(warm_mean) < 0.012:
+        return "straight (no hue shift)"
+    if warm_mean > 0.012:
+        return "cool shadows -> warm highlights"
+    if warm_mean < -0.012:
+        return "warm shadows -> cool highlights"
+    return "hue rotates without warm/cool bias"
+
+
+def analyze_ramps(
+    ctx: Ctx,
+    is_outline: np.ndarray,
+    warm_axis_deg: float = 65.0,
+    max_step_dL: float = 0.25,
+    max_step_hue: float = 45.0,
+    max_ramp_span: float = 85.0,
+    max_steps: int = 10,
+) -> Dict[str, Any]:
+    """
+    Phân tích các dải màu đổ bóng (ramps) và quy luật dịch màu (hue-shifting) của sprite.
+
+    Hai màu thuộc cùng một ramp (vật liệu) nếu: kề nhau thật sự trong ảnh (đủ tỷ lệ tiếp xúc),
+    chênh sáng vừa phải (một bậc), và cùng vùng hue/chroma.
+    Ràng buộc chặn bao đóng bắc cầu: tổng cung hue của các màu có sắc độ không vượt quá max_ramp_span
+    và không vượt quá max_steps, ngăn chặn gom toàn bộ nhân vật thành một ramp khổng lồ.
+
+    @param ctx: Ngữ cảnh pixel art chứa bảng màu và ma trận pixel.
+    @param is_outline: Mảng boolean đánh dấu các màu thuộc viền ngoài.
+    @param warm_axis_deg: Trục góc độ ấm màu (mặc định 65 độ theo chuẩn da/ánh sáng vàng).
+    @param max_step_dL: Độ chênh sáng tối đa giữa 2 bậc kề nhau trong một ramp.
+    @param max_step_hue: Độ lệch góc hue tối đa giữa 2 bậc kề nhau.
+    @param max_ramp_span: Tổng cung góc hue tối đa cho toàn bộ một dải ramp.
+    @param max_steps: Số bậc tối đa được gom vào một ramp.
+    @returns: Dict chứa thống kê dải bóng, số ramp, hướng hue shift và danh sách chi tiết các ramp.
+    """
+    K = ctx.K
+    contact = _contact_matrix(ctx)
+    tot = contact.sum(axis=1)
+    L, C, h = ctx.lch[:, 0], ctx.lch[:, 1], ctx.lch[:, 2]
+    usable = (~is_outline) & (ctx.counts >= 2)
+
+    # 1. Thu thập các cặp màu kề nhau có khả năng thuộc cùng dải chuyển tiếp bóng
+    edges = _collect_ramp_candidate_edges(ctx, contact, tot, usable, max_step_dL, max_step_hue)
+
+    # 2. Gộp các thành phần theo thuật toán Kruskal với Union-Find
+    groups = _merge_ramp_components(K, edges, C, h, usable, max_steps, max_ramp_span)
+
+    # 3. Tính toán độ ấm và số liệu cho từng ramp
     wa = math.radians(warm_axis_deg)
     warm = ctx.lab[:, 1] * math.cos(wa) + ctx.lab[:, 2] * math.sin(wa)
-    ramps, isolated = [], 0
+    ramps: List[Dict[str, Any]] = []
+    isolated = 0
+
     for m_list in groups.values():
         if len(m_list) < 2:
             isolated += 1
             continue
-        m = np.array(sorted(m_list, key=lambda i: L[i]))
-        dL = float(L[m].max() - L[m].min())
-        w = ctx.counts[m].astype(float)
-        hue_total = warm_total = None
-        chroma_m = C[m] >= 0.03
-        if chroma_m.sum() >= 2:
-            dL_chroma = float(L[m][chroma_m].max() - L[m][chroma_m].min())
-            if dL_chroma > 1e-4:
-                ang = np.radians(h[m][chroma_m])
-                ref = math.degrees(math.atan2((np.sin(ang) * w[chroma_m]).sum(), (np.cos(ang) * w[chroma_m]).sum()))
-                dh = (h[m][chroma_m] - ref + 180.0) % 360.0 - 180.0
-                if np.ptp(L[m][chroma_m]) > 1e-4:
-                    slope = np.polyfit(L[m][chroma_m], dh, 1, w=np.sqrt(w[chroma_m] * C[m][chroma_m]))[0]
-                    # Nhân với dL_chroma thực tế thay vì ngoại suy mù quáng qua toàn dải dL
-                    hue_total = float(slope * dL_chroma)
-        if dL > 1e-4:
-            warm_total = float(np.polyfit(L[m], warm[m], 1, w=np.sqrt(w))[0] * dL)
-        ramps.append({
-            "steps": int(len(m)),
-            "pixels": int(w.sum()),
-            "hex_dark_to_light": ["#%02x%02x%02x" % tuple(int(v) for v in ctx.rgb[i]) for i in m],
-            "lightness_range": round(dL, 3),
-            "hue_shift_deg_dark_to_light": None if hue_total is None else round(hue_total, 1),
-            "warmth_shift_dark_to_light": None if warm_total is None else round(warm_total, 3),
-        })
+        ramps.append(_calculate_single_ramp_metrics(m_list, ctx, L, C, h, warm))
 
     ramps.sort(key=lambda r: -r["pixels"])
     tw = sum(r["pixels"] for r in ramps) or 1
     steps_w = sum(r["steps"] * r["pixels"] for r in ramps) / tw if ramps else 0.0
-    hs = [(r["hue_shift_deg_dark_to_light"], r["pixels"]) for r in ramps if r["hue_shift_deg_dark_to_light"] is not None]
-    ws = [(r["warmth_shift_dark_to_light"], r["pixels"]) for r in ramps if r["warmth_shift_dark_to_light"] is not None]
+
+    # 4. Thống kê tổng hợp hướng dịch chuyển sắc tướng
+    hs = [
+        (r["hue_shift_deg_dark_to_light"], r["pixels"])
+        for r in ramps
+        if r["hue_shift_deg_dark_to_light"] is not None
+    ]
+    ws = [
+        (r["warmth_shift_dark_to_light"], r["pixels"])
+        for r in ramps
+        if r["warmth_shift_dark_to_light"] is not None
+    ]
+
     hue_mean = sum(a * b for a, b in hs) / sum(b for _, b in hs) if hs else 0.0
     hue_abs = sum(abs(a) * b for a, b in hs) / sum(b for _, b in hs) if hs else 0.0
     warm_mean = sum(a * b for a, b in ws) / sum(b for _, b in ws) if ws else 0.0
-    if hue_abs < 6.0 and abs(warm_mean) < 0.012:
-        direction = "straight (no hue shift)"
-    elif warm_mean > 0.012:
-        direction = "cool shadows -> warm highlights"
-    elif warm_mean < -0.012:
-        direction = "warm shadows -> cool highlights"
-    else:
-        direction = "hue rotates without warm/cool bias"
+    direction = _determine_hue_shift_direction(hue_abs, warm_mean)
+
     return {
         "n_ramps": len(ramps),
         "isolated_colors": isolated,
