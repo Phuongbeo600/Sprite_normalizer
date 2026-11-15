@@ -26,13 +26,13 @@ from PIL import Image, ImageOps
 # 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Services, Database & Schemas)
 # ========================================================
 # CharacterAnalysisService: Dịch vụ phân tích nhân vật theo phân hệ Tab
-from backend.services.character_analysis_service import CharacterAnalysisService
+from backend.services.character.character_analysis_service import CharacterAnalysisService
 # generate_style_prompt: Phân tích cách vẽ dựa trên ảnh và số đo Python.
-from backend.services.reference_style_service import generate_style_prompt
+from backend.services.character.reference_style_service import generate_style_prompt
 # ReferenceStylePrompt: Dữ liệu phong cách trả về Studio.
 from backend.schemas.character.ai_analysis import ReferenceStylePrompt
 # PromptBuilderService: Dịch vụ xây dựng ma trận 15 frame hoạt họa chân tay đối nghịch
-from backend.services.prompt_builder_service import PromptBuilderService
+from backend.services.character.prompt_builder_service import PromptBuilderService
 # SessionLocal: Tạo phiên làm việc CSDL MySQL để truy xuất key của dự án
 from backend.db import SessionLocal
 # ProjectService: Dịch vụ dự án xử lý truy xuất cấu hình API Key

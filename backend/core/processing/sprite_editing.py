@@ -12,7 +12,7 @@ import numpy as np
 
 # 3. THÀNH PHẦN NỘI BỘ DỰ ÁN
 # Thuật toán dùng chung với phân tích màu để dò và khôi phục lưới.
-from backend.core.pixel_art_metrics import detect_pixel_grid, restore_native
+from backend.core.metrics.pixel_art_metrics import detect_pixel_grid, restore_native
 
 # 4. ĐỊNH DẠNG GIAO DIỆN VÀ MÀU SẮC
 # Không áp dụng cho backend.

@@ -14,7 +14,7 @@ from PIL import Image, ImageDraw, ImageFont
 # 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Internal modules)
 # ========================================================
 # CharacterMetrics: Dữ liệu tọa độ giải phẫu học
-from .character_metrics import CharacterMetrics
+from backend.core.metrics.character_metrics import CharacterMetrics
 # BackgroundMaskExtractor: Làm sạch ảnh trước khi vẽ
 from .masking import BackgroundMaskExtractor
 

@@ -22,17 +22,17 @@ from PIL import Image
 # 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Thuật toán xử lý ảnh)
 # ========================================================
 # CharacterMetrics: Data model lưu trữ kết quả giải phẫu
-from backend.core.character_metrics import CharacterMetrics
+from backend.core.metrics.character_metrics import CharacterMetrics
 # BackgroundMaskExtractor: Bóc tách kênh Alpha Mask
-from backend.core.masking import BackgroundMaskExtractor
+from backend.core.processing.masking import BackgroundMaskExtractor
 # HeuristicAnalyzer: Phân tích giải phẫu học toán học ngoại tuyến
-from backend.core.heuristic_analyzer import HeuristicAnalyzer
+from backend.core.metrics.heuristic_analyzer import HeuristicAnalyzer
 # measure_region: Đo lát cắt trên vùng do bộ phân tích giải phẫu xác định.
-from backend.core.region_measure import measure_region
+from backend.core.metrics.region_measure import measure_region
 # Các bộ phận được hỗ trợ, kiểm tra điểm và định dạng báo cáo số đo.
-from backend.core.sprite_prompt import PARTS, build_region_report, read_point
+from backend.core.metrics.sprite_prompt import PARTS, build_region_report, read_point
 # AnatomyVisualRenderer: Vẽ các lớp phủ trực quan Head/Torso/Legs/Weapons
-from backend.core.visual_renderer import AnatomyVisualRenderer
+from backend.core.processing.visual_renderer import AnatomyVisualRenderer
 
 # ========================================================
 # 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)

@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 # get_db: Cung cấp phiên làm việc CSDL MySQL từ pool kết nối
 from backend.db import get_db
 # TestbedService: Dịch vụ nghiệp vụ phòng thử nghiệm Godot Testbed
-from backend.services.testbed_service import TestbedService
+from backend.services.testbed.testbed_service import TestbedService
 # Schemas: Cấu trúc dữ liệu yêu cầu & phản hồi
 from backend.schemas.testbed import (
     TestbedMapSaveRequest,

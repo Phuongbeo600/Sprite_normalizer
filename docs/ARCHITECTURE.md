@@ -53,20 +53,29 @@ Sprite_normalizer/
 │   │       ├── sprites.py          # API chuẩn hóa ảnh sprite, đo màu và cắt lưới
 │   │       └── users.py            # API quản lý thông tin người dùng
 │   ├── core/                       # Tầng thuật toán lõi độc lập framework (Pure Logic)
-│   │   ├── character_metrics.py    # Thuật toán đo chiều cao và tỷ lệ đầu/thân (NumPy)
-│   │   ├── normalizer.py           # Thuật toán cắt viền trong suốt và căn neo đáy sprite
-│   │   ├── palette_analyzer.py     # Thuật toán phân tích 6 tiêu chí màu sắc Pixel Art (NumPy, HSV)
-│   │   ├── pixel_art_metrics.py    # Thuật toán tính toán chỉ số đồ họa điểm ảnh
-│   │   └── sprite_editing.py       # Thuật toán cắt lưới Sprite Sheet thích ứng căn giữa lề
+│   │   ├── processing/             # Phân hệ xử lý & hình học Sprite
+│   │   │   ├── normalizer.py       # Thuật toán cắt viền trong suốt và căn neo đáy sprite
+│   │   │   ├── masking.py          # Bóc tách Alpha mask và Bounding Box
+│   │   │   ├── sprite_editing.py   # Thuật toán cắt lưới Sprite Sheet thích ứng
+│   │   │   ├── inverse_scaling.py  # Động cơ ước tính độ phân giải pixel gốc
+│   │   │   └── visual_renderer.py  # Render đường lưới gióng và overlay trực quan
+│   │   └── metrics/                # Phân hệ trắc lượng & phân tích nghệ thuật
+│   │       ├── palette_analyzer.py # Phân tích 6 tiêu chí màu sắc Pixel Art (NumPy, HSV)
+│   │       ├── character_metrics.py# Thuật toán đo chiều cao và tỷ lệ đầu/thân
+│   │       ├── pixel_art_metrics.py# Đo viền outline và độ tương phản đồ họa
+│   │       ├── heuristic_analyzer.py # Phân tích phong cách nghệ thuật pixel art
+│   │       ├── region_measure.py   # Đo đa giác & đoạn thẳng giải phẫu học
+│   │       └── sprite_prompt.py    # Mẫu quy chuẩn phong cách đồ họa điểm ảnh
 │   ├── db.py                       # Quản lý kết nối CSDL MySQL, SessionLocal và tự phục hồi schema
 │   ├── repositories/               # Tầng thao tác CSDL (Data Access Layer)
 │   │   ├── base.py                 # Abstract Base Class BaseRepository
 │   │   ├── character_preset_repository.py # CRUD bảng project_character_presets
 │   │   ├── project_repository.py   # CRUD bảng projects & giải mã cấu hình API Key
 │   │   ├── testbed_repository.py   # Quản lý dữ liệu nhân vật kiểm thử
+│   │   ├── sprite_repository.py    # Quản lý lưu trữ sprite gốc và tối ưu
 │   │   └── user_repository.py      # CRUD bảng users và tài khoản người dùng
 │   ├── schemas/                    # Tầng định nghĩa kiểu dữ liệu và Schemas Pydantic
-│   │   ├── character/              # Các schemas phân tích nhân vật chi tiết (7 Schemas)
+│   │   ├── character/              # Các schemas phân tích nhân vật & Prompt Studio
 │   │   │   ├── ai_analysis.py      # Schema dữ liệu kết quả phân tích AI hoàn chỉnh
 │   │   │   ├── anatomy.py          # Schema cấu trúc giải phẫu học cơ thể
 │   │   │   ├── animation.py        # Schema động học hoạt họa (Walk cycle, Bobbing)
@@ -74,18 +83,30 @@ Sprite_normalizer/
 │   │   │   ├── direction.py        # Schema 3 góc nhìn (Down, Side, Up)
 │   │   │   ├── enums.py            # Từ vựng kiểm soát phân loại (Controlled Vocabulary)
 │   │   │   ├── identity.py         # Schema nhận diện danh tính nhân vật
+│   │   │   ├── material.py         # Schema chất liệu & độ phản quang
 │   │   │   ├── palette.py          # Schema kết quả phân tích 6 tiêu chí màu sắc
-│   │   │   └── pixel_style.py      # Schema phong cách đồ họa pixel art
+│   │   │   ├── pixel_style.py      # Schema phong cách đồ họa pixel art
+│   │   │   └── prompt.py           # Schema yêu cầu cố vấn & sinh prompt nhân vật mới
 │   │   ├── project.py              # Schema API cho Project & Cấu hình API Key
-│   │   └── user.py                 # Schema người dùng và xác thực
+│   │   ├── testbed.py              # Schema phòng thử nghiệm Godot Testbed
+│   │   ├── image_gen.py            # Schema yêu cầu tạo ảnh AI
+│   │   ├── settings.py             # Schema cài đặt & kiểm tra API Key
+│   │   └── translation.py          # Schema dịch thuật prompt đa ngôn ngữ
 │   ├── services/                   # Tầng nghiệp vụ điều phối (Business Services)
-│   │   ├── auth_service.py         # Nghiệp vụ xác thực và mã hóa mật khẩu
-│   │   ├── character_analysis_service.py # Điều phối phân tích offline + online AI theo Tab
+│   │   ├── character/              # Phân hệ Hồ sơ nhân vật & Prompt Studio
+│   │   │   ├── character_analysis_service.py # Điều phối phân tích offline + online AI theo Tab
+│   │   │   ├── prompt_builder_service.py     # Xây dựng ma trận 15 frame và biên dịch prompt 3 tầng
+│   │   │   ├── prompt_service.py             # Cố vấn prompt AI & toán học nghịch đảo
+│   │   │   ├── reference_style_service.py    # Tạo chỉ dẫn phong cách dựa trên ảnh và số đo Python
+│   │   │   └── anatomy_service.py            # Phân tích giải phẫu học & tạo ảnh trực quan
+│   │   ├── testbed/                # Phân hệ Phòng thử nghiệm Godot
+│   │   │   ├── testbed_service.py            # Quản lý sân diễn Godot & bản đồ nền
+│   │   │   └── godot_export_service.py       # Đóng gói và xuất file ZIP cho Godot 4
 │   │   ├── project_service.py      # Nghiệp vụ quản lý dự án & giải quyết API credentials
-│   │   ├── prompt_builder_service.py # Xây dựng ma trận 15 frame và biên dịch prompt 3 tầng
-│   │   ├── reference_style_service.py # Tạo chỉ dẫn phong cách dựa trên ảnh và số đo Python
-│   │   ├── settings_service.py     # Kiểm tra kết nối API Key các nhà cung cấp AI
 │   │   ├── sprite_service.py       # Chuẩn hóa ảnh và đóng gói lưới Sprite Sheet
+│   │   ├── user_service.py         # Quản lý người dùng, hồ sơ và phân quyền
+│   │   ├── image_gen_service.py    # Nghiệp vụ sinh ảnh nhân vật qua AI
+│   │   ├── settings_service.py     # Kiểm tra kết nối API Key các nhà cung cấp AI
 │   │   └── translation_service.py  # Dịch thuật mô tả sang tiếng Anh bằng ArgosTranslate
 │   └── main.py                     # Entry point khởi chạy ứng dụng FastAPI (Uvicorn)
 │

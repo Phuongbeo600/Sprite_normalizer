@@ -13,7 +13,7 @@ import unittest
 # 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Services & Schemas)
 # ========================================================
 # PromptBuilderService: Dịch vụ xây dựng ma trận 15 frame hoạt họa chân tay đối nghịch
-from backend.services.prompt_builder_service import PromptBuilderService
+from backend.services.character.prompt_builder_service import PromptBuilderService
 
 # ========================================================
 # 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)

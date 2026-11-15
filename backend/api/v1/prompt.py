@@ -14,9 +14,9 @@ from fastapi import APIRouter, HTTPException
 # 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Services & Schemas)
 # ========================================================
 # PromptAdviceRequest: DTO dữ liệu yêu cầu
-from backend.schemas.prompt import PromptAdviceRequest
+from backend.schemas.character.prompt import PromptAdviceRequest
 # PromptService: Dịch vụ cố vấn prompt và toán học nghịch đảo
-from backend.services.prompt_service import PromptService
+from backend.services.character.prompt_service import PromptService
 
 # ========================================================
 # 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)

@@ -15,13 +15,13 @@ from typing import Dict, Any, Optional
 # 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Core, Providers & Schemas)
 # ========================================================
 # CharacterMetrics: Cấu trúc dữ liệu số đo giải phẫu nhân vật mẫu
-from backend.core.character_metrics import CharacterMetrics
+from backend.core.metrics.character_metrics import CharacterMetrics
 # InverseScalingEngine: Động cơ toán học nghịch đảo
-from backend.core.inverse_scaling import InverseScalingEngine
+from backend.core.processing.inverse_scaling import InverseScalingEngine
 # AiProviderFactory: Khởi tạo nhà cung cấp AI Đa hình
 from backend.providers.factory import AiProviderFactory
 # PromptAdviceRequest: DTO yêu cầu sinh prompt
-from backend.schemas.prompt import PromptAdviceRequest
+from backend.schemas.character.prompt import PromptAdviceRequest
 
 # ========================================================
 # 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)

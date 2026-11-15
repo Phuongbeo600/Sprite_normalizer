@@ -101,6 +101,10 @@ export default function Workspace({ currentProject, incomingFile = null }) {
   const [gridError, setGridError] = useState('');
   // Mã định danh bản ghi sprite trong CSDL MySQL
   const [spriteDbId, setSpriteDbId] = useState(null);
+  // Tham chiếu đồng bộ mã bản ghi sprite để tránh race condition khi xử lý nhanh
+  const spriteDbIdRef = useRef(null);
+  // Bộ đệm lưu tạm ảnh đã chuẩn hóa nếu người dùng bấm áp dụng trước khi lưu raw xong
+  const pendingProcessedBlobRef = useRef(null);
 
   // Tham chiếu DOM đến vùng xem và tọa độ kéo chuột
   const viewport = useRef(null);
@@ -239,9 +243,22 @@ export default function Workspace({ currentProject, incomingFile = null }) {
     setError('');
     setShowResult(true);
 
+    // Đặt lại mã định danh CSDL và bộ đệm hàng đợi
+    spriteDbIdRef.current = null;
+    pendingProcessedBlobRef.current = null;
+    setSpriteDbId(null);
+
     // Tự động lưu ảnh nguồn vào CSDL MySQL.
     if (currentProject?.id) {
-      saveRawSprite(file, currentProject.id, fallbackName, setSpriteDbId);
+      saveRawSprite(file, currentProject.id, fallbackName, (savedId) => {
+        setSpriteDbId(savedId);
+        spriteDbIdRef.current = savedId;
+        // Nếu ảnh đã được xử lý xong trong khi đang chờ lưu raw, lưu ảnh xử lý ngay lập tức
+        if (pendingProcessedBlobRef.current) {
+          saveProcessedSprite(pendingProcessedBlobRef.current, currentProject.id, savedId);
+          pendingProcessedBlobRef.current = null;
+        }
+      });
     }
 
     image.onload = () => {
@@ -337,8 +354,14 @@ export default function Workspace({ currentProject, incomingFile = null }) {
         setShowResult(true);
 
         // Lưu ảnh đã chuẩn hóa vào MySQL
-        if (currentProject?.id && spriteDbId) {
-          saveProcessedSprite(blob, currentProject.id, spriteDbId);
+        if (currentProject?.id) {
+          const activeDbId = spriteDbIdRef.current || spriteDbId;
+          if (activeDbId) {
+            saveProcessedSprite(blob, currentProject.id, activeDbId);
+          } else {
+            // Nếu thao tác lưu raw đang xử lý ở backend chưa xong, đưa vào hàng đợi
+            pendingProcessedBlobRef.current = blob;
+          }
         }
       }
       setZoom(null);

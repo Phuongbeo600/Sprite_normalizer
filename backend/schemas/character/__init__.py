@@ -70,6 +70,11 @@ from .palette import (
     DominantColorItem,
     PaletteMetrics
 )
+# Nhóm 9: Yêu cầu Cố vấn & Biên dịch Prompt Nhân vật
+from .prompt import (
+    PromptAdviceRequest,
+    NewCharacterPromptRequest
+)
 
 # ========================================================
 # 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
@@ -93,6 +98,8 @@ __all__ = [
     "AIAnalysis",
     "DominantColorItem",
     "PaletteMetrics",
+    "PromptAdviceRequest",
+    "NewCharacterPromptRequest",
     
     # Controlled Vocabulary Enums
     "GenderPresentation",

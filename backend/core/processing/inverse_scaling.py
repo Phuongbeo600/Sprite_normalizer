@@ -13,7 +13,7 @@ from typing import Dict, Any
 # 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Internal modules)
 # ========================================================
 # CharacterMetrics: Dữ liệu giải phẫu nhân vật mẫu
-from .character_metrics import CharacterMetrics
+from backend.core.metrics.character_metrics import CharacterMetrics
 
 # ========================================================
 # 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)

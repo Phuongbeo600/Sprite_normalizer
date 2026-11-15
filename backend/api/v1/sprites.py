@@ -33,11 +33,11 @@ from backend.repositories.sprite_repository import SpriteRepository
 # SpriteService: Dịch vụ cắt viền và chuẩn hóa kích thước sprite
 from backend.services.sprite_service import SpriteService
 # AnatomyService: Dịch vụ phân tích giải phẫu học và tạo ảnh trực quan
-from backend.services.anatomy_service import AnatomyService
+from backend.services.character.anatomy_service import AnatomyService
 # resize_image: Thu nhỏ toàn bộ ảnh theo kích thước pixel.
-from backend.core.sprite_editing import recover_native_sprite, resize_sprite as resize_image
+from backend.core.processing.sprite_editing import recover_native_sprite, resize_sprite as resize_image
 # GodotExportService: Dịch vụ đóng gói tài nguyên nhân vật xuất xưởng cho Godot 4
-from backend.services.godot_export_service import GodotExportService
+from backend.services.testbed.godot_export_service import GodotExportService
 
 # ========================================================
 # 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)

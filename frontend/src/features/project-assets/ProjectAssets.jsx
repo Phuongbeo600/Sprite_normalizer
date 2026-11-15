@@ -57,6 +57,7 @@ import './presets-atelier.css';
  * @param {Function} [props.onLoadSpriteToWorkspace] Nạp ảnh sprite vào Workspace để tiếp tục xử lý.
  * @param {Function} [props.onDeployCharactersToGodot] Nạp danh sách nhân vật vào Godot Testbed.
  * @param {Function} [props.onSelectTab] Chuyển tab điều hướng chính của ứng dụng.
+ * @param {boolean} [props.isActive] Trạng thái tab Kho Tài Nguyên đang được chọn hiển thị.
  * @returns {React.ReactElement} Giao diện Kho Tài Nguyên Dự Án.
  */
 export default function ProjectSavedPresets({
@@ -64,7 +65,8 @@ export default function ProjectSavedPresets({
   onLoadPresetToStudio,
   onLoadSpriteToWorkspace,
   onDeployCharactersToGodot,
-  onSelectTab
+  onSelectTab,
+  isActive = false
 }) {
   // ========================================================
   // TRẠNG THÁI TAB CON & CHẾ ĐỘ XEM
@@ -158,6 +160,13 @@ export default function ProjectSavedPresets({
       setLoading(false);
     }
   }, [currentProject?.id]);
+
+  // Tự động tải lại dữ liệu mới nhất từ MySQL khi màn hình tải lần đầu hoặc khi người dùng chuyển sang tab này
+  useEffect(() => {
+    if (isActive) {
+      fetchAllAssets();
+    }
+  }, [isActive, fetchAllAssets]);
 
   useEffect(() => {
     fetchAllAssets();

@@ -25,7 +25,7 @@ from PIL import Image
 # CharacterMetrics: Cấu trúc dữ liệu kết quả phân tích
 from .character_metrics import CharacterMetrics
 # BackgroundMaskExtractor: Bóc tách kênh Alpha
-from .masking import BackgroundMaskExtractor
+from backend.core.processing.masking import BackgroundMaskExtractor
 
 # ========================================================
 # 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)

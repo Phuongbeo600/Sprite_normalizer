@@ -14,11 +14,11 @@ from PIL import Image
 # 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Core, Services & Schemas)
 # ========================================================
 # HeuristicPaletteAnalyzer: Bộ phân tích 6 tiêu chí hệ màu sắc Pixel Art bằng thuật toán toán học NumPy
-from backend.core.palette_analyzer import HeuristicPaletteAnalyzer
+from backend.core.metrics.palette_analyzer import HeuristicPaletteAnalyzer
 # PaletteMetrics: Schema Pydantic lưu trữ 6 tiêu chuẩn màu sắc
 from backend.schemas.character.palette import PaletteMetrics
 # PromptBuilderService: Dịch vụ biên dịch Prompt ma trận frame tích hợp bảng màu
-from backend.services.prompt_builder_service import PromptBuilderService
+from backend.services.character.prompt_builder_service import PromptBuilderService
 
 # ========================================================
 # 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)

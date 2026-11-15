@@ -14,11 +14,11 @@ from PIL import Image
 # 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Core modules cần khóa hành vi)
 # ========================================================
 # SpriteNormalizer: Thuật toán chuẩn hóa cắt viền và căn điểm neo
-from backend.core.normalizer import SpriteNormalizer
+from backend.core.processing.normalizer import SpriteNormalizer
 # HeuristicAnalyzer: Thuật toán giải tích tìm cổ và đo tỷ lệ đầu/thân
-from backend.core.heuristic_analyzer import HeuristicAnalyzer
+from backend.core.metrics.heuristic_analyzer import HeuristicAnalyzer
 # CharacterMetrics: Data model lưu trữ kết quả giải phẫu
-from backend.core.character_metrics import CharacterMetrics
+from backend.core.metrics.character_metrics import CharacterMetrics
 
 # ========================================================
 # 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)

@@ -18,13 +18,13 @@ from PIL import Image
 # 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Core Normalizer)
 # ========================================================
 # SpriteNormalizer: Thuật toán cắt biên và căn lề điểm neo
-from backend.core.normalizer import SpriteNormalizer
+from backend.core.processing.normalizer import SpriteNormalizer
 # HeuristicPaletteAnalyzer: Ánh xạ báo cáo màu sang cấu trúc hồ sơ hiện có.
-from backend.core.palette_analyzer import HeuristicPaletteAnalyzer
+from backend.core.metrics.palette_analyzer import HeuristicPaletteAnalyzer
 # analyze_sprite: Phân tích màu, lưới và viền bằng thuật toán Python.
-from backend.core.pixel_art_metrics import analyze_sprite
+from backend.core.metrics.pixel_art_metrics import analyze_sprite
 # slice_sheet: Cắt từng ô, giữ kích thước và phần trong suốt của ô gốc.
-from backend.core.sprite_editing import slice_sheet
+from backend.core.processing.sprite_editing import slice_sheet
 
 # ========================================================
 # 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)

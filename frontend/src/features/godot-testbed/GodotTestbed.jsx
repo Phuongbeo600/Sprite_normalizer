@@ -470,6 +470,7 @@ export default function GodotTestbed({
 
       // Tự động trích xuất các ô frame từ Sheet và lưu vĩnh viễn vào MySQL
       if (currentProject?.id) {
+        // 1. Lưu bản ghi nhân vật đa khung hình vào testbed_characters
         const extracted = extractSlotsFromSheet(newChar);
         const slotsPayload = {};
         Object.entries(extracted).forEach(([k, v]) => {
@@ -496,6 +497,14 @@ export default function GodotTestbed({
             }
           })
           .catch((err) => console.error('Lỗi khi lưu nhân vật từ Sheet vào MySQL:', err));
+
+        // 2. Đồng thời lưu tệp ảnh gốc sprite sheet vào kho ảnh dự án (project_sprites)
+        const rawForm = new FormData();
+        rawForm.append('file', file);
+        rawForm.append('project_id', currentProject.id);
+        rawForm.append('name', file.name || newChar.name);
+        fetch('/api/sprites/save-raw', { method: 'POST', body: rawForm })
+          .catch((err) => console.error('Lỗi khi lưu sprite sheet vào project_sprites:', err));
       }
 
       const updated = [...characters, newChar];

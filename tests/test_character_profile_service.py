@@ -26,11 +26,11 @@ from fastapi import UploadFile
 # 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Services & Schemas)
 # ========================================================
 # CharacterAnalysisService: Dịch vụ phân tích hồ sơ nhân vật theo tab
-from backend.services.character_analysis_service import CharacterAnalysisService
+from backend.services.character.character_analysis_service import CharacterAnalysisService
 # SettingsService: Kiểm tra hành vi của tuyến kiểm tra khóa OpenAI.
 from backend.services.settings_service import SettingsService
 # PromptBuilderService: Dịch vụ xây dựng ma trận 15 frame hoạt họa và biên dịch prompt 3 tầng
-from backend.services.prompt_builder_service import PromptBuilderService
+from backend.services.character.prompt_builder_service import PromptBuilderService
 # ProjectService: Dịch vụ dự án hỗ trợ cấu hình API
 from backend.services.project_service import ProjectService
 # Các tuyến phân tích ảnh, hồ sơ và sinh prompt.
@@ -130,7 +130,7 @@ class TestCharacterProfileService(unittest.TestCase):
         raw_profile = CharacterAnalysisService._get_offline_fallback_global()
         raw_profile["palette_metrics"] = {"total_colors": 999}
         raw_profile["pixel_style"]["shading_levels"] = 7
-        with patch("backend.services.character_analysis_service.AiProviderFactory.get_provider") as factory:
+        with patch("backend.services.character.character_analysis_service.AiProviderFactory.get_provider") as factory:
             vision = factory.return_value.analyze_vision
             vision.return_value = raw_profile
             result = CharacterAnalysisService.analyze_tab_global(self.sample_image, api_key="fake-key")
@@ -208,7 +208,7 @@ class TestCharacterProfileService(unittest.TestCase):
         self.sample_image.save(buffer, format="PNG")
         buffer.seek(0)
         upload = UploadFile(buffer, filename="sprite.png", headers={"content-type": "image/png"})
-        with patch("backend.services.character_analysis_service.AiProviderFactory.get_provider") as factory:
+        with patch("backend.services.character.character_analysis_service.AiProviderFactory.get_provider") as factory:
             factory.return_value.analyze_vision.return_value = CharacterAnalysisService._get_offline_fallback_global()
             result = asyncio.run(analyze_character_tab(
                 upload, "global", None, "fake-key", "gemini", None, None, vision_only=True,

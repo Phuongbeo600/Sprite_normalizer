@@ -16,9 +16,9 @@ from PIL import Image
 # 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Core Normalizer & Editing)
 # ========================================================
 # slice_sheet: Cắt lưới thích ứng các frame đều nhau
-from backend.core.sprite_editing import slice_sheet
+from backend.core.processing.sprite_editing import slice_sheet
 # SpriteNormalizer: Bóc tách Bounding Box và đo đạc hộp va chạm
-from backend.core.normalizer import SpriteNormalizer
+from backend.core.processing.normalizer import SpriteNormalizer
 
 # ========================================================
 # 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
