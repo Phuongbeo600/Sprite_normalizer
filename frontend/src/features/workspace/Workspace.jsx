@@ -15,8 +15,6 @@ import {
   Image as ImageIcon,
   LoaderCircle,
   Minus,
-  Pause,
-  Play,
   Plus,
   Sliders,
   Sparkles,
@@ -29,7 +27,10 @@ import {
 // ========================================================
 // 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Components & Dữ liệu)
 // ========================================================
-// (Không có component nội bộ phụ thuộc)
+// Dải khung hình và các điều khiển phát thử sprite sheet.
+import WorkspaceTimeline from './WorkspaceTimeline';
+// Các yêu cầu xử lý và lưu ảnh của bàn làm việc.
+import { processImage, saveProcessedSprite, saveRawSprite } from './workspaceApi';
 
 // ========================================================
 // 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
@@ -38,32 +39,6 @@ import {
 import './workspace-atelier.css';
 
 const MAX_FRAMES = 256;
-const FPS_OPTIONS = [3, 4, 6, 8, 12];
-
-/**
- * Gửi ảnh và thông số xử lý đến backend FastAPI.
- * 
- * @param {File} file Ảnh nguồn cần xử lý.
- * @param {string} route Tuyến API backend xử lý ảnh.
- * @param {Object} fields Thông số cấu hình của thao tác.
- * @param {AbortSignal} [signal] Tín hiệu hủy yêu cầu khi ảnh nguồn thay đổi.
- * @returns {Promise<Response>} Phản hồi từ máy chủ chứa ảnh hoặc kết quả phân tách frame.
- */
-async function processImage(file, route, fields, signal) {
-  const body = new FormData();
-  body.append('file', file);
-  Object.entries(fields).forEach(([name, value]) => body.append(name, String(value)));
-  const response = await fetch(`/api/${route}`, { method: 'POST', body, signal });
-  if (!response.ok) {
-    const payload = await response.json().catch(() => null);
-    throw new Error(
-      typeof payload?.detail === 'string'
-        ? payload.detail
-        : 'Không xử lý được ảnh. Kiểm tra thông số và kết nối backend.'
-    );
-  }
-  return response;
-}
 
 /**
  * Bàn làm việc Xử lý & Chuẩn hóa Sprite (Dark Fantasy Atelier Workspace).
@@ -240,12 +215,15 @@ export default function Workspace({ currentProject, incomingFile = null }) {
   }
 
   /**
-   * Mở ảnh từ ổ cứng thông qua thẻ input file
+   * Đặt lại bàn làm việc và đọc kích thước của ảnh nguồn mới.
+   *
+   * @param {File} file Tệp ảnh cần mở.
+   * @param {Object} options Thông tin phụ thuộc vào nơi nhận tệp.
+   * @param {string} options.fallbackName Tên dùng khi lưu tệp không có tên.
+   * @param {string} options.decodeError Thông báo nếu trình duyệt không đọc được ảnh.
+   * @returns {void}
    */
-  function openImage(event) {
-    const file = event.target.files[0];
-    event.target.value = '';
-    if (!file) return;
+  function loadSourceImage(file, { fallbackName, decodeError }) {
     const version = ++uploadVersion.current;
     const url = URL.createObjectURL(file);
     const image = new Image();
@@ -261,20 +239,9 @@ export default function Workspace({ currentProject, incomingFile = null }) {
     setError('');
     setShowResult(true);
 
-    // Tự động lưu ảnh thô ban đầu vào CSDL MySQL
+    // Tự động lưu ảnh nguồn vào CSDL MySQL.
     if (currentProject?.id) {
-      const form = new FormData();
-      form.append('file', file);
-      form.append('project_id', currentProject.id);
-      form.append('name', file.name || 'sprite_raw');
-      fetch('/api/sprites/save-raw', { method: 'POST', body: form })
-        .then((res) => (res.ok ? res.json() : null))
-        .then((data) => {
-          if (data && data.id) {
-            setSpriteDbId(data.id);
-          }
-        })
-        .catch((err) => console.error('Lỗi khi lưu ảnh gốc vào MySQL:', err));
+      saveRawSprite(file, currentProject.id, fallbackName, setSpriteDbId);
     }
 
     image.onload = () => {
@@ -286,59 +253,35 @@ export default function Workspace({ currentProject, incomingFile = null }) {
     };
     image.onerror = () => {
       if (version === uploadVersion.current) {
-        setError('Không đọc được ảnh. Hãy chọn tệp PNG, JPEG hoặc WebP hợp lệ.');
+        setError(decodeError);
       }
     };
     image.src = url;
   }
 
-  // Tự động nạp tệp ảnh được chuyển tiếp từ mục Tạo ảnh AI
+  /**
+   * Mở ảnh được chọn từ ổ cứng và đặt lại giá trị của ô chọn tệp.
+   *
+   * @param {React.ChangeEvent<HTMLInputElement>} event Sự kiện chọn tệp ảnh.
+   * @returns {void}
+   */
+  function openImage(event) {
+    const file = event.target.files[0];
+    event.target.value = '';
+    if (!file) return;
+    loadSourceImage(file, {
+      fallbackName: 'sprite_raw',
+      decodeError: 'Không đọc được ảnh. Hãy chọn tệp PNG, JPEG hoặc WebP hợp lệ.',
+    });
+  }
+
+  // Chỉ nạp lại ảnh từ màn hình Tạo ảnh AI khi tệp chuyển đến thay đổi.
   useEffect(() => {
     if (!incomingFile) return;
-    const version = ++uploadVersion.current;
-    const url = URL.createObjectURL(incomingFile);
-    const image = new Image();
-    setNativeGrid(null);
-    setGridError('');
-    setDetectingGrid(false);
-    setSource({ file: incomingFile, url, dimensions: null });
-    setResult(null);
-    setSheet(null);
-    setFrameIndex(null);
-    setPlaying(false);
-    setZoom(null);
-    setError('');
-    setShowResult(true);
-
-    // Tự động lưu ảnh gốc AI vào MySQL
-    if (currentProject?.id) {
-      const form = new FormData();
-      form.append('file', incomingFile);
-      form.append('project_id', currentProject.id);
-      form.append('name', incomingFile.name || 'sprite_ai_raw');
-      fetch('/api/sprites/save-raw', { method: 'POST', body: form })
-        .then((res) => (res.ok ? res.json() : null))
-        .then((data) => {
-          if (data && data.id) {
-            setSpriteDbId(data.id);
-          }
-        })
-        .catch((err) => console.error('Lỗi khi lưu ảnh gốc vào MySQL:', err));
-    }
-
-    image.onload = () => {
-      if (version !== uploadVersion.current) return;
-      const width = image.naturalWidth;
-      const height = image.naturalHeight;
-      setDetectingGrid(true);
-      setSource({ file: incomingFile, url, dimensions: { width, height, url } });
-    };
-    image.onerror = () => {
-      if (version === uploadVersion.current) {
-        setError('Không đọc được ảnh chuyển từ Tạo ảnh AI.');
-      }
-    };
-    image.src = url;
+    loadSourceImage(incomingFile, {
+      fallbackName: 'sprite_ai_raw',
+      decodeError: 'Không đọc được ảnh chuyển từ Tạo ảnh AI.',
+    });
   }, [incomingFile]);
 
   /**
@@ -395,11 +338,7 @@ export default function Workspace({ currentProject, incomingFile = null }) {
 
         // Lưu ảnh đã chuẩn hóa vào MySQL
         if (currentProject?.id && spriteDbId) {
-          const form = new FormData();
-          form.append('file', blob, 'processed.png');
-          form.append('project_id', currentProject.id);
-          fetch(`/api/sprites/${spriteDbId}/save-processed`, { method: 'POST', body: form })
-            .catch((err) => console.error('Lỗi khi lưu ảnh tối ưu vào MySQL:', err));
+          saveProcessedSprite(blob, currentProject.id, spriteDbId);
         }
       }
       setZoom(null);
@@ -444,6 +383,16 @@ export default function Workspace({ currentProject, incomingFile = null }) {
     setPlaying(false);
     setFrameIndex(index);
     setZoom(null);
+  }
+
+  /**
+   * Phát thử hoặc tạm dừng hoạt họa của sprite sheet.
+   *
+   * @returns {void}
+   */
+  function togglePlayback() {
+    if (!playing && frameIndex === null) setFrameIndex(0);
+    setPlaying(!playing);
   }
 
   /**
@@ -940,58 +889,16 @@ export default function Workspace({ currentProject, incomingFile = null }) {
       {/* 3. DẢI TIMELINE PHÁT HOẠT HỌA (ANIMATION TIMELINE REEL)          */}
       {/* ================================================================ */}
       {sheetMode && sheet && (
-        <section className="atelier-ws-timeline" aria-label="Các frame hoạt họa đã cắt">
-          <div className="atelier-timeline-bar">
-            <div className="atelier-timeline-controls">
-              <button
-                className="atelier-btn-play"
-                type="button"
-                disabled={sheet.frames.length < 2 || Boolean(busy)}
-                onClick={() => {
-                  if (!playing && frameIndex === null) setFrameIndex(0);
-                  setPlaying(!playing);
-                }}
-              >
-                {playing ? <Pause size={14} /> : <Play size={14} />}
-                <span>{playing ? 'Tạm dừng' : 'Phát thử'}</span>
-              </button>
-
-              <div className="atelier-fps-selector">
-                <span>Tốc độ:</span>
-                <select
-                  value={fps}
-                  onChange={(event) => setFps(Number(event.target.value))}
-                >
-                  {FPS_OPTIONS.map((rate) => (
-                    <option key={rate} value={rate}>
-                      {rate} FPS
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div style={{ fontSize: '0.78rem', color: '#c084fc', fontWeight: 600 }}>
-              {sheet.frames.length} frame · lưới {sheet.rows} × {sheet.columns}
-            </div>
-          </div>
-
-          <div className="atelier-timeline-reel">
-            {sheet.frames.map((item, index) => (
-              <button
-                className={`atelier-frame-thumb-btn ${frameIndex === index ? 'active' : ''}`}
-                type="button"
-                key={item.name}
-                aria-pressed={frameIndex === index}
-                aria-label={`Frame ${index + 1}`}
-                onClick={() => selectFrame(index)}
-              >
-                <img src={item.url} alt="" loading="lazy" />
-                <span>#{index + 1}</span>
-              </button>
-            ))}
-          </div>
-        </section>
+        <WorkspaceTimeline
+          sheet={sheet}
+          frameIndex={frameIndex}
+          playing={playing}
+          fps={fps}
+          busy={busy}
+          onTogglePlayback={togglePlayback}
+          onFpsChange={setFps}
+          onSelectFrame={selectFrame}
+        />
       )}
     </div>
   );

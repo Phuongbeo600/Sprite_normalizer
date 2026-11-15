@@ -1,23 +1,19 @@
 // ========================================================
-// 1. THƯ VIỆN NỀN TẢNG REACT (Quản lý component & trạng thái)
+// 1. THƯ VIỆN NỀN TẢNG REACT (Quản lý giao diện và trạng thái)
 // ========================================================
+// React: Quản lý trạng thái tạo ảnh và đồng bộ prompt khi chuyển màn hình.
 import React, { useState, useEffect } from 'react';
 
 // ========================================================
-// 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
+// 2. THƯ VIỆN BÊN NGOÀI
 // ========================================================
-// lucide-react: Bộ biểu tượng tia sáng ma thuật, tải về, chuyển tab, làm mới, kính lúp, thông báo, ổ khóa
+// lucide-react: Bộ biểu tượng cho biểu mẫu, trạng thái và thông báo.
 import {
   Sparkles,
-  Download,
-  Image as ImageIcon,
-  Gamepad2,
-  Scissors,
   RefreshCw,
   AlertCircle,
   CheckCircle2,
   Sliders,
-  ZoomIn,
   Trash2,
   Wand2,
   ShieldAlert,
@@ -28,13 +24,13 @@ import {
 } from 'lucide-react';
 
 // ========================================================
-// 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Components & Dữ liệu)
+// 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Thành phần giao diện và dữ liệu)
 // ========================================================
-// PixelArtIcons: Biểu tượng lò rèn ma thuật pixel art cho empty state
-import { PixelForge } from '../../shared/ui/PixelArtIcons';
+// Thành phần hiển thị bộ sưu tập và ảnh phóng to.
+import { GeneratedImageGallery, GeneratedImagePreview } from './GeneratedImageResults';
 
 // ========================================================
-// 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
+// 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Tệp định dạng)
 // ========================================================
 // Kế thừa phong cách Dark Fantasy Atelier từ image-gen-atelier.css
 import './image-gen-atelier.css';
@@ -504,136 +500,22 @@ export default function ImageGeneration({
       </div>
 
       {/* 3. Bộ Sưu Tập Kết Quả Ảnh Đã Sinh (Gallery) */}
-      <div className="atelier-gen-gallery-card">
-        <div className="atelier-gen-card-header">
-          <h3 className="atelier-gen-card-title" style={{ fontSize: '1rem' }}>
-            <ImageIcon size={19} color="#c084fc" />
-            <span>Thư Viện Kết Quả Phiên Này ({generatedGallery.length} tác phẩm)</span>
-          </h3>
-          {generatedGallery.length > 0 && (
-            <button
-              type="button"
-              className="atelier-gen-btn-clear"
-              onClick={() => setGeneratedGallery([])}
-              style={{ color: '#f87171' }}
-            >
-              <Trash2 size={12} /> Xóa sạch bộ sưu tập
-            </button>
-          )}
-        </div>
-
-        {generatedGallery.length === 0 ? (
-          <div className="atelier-gen-empty-state">
-            <div className="pixel-empty-icon-wrap">
-              <div className="pixel-empty-circle-aura" />
-              <PixelForge size={56} className="pixel-art-glow-amber pixel-art-float" />
-            </div>
-            <p style={{ margin: 0, fontSize: '0.86rem', color: '#a39bc2' }}>
-              Chưa có ảnh nào được tạo trong phiên này.
-            </p>
-            <span style={{ fontSize: '0.76rem', color: '#6e658a' }}>
-              Hãy nhập mô tả nhân vật và bấm <strong>"Bắt Đầu Rèn Đúc Ảnh Sprite"</strong> ở bảng trên!
-            </span>
-          </div>
-        ) : (
-          <div className="atelier-gen-grid">
-            {generatedGallery.map((imgItem) => (
-              <div key={imgItem.id} className="atelier-gen-item">
-                {/* Khung xem ảnh với nền ô cờ tối */}
-                <div
-                  className="atelier-gen-image-frame"
-                  onClick={() => setModalImage(imgItem)}
-                  title="Nhấp để phóng to xem chi tiết pixel"
-                >
-                  <img
-                    src={imgItem.data_url}
-                    alt="AI Generated Sprite"
-                  />
-                  <div className="atelier-gen-zoom-overlay">
-                    <ZoomIn size={14} />
-                  </div>
-                </div>
-
-                {/* Nút hành động */}
-                <div className="atelier-gen-item-actions">
-                  <div className="atelier-gen-action-row">
-                    {/* Nút 1: Chuyển sang Xử lý ảnh */}
-                    <button
-                      type="button"
-                      className="atelier-gen-btn-sub"
-                      onClick={() => handleSendToWorkspace(imgItem)}
-                      title="Mở ảnh này trong bàn xử lý để cắt viền, tìm hộp bao và chuẩn hóa"
-                    >
-                      <Scissors size={13} color="#10b981" />
-                      <span>Xử lý ảnh</span>
-                    </button>
-
-                    {/* Nút 2: Đưa vào Thử nghiệm Godot */}
-                    <button
-                      type="button"
-                      className="atelier-gen-btn-sub"
-                      onClick={() => handleSendToGodot(imgItem)}
-                      title="Đưa ảnh nhân vật này vào sàn thử nghiệm Godot 4"
-                    >
-                      <Gamepad2 size={13} color="#38bdf8" />
-                      <span>Thử Godot</span>
-                    </button>
-                  </div>
-
-                  {/* Nút 3: Tải file PNG về máy */}
-                  <button
-                    type="button"
-                    className="atelier-gen-btn-download"
-                    onClick={() => handleDownloadImage(imgItem)}
-                  >
-                    <Download size={13} />
-                    <span>Tải về máy (.PNG)</span>
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      <GeneratedImageGallery
+        images={generatedGallery}
+        onClear={() => setGeneratedGallery([])}
+        onPreview={setModalImage}
+        onSendToWorkspace={handleSendToWorkspace}
+        onSendToGodot={handleSendToGodot}
+        onDownload={handleDownloadImage}
+      />
 
       {/* 4. Modal Phóng To Xem Chi Tiết Ảnh */}
       {modalImage && (
-        <div
-          className="atelier-gen-modal-overlay"
-          onClick={() => setModalImage(null)}
-        >
-          <div
-            className="atelier-gen-modal-box"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <img
-              src={modalImage.data_url}
-              alt="Zoom Preview"
-              className="atelier-gen-modal-image"
-            />
-            <div className="atelier-gen-modal-footer">
-              <span style={{ fontSize: '0.78rem', color: '#c084fc', fontWeight: 600 }}>
-                Ảnh sinh AI ({modalImage.aspect_ratio || '1:1'})
-              </span>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button
-                  type="button"
-                  className="atelier-gen-btn-sub"
-                  onClick={() => handleDownloadImage(modalImage)}
-                >
-                  <Download size={13} /> Tải PNG
-                </button>
-                <button
-                  type="button"
-                  className="atelier-gen-btn-clear"
-                  onClick={() => setModalImage(null)}
-                >
-                  Đóng
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <GeneratedImagePreview
+          modalImage={modalImage}
+          onClose={() => setModalImage(null)}
+          onDownload={handleDownloadImage}
+        />
       )}
     </div>
   );

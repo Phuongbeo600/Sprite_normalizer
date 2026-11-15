@@ -36,6 +36,26 @@ import AtelierModalDialog from '../../shared/ui/AtelierModalDialog';
 import './admin-atelier.css';
 
 /**
+ * Xác định tài khoản quản trị được bảo vệ khỏi thao tác xóa.
+ *
+ * @param {Object} user Bản ghi tài khoản.
+ * @returns {boolean} Tài khoản có quyền quản trị hoặc là quản trị viên mặc định.
+ */
+function isAdminAccount(user) {
+  return user.role === 'admin' || user.id === 1;
+}
+
+/**
+ * Xác định tài khoản mẫu cần giữ lại cho luồng kiểm thử.
+ *
+ * @param {Object} user Bản ghi tài khoản.
+ * @returns {boolean} Tài khoản khớp mã hoặc tên đăng nhập mẫu.
+ */
+function isDemoAccount(user) {
+  return user.id === 2 || user.username === 'origin@gmail.com';
+}
+
+/**
  * Màn hình Quản trị Tài khoản Người dùng (Admin Users Management) — Dark Fantasy Atelier Edition.
  * Dành riêng cho tài khoản Quản trị viên (Admin):
  * - Xem danh sách toàn bộ tài khoản trong CSDL MySQL.
@@ -90,12 +110,12 @@ export default function AdminUsers({ currentUser }) {
    * @param {Object} user Tài khoản cần xóa.
    */
   const handleRequestDeleteUser = (user) => {
-    if (user.role === 'admin' || user.id === 1) {
+    if (isAdminAccount(user)) {
       setWarningMessage('Không thể xóa tài khoản Quản trị viên (Admin) tối cao!');
       return;
     }
 
-    if (user.id === 2 || user.username === 'origin@gmail.com') {
+    if (isDemoAccount(user)) {
       setWarningMessage('Không thể xóa tài khoản mẫu kiểm thử (origin@gmail.com)!');
       return;
     }
@@ -222,8 +242,8 @@ export default function AdminUsers({ currentUser }) {
             </thead>
             <tbody>
               {users.map((u) => {
-                const isAdmin = u.role === 'admin' || u.id === 1;
-                const isOriginTest = u.id === 2 || u.username === 'origin@gmail.com';
+                const isAdmin = isAdminAccount(u);
+                const isOriginTest = isDemoAccount(u);
                 const isUndeletable = isAdmin || isOriginTest;
                 const isDeleting = deletingId === u.id;
 

@@ -18,18 +18,8 @@ import Sidebar from './Sidebar';
 import AtelierModalDialog from '../shared/ui/AtelierModalDialog';
 // Projects: Màn hình danh sách dự án trong MySQL
 import Projects from '../features/projects/Projects';
-// ProjectAnalysis: Màn hình Studio phân tích mẫu và sinh prompt
-import ProjectAnalysis from '../features/character-analysis/ProjectAnalysis';
-// ImageGeneration: Màn hình Tạo ảnh AI từ mô tả văn bản bằng Gemini Imagen 3 hoặc OpenAI
-import ImageGeneration from '../features/image-generation/ImageGeneration';
-// Workspace: Màn hình xử lý và chuẩn hóa ảnh sprite
-import Workspace from '../features/workspace/Workspace';
-// ProjectSavedPresets: Màn hình Thư viện Hồ sơ đã lưu của dự án
-import ProjectSavedPresets from '../features/project-assets/ProjectAssets';
-// GodotTestbed: Màn hình Phòng thử nghiệm chạy thử và xuất chuẩn Godot Engine 4
-import GodotTestbed from '../features/godot-testbed/GodotTestbed';
-// ProjectSettings: Màn hình Cài đặt cấu hình API Key riêng của dự án
-import ProjectSettings from '../features/settings/ProjectSettings';
+// ProjectTabs: Vùng làm việc của dự án, giữ các màn hình khi chuyển tab.
+import ProjectTabs from './ProjectTabs';
 // Settings: Màn hình Cài đặt chung toàn cục (đã gỡ bỏ ô nhập key)
 import Settings from '../features/settings/Settings';
 // AdminUsers: Màn hình Quản trị Tài khoản người dùng trong CSDL MySQL dành riêng cho Admin
@@ -40,6 +30,9 @@ import AuthModal from '../features/authentication/AuthModal';
 import ProfileModal from '../features/authentication/ProfileModal';
 // HelpCenter: Màn hình Trung tâm Hướng dẫn đa hình (Help Center)
 import HelpCenter from '../features/help/HelpCenter';
+
+// Đọc trạng thái cấu hình AI khi mở dự án.
+import { getProjectApiConfig } from '../shared/api/projectApiConfig';
 
 // ========================================================
 // 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
@@ -175,7 +168,7 @@ export default function App() {
 
     // Đọc trạng thái cấu hình AI của dự án từ MySQL
     if (project?.id) {
-      fetch(`/api/projects/${project.id}/api-config`)
+      getProjectApiConfig(project.id)
         .then((res) => (res.ok ? res.json() : null))
         .then((resJson) => {
           if (resJson?.data) {
@@ -302,79 +295,26 @@ export default function App() {
 
             {/* Khối làm việc bên trong một Dự án cụ thể */}
             {currentProject && (
-              <div hidden={activeTab === 'settings'}>
-                <div className="subpage-container">
-                  <div className="subpage-top-bar">
-                    <button className="btn-back-nav" onClick={handleCloseProject}>
-                      ← Quay lại danh sách dự án
-                    </button>
-                    <span className="subpage-current-name">
-                      Dự án: {currentProject.name}
-                    </span>
-                  </div>
-
-                  {/* Mục 1: Phân tích & Prompt (Studio) */}
-                  <div hidden={activeTab !== 'analysis'}>
-                    <ProjectAnalysis
-                      currentProject={currentProject}
-                      loadedPresetData={loadedPresetData}
-                      isActive={activeTab === 'analysis'}
-                      onSendPromptToImageGen={handleSendPromptToImageGen}
-                      isAiEnabled={isAiEnabled}
-                    />
-                  </div>
-
-                  {/* Mục 2: Tạo ảnh AI (Google Imagen 3 / OpenAI DALL-E) */}
-                  <div hidden={activeTab !== 'image_gen'}>
-                    <ImageGeneration
-                      currentProject={currentProject}
-                      incomingPrompt={imageGenPrompt}
-                      incomingNegativePrompt={imageGenNegativePrompt}
-                      onSelectTab={setActiveTab}
-                      onTransferToWorkspace={handleTransferToWorkspace}
-                      onTransferToGodot={handleTransferToGodot}
-                      isAiEnabled={isAiEnabled}
-                    />
-                  </div>
-
-                  {/* Mục 3: Xử lý ảnh Sprite */}
-                  <div hidden={activeTab !== 'workspace'}>
-                    <Workspace
-                      currentProject={currentProject}
-                      incomingFile={transferredImageForWorkspace}
-                    />
-                  </div>
-
-                  {/* Mục 4: Kho tài nguyên dự án (Quản lý hồ sơ, ảnh sprite, đội hình Godot, map nền) */}
-                  <div hidden={activeTab !== 'saved_presets'}>
-                    <ProjectSavedPresets
-                      currentProject={currentProject}
-                      onLoadPresetToStudio={handleLoadPresetToStudio}
-                      onLoadSpriteToWorkspace={handleTransferToWorkspace}
-                      onDeployCharactersToGodot={handleDeployCharactersToGodot}
-                      onSelectTab={setActiveTab}
-                    />
-                  </div>
-
-                  {/* Mục 5: Thử nghiệm Godot Engine 4 (Testbed & Export) */}
-                  <div hidden={activeTab !== 'godot_testbed'}>
-                    <GodotTestbed
-                      currentProject={currentProject}
-                      incomingFile={transferredImageForGodot}
-                      deployedCharacterIds={selectedGodotCharIds}
-                      onResetDeployedFilter={() => setSelectedGodotCharIds(null)}
-                    />
-                  </div>
-
-                  {/* Mục 6: Cài đặt dự án (Quản lý API Key riêng của dự án này) */}
-                  <div hidden={activeTab !== 'project_settings'}>
-                    <ProjectSettings
-                      currentProject={currentProject}
-                      onAiEnabledChange={setIsAiEnabled}
-                    />
-                  </div>
-                </div>
-              </div>
+              <ProjectTabs
+                activeTab={activeTab}
+                currentProject={currentProject}
+                loadedPresetData={loadedPresetData}
+                isAiEnabled={isAiEnabled}
+                imageGenPrompt={imageGenPrompt}
+                imageGenNegativePrompt={imageGenNegativePrompt}
+                transferredImageForWorkspace={transferredImageForWorkspace}
+                transferredImageForGodot={transferredImageForGodot}
+                selectedGodotCharIds={selectedGodotCharIds}
+                onCloseProject={handleCloseProject}
+                onSendPromptToImageGen={handleSendPromptToImageGen}
+                onTransferToWorkspace={handleTransferToWorkspace}
+                onTransferToGodot={handleTransferToGodot}
+                onLoadPresetToStudio={handleLoadPresetToStudio}
+                onDeployCharactersToGodot={handleDeployCharactersToGodot}
+                onSelectTab={setActiveTab}
+                onAiEnabledChange={setIsAiEnabled}
+                onResetDeployedFilter={() => setSelectedGodotCharIds(null)}
+              />
             )}
 
             {/* Màn hình Cài đặt chung ngoài Sidebar (Khi chưa mở dự án) */}

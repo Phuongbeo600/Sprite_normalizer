@@ -1,12 +1,13 @@
 // ========================================================
-// 1. THƯ VIỆN NỀN TẢNG REACT (Quản lý component & trạng thái)
+// 1. THƯ VIỆN NỀN TẢNG REACT (Quản lý giao diện và trạng thái)
 // ========================================================
+// React: Quản lý điều hướng nội bộ, tìm kiếm và tham chiếu vùng cuộn.
 import React, { useState, useMemo, useRef } from 'react';
 
 // ========================================================
-// 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
+// 2. THƯ VIỆN BÊN NGOÀI (Biểu tượng giao diện)
 // ========================================================
-// lucide-react: Bộ icon vector hiển thị danh mục, tìm kiếm, accordion và thông báo
+// lucide-react: Biểu tượng cho điều hướng danh mục và tìm kiếm.
 import {
   Search,
   ChevronDown,
@@ -17,29 +18,20 @@ import {
   Gamepad2,
   Users,
   BookOpen,
-  HelpCircle,
   ArrowLeft,
-  CheckCircle2,
-  Copy,
-  Check,
-  AlertCircle,
-  Lightbulb,
-  FileCode,
-  FolderOpen,
-  ExternalLink,
-  ThumbsUp,
-  ThumbsDown,
   Bot
 } from 'lucide-react';
 
 // ========================================================
-// 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Components & Dữ liệu)
+// 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Thành phần giao diện và dữ liệu)
 // ========================================================
 // HELP_GUIDE_CATEGORIES: Cấu trúc dữ liệu bài viết hướng dẫn đa hình
 import { HELP_GUIDE_CATEGORIES } from '../../constants/helpGuidesData';
+// renderGuideArticle: Dựng nội dung và các thao tác trong vùng đọc.
+import renderGuideArticle from './renderGuideArticle';
 
 // ========================================================
-// 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
+// 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC
 // ========================================================
 // Kế thừa phong cách Dark Fantasy Atelier từ help-atelier.css
 import './help-atelier.css';
@@ -48,7 +40,8 @@ import './help-atelier.css';
  * Ánh xạ icon tương ứng với danh mục hướng dẫn.
  * 
  * @param {string} iconName Tên định danh icon.
- * @returns {React.ReactElement} Component icon Lucide.
+ * @param {number} [size] Kích thước biểu tượng theo pixel.
+ * @returns {React.ReactElement} Biểu tượng Lucide tương ứng.
  */
 function renderCategoryIcon(iconName, size = 18) {
   switch (iconName) {
@@ -62,338 +55,32 @@ function renderCategoryIcon(iconName, size = 18) {
 }
 
 /**
- * Component Khối Mã Nguồn Đa Hình (Polymorphic Code Block) có nút Sao chép.
- * 
- * @param {Object} props Thuộc tính component.
- * @param {string} props.code Nội dung đoạn mã.
- * @param {string} [props.language] Ngôn ngữ lập trình (gdscript, python, bash, sql).
- * @param {string} [props.title] Tiêu đề đoạn mã.
- * @returns {React.ReactElement} Giao diện khối mã nguồn.
+ * Tìm bài viết theo tiêu đề, mô tả hoặc tên danh mục trong thứ tự hiển thị.
+ *
+ * @param {string} query Từ khóa người dùng nhập.
+ * @returns {Array<{categoryId: string, categoryTitle: string, article: Object}>} Kết quả tra cứu.
  */
-function PolymorphicCodeBlock({ code, language = 'text', title = '' }) {
-  const [copied, setCopied] = useState(false);
+function searchGuideArticles(query) {
+  const keyword = query.trim().toLowerCase();
+  if (!keyword) return [];
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(code);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  return (
-    <div style={{
-      margin: '18px 0',
-      background: 'rgba(10, 8, 20, 0.85)',
-      borderRadius: '10px',
-      border: '1px solid rgba(255, 255, 255, 0.1)',
-      overflow: 'hidden'
-    }}>
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: '8px 14px',
-        background: 'rgba(255, 255, 255, 0.04)',
-        borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-        fontSize: '0.75rem',
-        color: 'var(--text-muted)'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <FileCode size={14} color="#a855f7" />
-          <span style={{ fontWeight: 600, color: 'var(--text-white)' }}>{title || language.toUpperCase()}</span>
-        </div>
-        <button
-          type="button"
-          onClick={handleCopy}
-          style={{
-            background: copied ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 255, 255, 0.08)',
-            border: '1px solid rgba(255, 255, 255, 0.15)',
-            color: copied ? '#34d399' : '#e2e8f0',
-            padding: '3px 8px',
-            borderRadius: '5px',
-            fontSize: '0.725rem',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px',
-            transition: 'all 0.2s ease'
-          }}
-        >
-          {copied ? <Check size={12} /> : <Copy size={12} />}
-          <span>{copied ? 'Đã chép' : 'Sao chép'}</span>
-        </button>
-      </div>
-      <pre style={{
-        margin: 0,
-        padding: '14px 16px',
-        fontSize: '0.8rem',
-        fontFamily: 'Consolas, monospace',
-        color: '#e2e8f0',
-        overflowX: 'auto',
-        lineHeight: 1.5
-      }}>
-        <code>{code}</code>
-      </pre>
-    </div>
-  );
-}
-
-/**
- * Component Khối Câu Hỏi Thường Gặp (Polymorphic FAQ Accordion Block).
- * 
- * @param {Object} props Thuộc tính component.
- * @param {string} props.title Tiêu đề khối FAQ.
- * @param {Array<{q: string, a: string}>} props.items Danh sách câu hỏi và câu trả lời.
- * @returns {React.ReactElement} Giao diện khối FAQ.
- */
-function PolymorphicFaqBlock({ title, items = [] }) {
-  const [openIndexes, setOpenIndexes] = useState({ 0: true });
-
-  const toggleIndex = (idx) => {
-    setOpenIndexes((prev) => ({ ...prev, [idx]: !prev[idx] }));
-  };
-
-  return (
-    <div style={{ margin: '20px 0' }}>
-      {title && (
-        <h4 style={{ margin: '0 0 12px', fontSize: '0.95rem', color: 'var(--text-white)' }}>
-          {title}
-        </h4>
-      )}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        {items.map((item, idx) => {
-          const isOpen = Boolean(openIndexes[idx]);
-          return (
-            <div
-              key={idx}
-              style={{
-                borderRadius: '8px',
-                background: 'rgba(255, 255, 255, 0.03)',
-                border: '1px solid rgba(255, 255, 255, 0.08)',
-                overflow: 'hidden',
-                transition: 'border-color 0.2s ease'
-              }}
-            >
-              <button
-                type="button"
-                onClick={() => toggleIndex(idx)}
-                style={{
-                  width: '100%',
-                  padding: '12px 16px',
-                  background: 'transparent',
-                  border: 'none',
-                  color: 'var(--text-white)',
-                  fontSize: '0.85rem',
-                  fontWeight: 600,
-                  textAlign: 'left',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: '10px'
-                }}
-              >
-                <span>{item.q}</span>
-                {isOpen ? <ChevronDown size={16} color="#a855f7" /> : <ChevronRight size={16} color="#94a3b8" />}
-              </button>
-              {isOpen && (
-                <div style={{
-                  padding: '0 16px 14px',
-                  fontSize: '0.825rem',
-                  color: 'var(--text-dim)',
-                  lineHeight: 1.55,
-                  borderTop: '1px solid rgba(255, 255, 255, 0.04)',
-                  paddingTop: '10px'
-                }}>
-                  {item.a}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-/**
- * Trình dựng đa hình hiển thị khối nội dung bất kỳ (Polymorphic Block Renderer).
- * 
- * @param {Object} props Thuộc tính component.
- * @param {Object} props.block Khối dữ liệu đa hình ({ type: 'paragraph' | 'steps' | 'callout' | 'code' | 'faq' | 'table' }).
- * @returns {React.ReactElement|null} Phần tử hiển thị tương ứng.
- */
-function PolymorphicBlockRenderer({ block }) {
-  if (!block) return null;
-
-  switch (block.type) {
-    case 'paragraph':
-      return (
-        <p style={{
-          fontSize: '0.875rem',
-          lineHeight: 1.65,
-          color: '#cbd5e1',
-          margin: '12px 0'
-        }}>
-          {block.content}
-        </p>
-      );
-
-    case 'callout': {
-      const isTip = block.level === 'tip';
-      const isWarn = block.level === 'warning';
-      const bg = isWarn ? 'rgba(239, 68, 68, 0.1)' : isTip ? 'rgba(16, 185, 129, 0.1)' : 'rgba(56, 189, 248, 0.1)';
-      const border = isWarn ? 'rgba(239, 68, 68, 0.35)' : isTip ? 'rgba(16, 185, 129, 0.35)' : 'rgba(56, 189, 248, 0.35)';
-      const textColor = isWarn ? '#f87171' : isTip ? '#34d399' : '#38bdf8';
-      const IconComp = isWarn ? AlertCircle : isTip ? Lightbulb : CheckCircle2;
-
-      return (
-        <div style={{
-          margin: '16px 0',
-          padding: '14px 16px',
-          background: bg,
-          border: `1px solid ${border}`,
-          borderRadius: '10px',
-          display: 'flex',
-          gap: '12px',
-          alignItems: 'flex-start'
-        }}>
-          <IconComp size={18} color={textColor} style={{ flexShrink: 0, marginTop: '2px' }} />
-          <div>
-            {block.title && (
-              <h5 style={{ margin: '0 0 4px', fontSize: '0.875rem', color: textColor, fontWeight: 700 }}>
-                {block.title}
-              </h5>
-            )}
-            <div style={{ fontSize: '0.825rem', color: '#cbd5e1', lineHeight: 1.55 }}>
-              {block.content}
-            </div>
-          </div>
-        </div>
-      );
+  const results = [];
+  for (const category of HELP_GUIDE_CATEGORIES) {
+    for (const article of category.articles) {
+      const matchesTitle = article.title.toLowerCase().includes(keyword);
+      const matchesSummary = article.summary.toLowerCase().includes(keyword);
+      const matchesCategory = category.title.toLowerCase().includes(keyword);
+      if (matchesTitle || matchesSummary || matchesCategory) {
+        results.push({ categoryId: category.id, categoryTitle: category.title, article });
+      }
     }
-
-    case 'steps':
-      return (
-        <div style={{ margin: '18px 0' }}>
-          {block.title && (
-            <h4 style={{ margin: '0 0 12px', fontSize: '0.925rem', color: 'var(--text-white)' }}>
-              {block.title}
-            </h4>
-          )}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {block.items.map((item, idx) => (
-              <div
-                key={idx}
-                style={{
-                  display: 'flex',
-                  gap: '12px',
-                  alignItems: 'flex-start',
-                  padding: '10px 14px',
-                  background: 'rgba(255, 255, 255, 0.02)',
-                  border: '1px solid rgba(255, 255, 255, 0.06)',
-                  borderRadius: '8px'
-                }}
-              >
-                <div style={{
-                  width: '24px',
-                  height: '24px',
-                  borderRadius: '50%',
-                  background: 'linear-gradient(135deg, #a855f7 0%, #7e22ce 100%)',
-                  color: '#ffffff',
-                  fontSize: '0.75rem',
-                  fontWeight: 700,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0
-                }}>
-                  {item.step || idx + 1}
-                </div>
-                <div>
-                  <div style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--text-white)' }}>
-                    {item.title}
-                  </div>
-                  <div style={{ fontSize: '0.8rem', color: 'var(--text-dim)', marginTop: '2px', lineHeight: 1.5 }}>
-                    {item.desc}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      );
-
-    case 'table':
-      return (
-        <div style={{ margin: '18px 0', overflowX: 'auto' }}>
-          {block.title && (
-            <h4 style={{ margin: '0 0 10px', fontSize: '0.925rem', color: 'var(--text-white)' }}>
-              {block.title}
-            </h4>
-          )}
-          <table style={{
-            width: '100%',
-            borderCollapse: 'collapse',
-            fontSize: '0.8rem',
-            textAlign: 'left',
-            background: 'rgba(255, 255, 255, 0.02)',
-            borderRadius: '8px',
-            overflow: 'hidden',
-            border: '1px solid rgba(255, 255, 255, 0.08)'
-          }}>
-            <thead>
-              <tr style={{ background: 'rgba(255, 255, 255, 0.05)', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
-                {block.headers.map((h, i) => (
-                  <th key={i} style={{ padding: '10px 14px', fontWeight: 600, color: '#e2e8f0' }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {block.rows.map((row, rIdx) => (
-                <tr key={rIdx} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.04)' }}>
-                  {row.map((cell, cIdx) => (
-                    <td key={cIdx} style={{ padding: '10px 14px', color: cIdx === 0 ? 'var(--text-white)' : 'var(--text-dim)' }}>
-                      {cell}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      );
-
-    case 'code':
-      return (
-        <PolymorphicCodeBlock
-          code={block.code}
-          language={block.language}
-          title={block.title}
-        />
-      );
-
-    case 'faq':
-      return (
-        <PolymorphicFaqBlock
-          title={block.title}
-          items={block.items}
-        />
-      );
-
-    default:
-      return null;
   }
+  return results;
 }
 
 /**
- * Trang Trung Tâm Hướng Dẫn (Help Center Screen).
- * Thiết kế chuẩn theo bố cục của CoReach.AI Help Center (Ảnh số 2):
- * - Thanh trên cùng: Logo, ô tìm kiếm toàn diện và nút "Quay lại Sprite AI".
- * - Cột trái (Browse guides): Danh mục hướng dẫn dạng danh sách mở rộng / thu gọn.
- * - Cột chính:
- *   + Khi chưa chọn bài: Hero Banner "How can we help?" + Lưới các thẻ khu vực hướng dẫn (Guide areas).
- *   + Khi đã chọn bài: Hiển thị chi tiết nội dung đa hình (Polymorphic Content Renderer) theo từng khối.
- * 
+ * Điều phối tìm kiếm, chọn bài viết và điều hướng trong Trung tâm Hướng dẫn.
+ *
  * @param {Object} props Thuộc tính truyền vào component.
  * @param {Function} props.onBack Hàm chuyển hướng quay lại giao diện dự án Sprite AI.
  * @returns {React.ReactElement} Giao diện trang trung tâm hướng dẫn.
@@ -425,30 +112,7 @@ export default function HelpCenter({ onBack }) {
     setExpandedCategories((prev) => ({ ...prev, [catId]: !prev[catId] }));
   };
 
-  /**
-   * Tìm kiếm bài viết theo từ khóa
-   */
-  const searchResults = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    if (!q) return [];
-
-    const results = [];
-    HELP_GUIDE_CATEGORIES.forEach((cat) => {
-      cat.articles.forEach((art) => {
-        const matchTitle = art.title.toLowerCase().includes(q);
-        const matchSummary = art.summary.toLowerCase().includes(q);
-        const matchCat = cat.title.toLowerCase().includes(q);
-        if (matchTitle || matchSummary || matchCat) {
-          results.push({
-            categoryId: cat.id,
-            categoryTitle: cat.title,
-            article: art
-          });
-        }
-      });
-    });
-    return results;
-  }, [searchQuery]);
+  const searchResults = useMemo(() => searchGuideArticles(searchQuery), [searchQuery]);
 
   // Tìm bài viết hiện tại đang được chọn
   const activeArticle = useMemo(() => {
@@ -460,26 +124,55 @@ export default function HelpCenter({ onBack }) {
   }, [selectedArticleInfo]);
 
   /**
-   * Mở một bài viết cụ thể và tự động cuộn lên đầu bài
+   * Cuộn vùng đọc lên đầu khi mở bài hoặc quay lại tổng quan.
+   * @returns {void}
+   */
+  const scrollToTop = () => {
+    mainScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  /**
+   * Ghi nhận phản hồi cho bài đang đọc.
+   * @returns {void}
+   */
+  const handleArticleFeedback = () => {
+    setFeedbackGiven(true);
+  };
+
+  /**
+   * Mở bài viết và cuộn lên đầu vùng đọc.
+   * @param {string} categoryId Mã danh mục.
+   * @param {string} [articleId] Mã bài viết.
+   * @returns {void}
    */
   const handleOpenArticle = (categoryId, articleId) => {
     setSelectedArticleInfo({ categoryId, articleId });
     setSearchQuery('');
     setFeedbackGiven(false);
-    if (mainScrollRef.current) {
-      mainScrollRef.current.scrollTo({ top: 0, behavior: 'smooth' });
-    }
+    scrollToTop();
   };
 
   /**
-   * Quay lại màn hình tổng quan Hero + Guide Areas
+   * Mở kết quả đầu tiên khi người dùng gửi biểu mẫu tìm kiếm.
+   *
+   * @param {React.FormEvent<HTMLFormElement>} event Sự kiện gửi biểu mẫu.
+   * @returns {void}
+   */
+  const handleSearchSubmit = (event) => {
+    event.preventDefault();
+    const firstResult = searchResults[0];
+    if (!firstResult) return;
+    handleOpenArticle(firstResult.categoryId, firstResult.article.id);
+  };
+
+  /**
+   * Quay lại màn hình tổng quan.
+   * @returns {void}
    */
   const handleBackToOverview = () => {
     setSelectedArticleInfo(null);
     setSearchQuery('');
-    if (mainScrollRef.current) {
-      mainScrollRef.current.scrollTo({ top: 0, behavior: 'smooth' });
-    }
+    scrollToTop();
   };
 
   return (
@@ -495,7 +188,7 @@ export default function HelpCenter({ onBack }) {
       flexDirection: 'column'
     }}>
       {/* ======================================================== */}
-      {/* 1. THANH ĐIỀU HƯỚNG TRÊN CÙNG (Top Navigation Bar) */}
+      {/* 1. THANH ĐIỀU HƯỚNG TRÊN CÙNG */}
       {/* ======================================================== */}
       <header style={{
         height: '64px',
@@ -512,7 +205,7 @@ export default function HelpCenter({ onBack }) {
         gap: '20px',
         zIndex: 50
       }}>
-        {/* Logo Sprite AI | Help Center */}
+        {/* Biểu tượng Sprite AI và tên Trung tâm Hướng dẫn */}
         <div
           onClick={handleBackToOverview}
           style={{
@@ -546,7 +239,7 @@ export default function HelpCenter({ onBack }) {
           </div>
         </div>
 
-        {/* Nút Quay Lại Xưởng Sáng Tạo (Return to Creative Atelier) */}
+        {/* Nút Quay Lại Xưởng Sáng Tạo */}
         <button
           type="button"
           onClick={onBack}
@@ -581,7 +274,7 @@ export default function HelpCenter({ onBack }) {
       </header>
 
       {/* ======================================================== */}
-      {/* 2. THÂN GIAO DIỆN CHIA 2 CỘT (Left Sidebar & Main Content) */}
+      {/* 2. THÂN GIAO DIỆN CHIA 2 CỘT */}
       {/* ======================================================== */}
       <div style={{
         display: 'flex',
@@ -589,7 +282,7 @@ export default function HelpCenter({ onBack }) {
         height: 'calc(100vh - 64px)',
         overflow: 'hidden'
       }}>
-        {/* CỘT TRÁI: DANH MỤC HƯỚNG DẪN (Browse Guides Sidebar) */}
+        {/* CỘT TRÁI: DANH MỤC HƯỚNG DẪN */}
         <aside style={{
           width: '280px',
           height: '100%',
@@ -709,7 +402,7 @@ export default function HelpCenter({ onBack }) {
           </nav>
         </aside>
 
-        {/* CỘT PHẢI: VÙNG NỘI DUNG CHÍNH (Main Content Area - Có thanh cuộn đầy đủ) */}
+        {/* CỘT PHẢI: VÙNG NỘI DUNG CHÍNH */}
         <main
           ref={mainScrollRef}
           style={{
@@ -721,134 +414,19 @@ export default function HelpCenter({ onBack }) {
           }}
         >
           {activeArticle ? (
-            /* ======================================================== */
-            /* CHẾ ĐỘ 1: XEM CHI TIẾT BÀI VIẾT (Article Detail View)    */
-            /* ======================================================== */
-            <div style={{ maxWidth: '820px', margin: '0 auto', paddingBottom: '60px' }}>
-              {/* Breadcrumb Navigation */}
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                fontSize: '0.8rem',
-                color: 'var(--text-muted)',
-                marginBottom: '18px'
-              }}>
-                <span
-                  onClick={handleBackToOverview}
-                  style={{ cursor: 'pointer', color: '#c084fc' }}
-                >
-                  Trung tâm hướng dẫn
-                </span>
-                <span>/</span>
-                <span>{activeArticle.category.title}</span>
-                <span>/</span>
-                <span style={{ color: 'var(--text-white)', fontWeight: 500 }}>
-                  {activeArticle.article.title}
-                </span>
-              </div>
-
-              {/* Tiêu đề & Mô tả bài viết */}
-              <h1 style={{
-                fontSize: '1.85rem',
-                fontWeight: 700,
-                color: '#ffffff',
-                margin: '0 0 10px',
-                letterSpacing: '-0.01em'
-              }}>
-                {activeArticle.article.title}
-              </h1>
-              <p style={{
-                fontSize: '0.95rem',
-                color: '#94a3b8',
-                margin: '0 0 24px',
-                lineHeight: 1.5,
-                borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-                paddingBottom: '18px'
-              }}>
-                {activeArticle.article.summary}
-              </p>
-
-              {/* DỰNG NỘI DUNG ĐA HÌNH (Polymorphic Content Blocks) */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                {activeArticle.article.blocks?.map((block, idx) => (
-                  <PolymorphicBlockRenderer key={idx} block={block} />
-                ))}
-              </div>
-
-              {/* Đánh Giá Phản Hồi Bài Viết */}
-              <div style={{
-                marginTop: '40px',
-                padding: '20px 24px',
-                borderRadius: '12px',
-                background: 'rgba(255, 255, 255, 0.03)',
-                border: '1px solid rgba(255, 255, 255, 0.08)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                flexWrap: 'wrap',
-                gap: '14px'
-              }}>
-                <div>
-                  <div style={{ fontWeight: 600, fontSize: '0.875rem', color: '#ffffff' }}>
-                    Bài viết này có giải đáp được thắc mắc của bạn không?
-                  </div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: '2px' }}>
-                    Ý kiến đóng góp giúp chúng tôi không ngừng cải tiến hệ thống Sprite AI.
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', gap: '10px' }}>
-                  <button
-                    type="button"
-                    disabled={feedbackGiven}
-                    onClick={() => setFeedbackGiven(true)}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      padding: '7px 14px',
-                      borderRadius: '8px',
-                      background: feedbackGiven ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 255, 255, 0.06)',
-                      border: '1px solid rgba(255, 255, 255, 0.12)',
-                      color: feedbackGiven ? '#34d399' : '#e2e8f0',
-                      fontSize: '0.8rem',
-                      cursor: feedbackGiven ? 'default' : 'pointer'
-                    }}
-                  >
-                    <ThumbsUp size={14} />
-                    <span>{feedbackGiven ? 'Cảm ơn bạn!' : 'Hữu ích'}</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    disabled={feedbackGiven}
-                    onClick={() => setFeedbackGiven(true)}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      padding: '7px 14px',
-                      borderRadius: '8px',
-                      background: 'rgba(255, 255, 255, 0.06)',
-                      border: '1px solid rgba(255, 255, 255, 0.12)',
-                      color: '#e2e8f0',
-                      fontSize: '0.8rem',
-                      cursor: feedbackGiven ? 'default' : 'pointer'
-                    }}
-                  >
-                    <ThumbsDown size={14} />
-                    <span>Chưa rõ ràng</span>
-                  </button>
-                </div>
-              </div>
-            </div>
+            renderGuideArticle({
+              categoryTitle: activeArticle.category.title,
+              article: activeArticle.article,
+              feedbackGiven,
+              onFeedback: handleArticleFeedback,
+              onBackToOverview: handleBackToOverview
+            })
           ) : (
             /* ======================================================== */
-            /* CHẾ ĐỘ 2: TỔNG QUAN HERO + KHU VỰC HƯỚNG DẪN (Ảnh số 2)  */
+            /* Trang tổng quan và các khu vực hướng dẫn  */
             /* ======================================================== */
             <div style={{ maxWidth: '1060px', margin: '0 auto', paddingBottom: '60px' }}>
-              {/* HERO BANNER: "How can we help?" */}
+              {/* Phần giới thiệu */}
               <div style={{
                 borderRadius: '16px',
                 padding: '38px 32px',
@@ -892,15 +470,10 @@ export default function HelpCenter({ onBack }) {
                   Tài liệu hướng dẫn trực quan, chuẩn hóa từng thao tác từ bóc tách giải phẫu, sinh ảnh AI tới xuất hoạt họa Godot Engine 4.
                 </p>
 
-                {/* Ô tìm kiếm lớn ở giữa Hero */}
+                {/* Ô tìm kiếm ở giữa phần giới thiệu */}
                 <div style={{ maxWidth: '560px', margin: '0 auto', position: 'relative' }}>
                   <form
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      if (searchResults.length > 0) {
-                        handleOpenArticle(searchResults[0].categoryId, searchResults[0].article.id);
-                      }
-                    }}
+                    onSubmit={handleSearchSubmit}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -965,7 +538,7 @@ export default function HelpCenter({ onBack }) {
                     </button>
                   </form>
 
-                  {/* Hộp Gợi Ý Kết Quả Tìm Kiếm Thả Xuống Ngay Dưới Ô Tìm Kiếm Hero */}
+                  {/* Danh sách gợi ý bên dưới ô tìm kiếm */}
                   {searchQuery.trim() && (
                     <div style={{
                       position: 'absolute',
@@ -1019,7 +592,7 @@ export default function HelpCenter({ onBack }) {
                 </div>
               </div>
 
-              {/* TIÊU ĐỀ: KHU VỰC HƯỚNG DẪN (Guide areas) */}
+              {/* Tiêu đề khu vực hướng dẫn */}
               <div style={{ marginBottom: '18px' }}>
                 <h2 style={{ fontSize: '1.25rem', fontWeight: 700, margin: '0 0 4px', color: '#ffffff' }}>
                   Khu vực hướng dẫn (Guide areas)
@@ -1029,7 +602,7 @@ export default function HelpCenter({ onBack }) {
                 </p>
               </div>
 
-              {/* LƯỚI THẺ 3 CỘT (Responsive Cards Grid) */}
+              {/* Lưới danh mục tự điều chỉnh số cột */}
               <div style={{
                 display: 'grid',
                 gridTemplateColumns: 'repeat(auto-fill, minmax(310px, 1fr))',

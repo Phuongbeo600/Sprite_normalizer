@@ -1,10 +1,11 @@
 // ========================================================
-// 1. THƯ VIỆN NỀN TẢNG REACT (Quản lý component & trạng thái)
+// 1. THƯ VIỆN NỀN TẢNG REACT (Quản lý giao diện và trạng thái)
 // ========================================================
+// React: Quản lý trạng thái, phiên ảnh tham chiếu và hiệu ứng của Studio.
 import React, { useEffect, useRef, useState } from 'react';
 
 // ========================================================
-// 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
+// 2. THƯ VIỆN BÊN NGOÀI
 // ========================================================
 // lucide-react: Bộ icon vector hiển thị thư mục, quét ảnh, tạo prompt, sao chép và chuyển đổi chế độ, ổ khóa
 import {
@@ -22,7 +23,7 @@ import {
 } from 'lucide-react';
 
 // ========================================================
-// 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Components & Dữ liệu)
+// 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Thành phần giao diện và dữ liệu)
 // ========================================================
 // Component thanh điều hướng 3 phân hệ tra cứu hồ sơ nhân vật
 import CharacterProfileTabs from './components/CharacterProfileTabs';
@@ -36,73 +37,16 @@ import TabAnimationsView from './components/TabAnimationsView';
 import TabReferenceView from './components/TabReferenceView';
 // Component hiển thị phân hệ sinh prompt cho nhân vật mới
 import TabConstraintsPromptView from './components/TabConstraintsPromptView';
+// Các hàm gửi yêu cầu phân tích, sinh prompt và lưu hồ sơ.
+import { requestAnalysis, requestProfilePrompt, requestSavePreset, requestVisionStatus } from './analysisApi';
+// Hàm gom số đo Python để gửi cho bộ phân tích phong cách.
+import { collectPythonMeasurements } from './collectPythonMeasurements';
 
 // ========================================================
-// 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
+// 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Tệp định dạng)
 // ========================================================
 // Kế thừa phong cách Dark Fantasy Atelier từ analysis-atelier.css
 import './analysis-atelier.css';
-
-/**
- * Chọn các số đo Python để gửi cùng ảnh tham chiếu đến backend hoặc AI Vision.
- *
- * @param {Object} data Bảng màu, báo cáo pixel và số đo của ảnh đang mở.
- * @returns {Object} Dữ liệu đo có nguồn rõ ràng và không chứa mô tả AI.
- */
-function collectPythonMeasurements({ palette, pixelReport, metrics, profileData }) {
-  const report = {};
-  if (palette?.total_colors > 0) {
-    report.palette = {
-      total_colors: palette.total_colors,
-      dominant_hex: palette.top_hex_list,
-      outline_style: palette.outline_style_detected,
-      shading_steps_estimate: palette.shading_steps,
-      hue_shift: palette.hue_shift_description,
-      saturation: palette.average_saturation,
-      contrast_ratio: palette.contrast_ratio,
-    };
-  }
-  if (pixelReport) {
-    report.pixel_grid = pixelReport.grid;
-    report.outline = pixelReport.outline;
-    report.detail = pixelReport.detail;
-    report.clusters = pixelReport.clusters;
-  }
-  if (metrics) {
-    report.automatic_geometry = {
-      image_size_px: [metrics.canvas_width, metrics.canvas_height],
-      character_height_px: metrics.anatomical_height ?? metrics.visible_height,
-      character_width_px: metrics.visible_width,
-      heads_tall: metrics.heads_tall,
-      head_width_px: metrics.head_width ?? metrics.head_w,
-      head_height_px: metrics.head_height ?? metrics.head_h,
-      body_width_px: metrics.body_width ?? metrics.body_w,
-      body_height_px: metrics.body_height ?? metrics.body_h,
-      ground_y: metrics.ground_y,
-    };
-  }
-  for (const [name, regions] of [
-    ['automatic_regions', profileData.region_measurements],
-    ['manual_regions', profileData.manual_region_measurements],
-  ]) {
-    const entries = Object.entries(regions?.measurements || {});
-    if (entries.length) {
-      report[name] = {
-        image_size_px: regions.image_size_px,
-        measurements: Object.fromEntries(
-          entries.map(([part, measurement]) => [
-            part,
-            {
-              type: measurement.polygon ? 'cross_section' : 'reference_segment',
-              width_px: measurement.width_px,
-            },
-          ])
-        ),
-      };
-    }
-  }
-  return report;
-}
 
 /**
  * Màn hình Studio Phân Tích & Sinh Prompt AI (Project Analysis & Generation Studio).
@@ -255,7 +199,7 @@ export default function ProjectAnalysis({
     const controller = new AbortController();
     const query = projectId ? `?project_id=${encodeURIComponent(projectId)}` : '';
     setVisionStatus('checking');
-    fetch(`/api/character-profile/vision-status${query}`, { signal: controller.signal })
+    requestVisionStatus(query, controller.signal)
       .then(async (response) => {
         if (!response.ok) throw new Error('Không đọc được cấu hình AI.');
         const data = await response.json();
@@ -271,22 +215,6 @@ export default function ProjectAnalysis({
   }, [isActive, workspaceMode, projectId]);
 
   /**
-   * Gửi tệp hiện tại cùng các trường của đúng thao tác đang chọn.
-   * 
-   * @param {string} url Tuyến API xử lý ảnh.
-   * @param {Object} fields Các tùy chọn riêng của thao tác.
-   */
-  const requestAnalysis = async (url, fields = {}) => {
-    const body = new FormData();
-    body.append('file', reference.file);
-    Object.entries(fields).forEach(([name, value]) => body.append(name, value));
-    const response = await fetch(url, { method: 'POST', body });
-    const payload = await response.json();
-    if (!response.ok) throw new Error(payload.detail || 'Không xử lý được ảnh.');
-    return payload;
-  };
-
-  /**
    * Chạy đo đạc cục bộ bằng thuật toán Python (size hoặc colors).
    * 
    * @param {'colors'|'size'} action Phép đo Python được yêu cầu.
@@ -299,7 +227,7 @@ export default function ProjectAnalysis({
     setLocalAction(action);
     setError('');
     try {
-      const result = await requestAnalysis(measureColors ? '/api/analyze-colors' : '/api/analyze');
+      const result = await requestAnalysis(reference.file, measureColors ? '/api/analyze-colors' : '/api/analyze');
       if (version !== referenceVersion.current) return;
       if (measureColors) {
         setProfileData((previous) => ({ ...previous, ...result }));
@@ -327,7 +255,7 @@ export default function ProjectAnalysis({
     try {
       const fields = { python_metrics_json: JSON.stringify(pythonMeasurements) };
       if (projectId) fields.project_id = projectId;
-      const result = await requestAnalysis('/api/character-profile/style-prompt', fields);
+      const result = await requestAnalysis(reference.file, '/api/character-profile/style-prompt', fields);
       if (version === referenceVersion.current) {
         setProfileData((previous) => ({ ...previous, reference_style: result }));
       }
@@ -350,24 +278,11 @@ export default function ProjectAnalysis({
     setSaveSuccessMsg('');
 
     try {
-      const response = await fetch('/api/character-profile/generate-prompt', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          project_id: currentProject?.id || null,
-          profile_data: profileData,
-          metrics: metrics,
-          core_concept: newCharConfig.core_concept || 'Pixel Art Character',
-          outfit_and_colors: newCharConfig.outfit_and_colors || null,
-          weapons_and_props: newCharConfig.weapons_and_props || null,
-          stature_rule: newCharConfig.stature_rule || 'Bằng nhân vật gốc (Tỷ lệ chuẩn)',
-          target_direction: newCharConfig.target_direction || 'Sprite Sheet 3x5 (15 frames)',
-          inherit_scale: newCharConfig.inherit_scale ?? true,
-          inherit_style: newCharConfig.inherit_style ?? true,
-          frame_actions: newCharConfig.frame_actions || null,
-          compiled_positive_prompt: newCharConfig.compiled_positive_prompt || null,
-          compiled_negative_prompt: newCharConfig.compiled_negative_prompt || null,
-        }),
+      const response = await requestProfilePrompt({
+        projectId: currentProject?.id,
+        profileData,
+        metrics,
+        newCharConfig,
       });
 
       if (!response.ok) {
@@ -420,11 +335,7 @@ export default function ProjectAnalysis({
     };
 
     try {
-      const response = await fetch(`/api/projects/${currentProject.id}/character-presets`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+      const response = await requestSavePreset(currentProject.id, payload);
 
       if (!response.ok) {
         const errData = await response.json();

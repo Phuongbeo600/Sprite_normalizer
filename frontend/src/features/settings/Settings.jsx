@@ -20,8 +20,7 @@ import {
 // ========================================================
 // 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Components & Dữ liệu)
 // ========================================================
-// initialProjects: Lấy thông tin ứng dụng và cấu hình chung
-import { APP_CONFIG } from '../../constants/appConfig';
+// Màn hình cài đặt chung chỉ hiển thị thông tin.
 
 // ========================================================
 // 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)

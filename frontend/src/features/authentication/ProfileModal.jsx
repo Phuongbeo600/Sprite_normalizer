@@ -27,6 +27,9 @@ import {
 // ========================================================
 // (Không có component con phụ thuộc)
 
+// Yêu cầu lưu thay đổi hồ sơ tài khoản.
+import { updateProfile } from './authApi';
+
 // ========================================================
 // 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
 // ========================================================
@@ -154,11 +157,7 @@ export default function ProfileModal({ currentUser, onClose, onProfileUpdated })
     };
 
     try {
-      const response = await fetch('/api/auth/profile', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
+      const response = await updateProfile(payload);
 
       const resJson = await response.json();
       if (!response.ok) {

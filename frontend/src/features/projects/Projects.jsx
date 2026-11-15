@@ -31,6 +31,9 @@ import { PixelKnightGround } from '../../shared/ui/PixelArtIcons';
 // AtelierModalDialog: Hộp thoại nổi nội bộ chuẩn Dark Fantasy Atelier thay thế prompt/confirm
 import AtelierModalDialog from '../../shared/ui/AtelierModalDialog';
 
+// Thao tác tải, tạo và xóa dự án trên máy chủ.
+import { createProject, deleteProject, listProjects } from './projectsApi';
+
 // ========================================================
 // 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
 // ========================================================
@@ -74,12 +77,7 @@ export default function Projects({ onOpenProject, currentUser }) {
     async function loadProjects() {
       setLoading(true);
       try {
-        const queryParams = new URLSearchParams();
-        if (currentUser?.id) queryParams.append('user_id', currentUser.id);
-        if (currentUser?.role) queryParams.append('role', currentUser.role);
-
-        const url = `/api/projects${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
-        const response = await fetch(url, { signal: controller.signal });
+        const response = await listProjects(currentUser, controller.signal);
         if (!response.ok) {
           throw new Error('Không tải được danh sách dự án.');
         }
@@ -131,7 +129,7 @@ export default function Projects({ onOpenProject, currentUser }) {
     }
 
     try {
-      const response = await fetch('/api/projects', { method: 'POST', body });
+      const response = await createProject(body);
       if (!response.ok) {
         throw new Error('Không tạo được dự án trên máy chủ.');
       }
@@ -163,9 +161,7 @@ export default function Projects({ onOpenProject, currentUser }) {
     if (!projectToDelete) return;
 
     try {
-      const response = await fetch(`/api/projects/${projectToDelete.id}`, {
-        method: 'DELETE',
-      });
+      const response = await deleteProject(projectToDelete.id);
 
       if (!response.ok) {
         const errJson = await response.json().catch(() => ({}));

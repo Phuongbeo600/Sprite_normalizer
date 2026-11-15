@@ -28,6 +28,9 @@ import {
 // ========================================================
 // (Không có component nội bộ phụ thuộc)
 
+// Yêu cầu đọc và lưu cấu hình API theo dự án.
+import { getProjectApiConfig, saveProjectApiConfig } from '../../shared/api/projectApiConfig';
+
 // ========================================================
 // 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
 // ========================================================
@@ -90,7 +93,7 @@ export default function ProjectSettings({ currentProject, onAiEnabledChange }) {
     setLoading(true);
     setFeedback(null);
     try {
-      const response = await fetch(`/api/projects/${currentProject.id}/api-config`);
+      const response = await getProjectApiConfig(currentProject.id);
       if (!response.ok) {
         throw new Error('Không thể đọc cấu hình API của dự án.');
       }
@@ -142,11 +145,7 @@ export default function ProjectSettings({ currentProject, onAiEnabledChange }) {
         ai_enabled: nextState
       };
 
-      const response = await fetch(`/api/projects/${currentProject.id}/api-config`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+      const response = await saveProjectApiConfig(currentProject.id, payload);
 
       if (!response.ok) {
         const errJson = await response.json();
@@ -189,11 +188,7 @@ export default function ProjectSettings({ currentProject, onAiEnabledChange }) {
     };
 
     try {
-      const response = await fetch(`/api/projects/${currentProject.id}/api-config`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+      const response = await saveProjectApiConfig(currentProject.id, payload);
 
       if (!response.ok) {
         const errData = await response.json();

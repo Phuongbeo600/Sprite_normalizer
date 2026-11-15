@@ -28,6 +28,9 @@ import {
 // ========================================================
 // (Không có component con phụ thuộc)
 
+// Các yêu cầu đăng nhập và đăng ký tài khoản.
+import { login, register } from './authApi';
+
 // ========================================================
 // 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
 // ========================================================
@@ -107,11 +110,7 @@ export default function AuthModal({ onLoginSuccess }) {
 
     setLoading(true);
     try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: cleanUser, password: cleanPass })
-      });
+      const response = await login(cleanUser, cleanPass);
 
       const resJson = await response.json();
       if (!response.ok) {
@@ -175,16 +174,12 @@ export default function AuthModal({ onLoginSuccess }) {
 
     setLoading(true);
     try {
-      const response = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username: cleanUser,
-          password: cleanPass,
-          last_name: cleanLast,
-          middle_name: cleanMid,
-          first_name: cleanFirst
-        })
+      const response = await register({
+        username: cleanUser,
+        password: cleanPass,
+        last_name: cleanLast,
+        middle_name: cleanMid,
+        first_name: cleanFirst
       });
 
       const resJson = await response.json();
@@ -197,11 +192,7 @@ export default function AuthModal({ onLoginSuccess }) {
       // Tự động đăng nhập luôn sau khi đăng ký
       setTimeout(async () => {
         try {
-          const loginResp = await fetch('/api/auth/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username: cleanUser, password: cleanPass })
-          });
+          const loginResp = await login(cleanUser, cleanPass);
           const loginJson = await loginResp.json();
           if (loginResp.ok && loginJson.data) {
             if (onLoginSuccess) onLoginSuccess(loginJson.data);
