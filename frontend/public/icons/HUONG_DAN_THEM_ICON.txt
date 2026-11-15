@@ -8,7 +8,7 @@ Bạn có thể thả bất kỳ file ảnh nào vào thư mục này:
 
 CÁCH DÙNG:
 1. Thả file ảnh vào đây, ví dụ: my_sword.png
-2. Mở file: frontend/src/constants/initialProjects.js
+2. Mở file: frontend/src/constants/appConfig.js
 3. Gán đường dẫn vào dự án bạn muốn:
    icon: '/icons/my_sword.png'
 

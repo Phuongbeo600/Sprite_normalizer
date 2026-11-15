@@ -96,6 +96,7 @@ Desktop.ini
 # ========================================================
 # Quy tắc riêng của trợ lý AI và thư mục skills chính thức của dự án
 GEMINI.md
+CODEX.md
 AGENTS.md
 .agents/
 
