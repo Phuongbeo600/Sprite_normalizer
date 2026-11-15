@@ -1,5 +1,5 @@
 """
-Module: backend.services.character_analysis_service
+Module: backend.services.character.character_analysis_service
 Mục đích: Dịch vụ nghiệp vụ phân tích nhân vật pixel art chuyên sâu.
 Ai gọi nó: API router `backend.api.v1.character_analysis`.
 Tại sao tồn tại: Đóng vai trò nhạc trưởng (Orchestrator) kết hợp 2 tầng:
@@ -17,7 +17,7 @@ import logging
 # os: Đọc biến môi trường hệ thống
 import os
 # typing: Định nghĩa các kiểu từ điển, danh sách, tùy chọn
-from typing import Dict, Any, Optional, List, Tuple
+from typing import Dict, Any, Optional, Tuple
 
 # ========================================================
 # 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
@@ -26,46 +26,135 @@ from typing import Dict, Any, Optional, List, Tuple
 from PIL import Image
 
 # ========================================================
-# 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Schemas, Enums & Providers)
+# 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Schemas, Providers & Fallbacks)
 # ========================================================
-# Schemas và Controlled Vocabulary Enums phân tích nhân vật theo từng phân hệ Tab
+# Schemas Pydantic phân tích nhân vật theo từng phân hệ Tab
 from backend.schemas.character import (
     DirectionAnalysis,
     AnimationAnalysis,
     ConsistencyAnalysis,
     NegativeConstraints,
-    PixelArtEra,
-    OutlineStyle,
-    ShadingStyle,
-    DitheringStyle,
-    PixelClusterStyle,
-    DetailDensity,
-    PixelCleanliness,
-    LightingDirection,
-    GenderPresentation,
-    BodyType,
-    ShapeLanguage,
-    BodyStructure,
-    LimbPlacement,
-    MaterialType,
-    Reflectivity,
-    PixelTexture,
-    ViewType,
-    OrientationAngle,
-    AnimationType,
-    LoopCharacteristics
 )
+# GlobalVisionAnalysis: Chỉ yêu cầu AI trả phần mô tả hình ảnh
+from backend.schemas.character.ai_analysis import GlobalVisionAnalysis
 # AiProviderFactory: Khởi tạo Provider đa hình (Gemini / OpenAI)
 from backend.providers.factory import AiProviderFactory
-# SpriteService: Cung cấp đo màu cho các máy khách dùng hợp đồng hồ sơ cũ.
+# SpriteService: Cung cấp đo màu cho các máy khách dùng hợp đồng hồ sơ cũ
 from backend.services.sprite_service import SpriteService
-# GlobalVisionAnalysis: Chỉ yêu cầu AI trả phần mô tả hình ảnh.
-from backend.schemas.character.ai_analysis import GlobalVisionAnalysis
+# AiCredentialsService: Hợp nhất phân giải thông tin xác thực AI
+from backend.services.ai_credentials_service import AiCredentialsService
+# Các hàm dữ liệu dự phòng ngoại tuyến (Offline Fallbacks)
+from backend.services.character.offline_fallbacks import (
+    get_offline_fallback_global,
+    get_offline_fallback_directions,
+    get_offline_fallback_animations,
+    get_offline_fallback_constraints,
+)
 
 # ========================================================
 # 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
 # ========================================================
 # (Không áp dụng cho file backend)
+
+
+def _build_global_prompt() -> str:
+    """
+    Tạo nội dung câu lệnh phân tích Toàn cục cho AI Vision.
+
+    @returns {str} Chuỗi câu lệnh phân tích JSON.
+    """
+    schema_str = json.dumps(GlobalVisionAnalysis.model_json_schema(), ensure_ascii=False, indent=2)
+    return f"""
+You are an expert Lead Pixel Artist analyzing a reference character sprite.
+Analyze this reference image and extract the GLOBAL PROFILE in valid JSON matching this schema:
+
+{schema_str}
+
+CRITICAL INSTRUCTIONS:
+1. "identity": Detect character type, gender presentation (or null), body type, distinctive features, silhouette, shape language, facial features (or null if helmeted/covered), costume description, accessories.
+2. "anatomy": Describe body structure (e.g. humanoid), head, torso, arms, legs, unusual parts, landmarks, relative limb placement, anatomical ambiguities. DO NOT measure exact pixel coordinates.
+3. "pixel_style": Describe art style (e.g. 16-bit SNES), outline style (e.g. dark selout), shading technique, dithering style (or null), pixel cluster style, detail density, pixel cleanliness, lighting direction (or null), visual artifacts.
+4. "materials": List of MaterialAnalysis objects for distinct regions (e.g. metal armor, cloth cape, skin).
+
+Return ONLY the raw JSON object adhering to the schema, without markdown formatting.
+"""
+
+
+def _build_directions_prompt() -> str:
+    """
+    Tạo nội dung câu lệnh phân tích 3 Hướng nhìn cho AI Vision.
+
+    @returns {str} Chuỗi câu lệnh phân tích hướng nhìn JSON.
+    """
+    schema_str = json.dumps(DirectionAnalysis.model_json_schema(), ensure_ascii=False, indent=2)
+    return f"""
+You are an expert 2D Game Technical Artist analyzing spatial directions of a character sprite sheet.
+Analyze the Down (front), Side (profile), and Up (back) views of the character and extract the DIRECTION ANALYSIS matching this schema:
+
+{schema_str}
+
+CRITICAL INSTRUCTIONS:
+1. "down": DirectionProfile for Front / Down view (view_type="Front").
+2. "side": DirectionProfile for Side / Profile view (view_type="Right Profile" or "Left Profile").
+3. "up": DirectionProfile for Back / Up view (view_type="Back").
+For each direction, describe: body_orientation, head_orientation, visible_body_parts, occluded_body_parts, visible_accessories, accessory_placement, silhouette_description, view_specific_features, occlusion_rules.
+
+Return ONLY the raw JSON object adhering to the schema.
+"""
+
+
+def _build_animations_prompt() -> str:
+    """
+    Tạo nội dung câu lệnh phân tích Hoạt họa cho AI Vision.
+
+    @returns {str} Chuỗi câu lệnh phân tích hoạt họa JSON.
+    """
+    schema_str = json.dumps(AnimationAnalysis.model_json_schema(), ensure_ascii=False, indent=2)
+    return f"""
+You are an expert 2D Game Animator analyzing sprite animation frames.
+Analyze the Idle frames (3 frames) and Walk cycle frames (4 frames) for each direction (down, side, up) and extract the ANIMATION ANALYSIS matching this schema:
+
+{schema_str}
+
+CRITICAL INSTRUCTIONS:
+1. For each direction ("down", "side", "up"), analyze both "idle" and "walk" AnimationProfile.
+2. DO NOT assume a generic walk cycle. Observe and describe the actual frame sequence, leg motion, arm motion, secondary motion (cape, hair, accessories), moving parts, and fixed parts.
+3. Keep frame_descriptions in exact chronological order.
+
+Return ONLY the raw JSON object adhering to the schema.
+"""
+
+
+def _build_constraints_prompt(global_data: Dict[str, Any]) -> str:
+    """
+    Tạo nội dung câu lệnh tổng hợp Tính nhất quán và Ràng buộc phủ định.
+
+    @param {Dict[str, Any]} global_data Dữ liệu phân tích toàn cục của nhân vật.
+    @returns {str} Chuỗi câu lệnh tổng hợp JSON.
+    """
+    consistency_schema = json.dumps(ConsistencyAnalysis.model_json_schema(), ensure_ascii=False)
+    negative_schema = json.dumps(NegativeConstraints.model_json_schema(), ensure_ascii=False)
+    return f"""
+You are a Game Art Director synthesizing character profile DNA constraints.
+Given the previous analysis data:
+- Character Type: {global_data.get('identity', {}).get('character_type')}
+- Costume: {global_data.get('identity', {}).get('costume_description')}
+- Pixel Style: {global_data.get('pixel_style', {}).get('art_style')}
+
+Synthesize the CONSISTENCY ANALYSIS and NEGATIVE CONSTRAINTS matching this schema:
+{{
+  "consistency_analysis": {consistency_schema},
+  "negative_constraints": {negative_schema}
+}}
+
+Identify:
+1. Invariant features (features that must remain 100% identical across all frames).
+2. View-dependent features and animation-dependent features.
+3. Preservation requirements for generating new character assets.
+4. Forbidden design changes, visual defects to avoid, animation defects to avoid.
+
+Return ONLY the raw JSON object adhering to the schema.
+"""
 
 
 class CharacterAnalysisService:
@@ -79,6 +168,12 @@ class CharacterAnalysisService:
     - Tab 4: Tổng hợp Tính nhất quán & Sinh Prompt đồng bộ (Consistency, Constraints & Prompt Generation).
     """
 
+    # Các bí danh (aliases) duy trì tương thích ngược 100% với mã nguồn cũ và các bài test
+    _get_offline_fallback_global = staticmethod(get_offline_fallback_global)
+    _get_offline_fallback_directions = staticmethod(get_offline_fallback_directions)
+    _get_offline_fallback_animations = staticmethod(get_offline_fallback_animations)
+    _get_offline_fallback_constraints = staticmethod(get_offline_fallback_constraints)
+
     @classmethod
     def analyze_tab_global(
         cls,
@@ -91,29 +186,24 @@ class CharacterAnalysisService:
         """
         [TAB 1]: Phân tích Toàn cục, Danh tính, Giải phẫu sinh học, Phong cách Pixel Art và Chất liệu từng vùng.
         Chỉ cần 1 ảnh tham chiếu chính diện (hướng Down).
+
+        @param {Image.Image} image Ảnh sprite tham chiếu.
+        @param {Optional[str]} api_key Khóa API AI tùy chọn.
+        @param {str} provider Nhà cung cấp AI (gemini hoặc openai).
+        @param {Optional[str]} base_url Địa chỉ máy chủ proxy tùy chọn.
+        @param {bool} include_palette Có kèm số đo màu sắc hay không.
+        @returns {Dict[str, Any]} Dữ liệu phân tích toàn cục.
         """
         effective_key, effective_provider, clean_base = cls._resolve_credentials(api_key, provider, base_url)
+        prompt = _build_global_prompt()
 
-        prompt = f"""
-You are an expert Lead Pixel Artist analyzing a reference character sprite.
-Analyze this reference image and extract the GLOBAL PROFILE in valid JSON matching this schema:
-
-{json.dumps(GlobalVisionAnalysis.model_json_schema(), ensure_ascii=False, indent=2)}
-
-CRITICAL INSTRUCTIONS:
-1. "identity": Detect character type, gender presentation (or null), body type, distinctive features, silhouette, shape language, facial features (or null if helmeted/covered), costume description, accessories.
-2. "anatomy": Describe body structure (e.g. humanoid), head, torso, arms, legs, unusual parts, landmarks, relative limb placement, anatomical ambiguities. DO NOT measure exact pixel coordinates.
-3. "pixel_style": Describe art style (e.g. 16-bit SNES), outline style (e.g. dark selout), shading technique, dithering style (or null), pixel cluster style, detail density, pixel cleanliness, lighting direction (or null), visual artifacts.
-4. "materials": List of MaterialAnalysis objects for distinct regions (e.g. metal armor, cloth cape, skin).
-
-Return ONLY the raw JSON object adhering to the schema, without markdown formatting.
-"""
         if effective_key:
             ai_provider = AiProviderFactory.get_provider(effective_provider)
             raw_data = ai_provider.analyze_vision(image, effective_key, prompt, base_url=clean_base)
             result = GlobalVisionAnalysis.model_validate(raw_data).model_dump()
         else:
             result = cls._get_offline_fallback_global()
+
         result["pixel_style"]["shading_levels"] = None
         if include_palette:
             result.update(SpriteService.analyze_colors(image))
@@ -125,34 +215,26 @@ Return ONLY the raw JSON object adhering to the schema, without markdown formatt
         image: Image.Image,
         api_key: Optional[str] = None,
         provider: str = "gemini",
-        base_url: Optional[str] = None
+        base_url: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         [TAB 2]: Phân tích 3 hướng nhìn tham chiếu chuẩn (Down / Front, Side / Profile, Up / Back).
+
+        @param {Image.Image} image Ảnh sprite tham chiếu.
+        @param {Optional[str]} api_key Khóa API AI tùy chọn.
+        @param {str} provider Nhà cung cấp AI (gemini hoặc openai).
+        @param {Optional[str]} base_url Địa chỉ máy chủ proxy tùy chọn.
+        @returns {Dict[str, Any]} Dữ liệu phân tích 3 hướng nhìn.
         """
         effective_key, effective_provider, clean_base = cls._resolve_credentials(api_key, provider, base_url)
 
-        prompt = f"""
-You are an expert 2D Game Technical Artist analyzing spatial directions of a character sprite sheet.
-Analyze the Down (front), Side (profile), and Up (back) views of the character and extract the DIRECTION ANALYSIS matching this schema:
-
-{json.dumps(DirectionAnalysis.model_json_schema(), ensure_ascii=False, indent=2)}
-
-CRITICAL INSTRUCTIONS:
-1. "down": DirectionProfile for Front / Down view (view_type="Front").
-2. "side": DirectionProfile for Side / Profile view (view_type="Right Profile" or "Left Profile").
-3. "up": DirectionProfile for Back / Up view (view_type="Back").
-For each direction, describe: body_orientation, head_orientation, visible_body_parts, occluded_body_parts, visible_accessories, accessory_placement, silhouette_description, view_specific_features, occlusion_rules.
-
-Return ONLY the raw JSON object adhering to the schema.
-"""
-        if effective_key:
-            ai_provider = AiProviderFactory.get_provider(effective_provider)
-            raw_data = ai_provider.analyze_vision(image, effective_key, prompt, base_url=clean_base)
-            validated = DirectionAnalysis.model_validate(raw_data)
-            return validated.model_dump()
-        else:
+        if not effective_key:
             return cls._get_offline_fallback_directions()
+
+        prompt = _build_directions_prompt()
+        ai_provider = AiProviderFactory.get_provider(effective_provider)
+        raw_data = ai_provider.analyze_vision(image, effective_key, prompt, base_url=clean_base)
+        return DirectionAnalysis.model_validate(raw_data).model_dump()
 
     @classmethod
     def analyze_tab_animations(
@@ -160,33 +242,26 @@ Return ONLY the raw JSON object adhering to the schema.
         image: Image.Image,
         api_key: Optional[str] = None,
         provider: str = "gemini",
-        base_url: Optional[str] = None
+        base_url: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         [TAB 3]: Phân tích hệ thống hoạt họa chuyển động Idle và Walk qua các frame tham chiếu.
+
+        @param {Image.Image} image Ảnh sprite tham chiếu.
+        @param {Optional[str]} api_key Khóa API AI tùy chọn.
+        @param {str} provider Nhà cung cấp AI (gemini hoặc openai).
+        @param {Optional[str]} base_url Địa chỉ máy chủ proxy tùy chọn.
+        @returns {Dict[str, Any]} Dữ liệu phân tích hoạt họa Idle và Walk.
         """
         effective_key, effective_provider, clean_base = cls._resolve_credentials(api_key, provider, base_url)
 
-        prompt = f"""
-You are an expert 2D Game Animator analyzing sprite animation frames.
-Analyze the Idle frames (3 frames) and Walk cycle frames (4 frames) for each direction (down, side, up) and extract the ANIMATION ANALYSIS matching this schema:
-
-{json.dumps(AnimationAnalysis.model_json_schema(), ensure_ascii=False, indent=2)}
-
-CRITICAL INSTRUCTIONS:
-1. For each direction ("down", "side", "up"), analyze both "idle" and "walk" AnimationProfile.
-2. DO NOT assume a generic walk cycle. Observe and describe the actual frame sequence, leg motion, arm motion, secondary motion (cape, hair, accessories), moving parts, and fixed parts.
-3. Keep frame_descriptions in exact chronological order.
-
-Return ONLY the raw JSON object adhering to the schema.
-"""
-        if effective_key:
-            ai_provider = AiProviderFactory.get_provider(effective_provider)
-            raw_data = ai_provider.analyze_vision(image, effective_key, prompt, base_url=clean_base)
-            validated = AnimationAnalysis.model_validate(raw_data)
-            return validated.model_dump()
-        else:
+        if not effective_key:
             return cls._get_offline_fallback_animations()
+
+        prompt = _build_animations_prompt()
+        ai_provider = AiProviderFactory.get_provider(effective_provider)
+        raw_data = ai_provider.analyze_vision(image, effective_key, prompt, base_url=clean_base)
+        return AnimationAnalysis.model_validate(raw_data).model_dump()
 
     @classmethod
     def analyze_tab_constraints(
@@ -196,183 +271,51 @@ Return ONLY the raw JSON object adhering to the schema.
         animation_data: Dict[str, Any],
         api_key: Optional[str] = None,
         provider: str = "gemini",
-        base_url: Optional[str] = None
+        base_url: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         [TAB 4]: Tổng hợp Tính nhất quán (Consistency Analysis) và Các ràng buộc phủ định (Negative Constraints).
+
+        @param {Dict[str, Any]} global_data Dữ liệu phân tích toàn cục.
+        @param {Dict[str, Any]} direction_data Dữ liệu phân tích hướng nhìn.
+        @param {Dict[str, Any]} animation_data Dữ liệu phân tích hoạt họa.
+        @param {Optional[str]} api_key Khóa API AI tùy chọn.
+        @param {str} provider Nhà cung cấp AI.
+        @param {Optional[str]} base_url Địa chỉ máy chủ proxy.
+        @returns {Dict[str, Any]} Dữ liệu nhất quán và ràng buộc phủ định.
         """
         effective_key, effective_provider, clean_base = cls._resolve_credentials(api_key, provider, base_url)
 
-        prompt = f"""
-You are a Game Art Director synthesizing character profile DNA constraints.
-Given the previous analysis data:
-- Character Type: {global_data.get('identity', {}).get('character_type')}
-- Costume: {global_data.get('identity', {}).get('costume_description')}
-- Pixel Style: {global_data.get('pixel_style', {}).get('art_style')}
-
-Synthesize the CONSISTENCY ANALYSIS and NEGATIVE CONSTRAINTS matching this schema:
-{{
-  "consistency_analysis": {json.dumps(ConsistencyAnalysis.model_json_schema(), ensure_ascii=False)},
-  "negative_constraints": {json.dumps(NegativeConstraints.model_json_schema(), ensure_ascii=False)}
-}}
-
-Identify:
-1. Invariant features (features that must remain 100% identical across all frames).
-2. View-dependent features and animation-dependent features.
-3. Preservation requirements for generating new character assets.
-4. Forbidden design changes, visual defects to avoid, animation defects to avoid.
-
-Return ONLY the raw JSON object adhering to the schema.
-"""
-        if effective_key:
-            ai_provider = AiProviderFactory.get_provider(effective_provider)
-            raw_data = ai_provider.generate_json(prompt, effective_key, base_url=clean_base)
-            consistency = ConsistencyAnalysis.model_validate(raw_data.get("consistency_analysis", {}))
-            negatives = NegativeConstraints.model_validate(raw_data.get("negative_constraints", {}))
-            return {
-                "consistency_analysis": consistency.model_dump(),
-                "negative_constraints": negatives.model_dump()
-            }
-        else:
+        if not effective_key:
             return cls._get_offline_fallback_constraints(global_data)
+
+        prompt = _build_constraints_prompt(global_data)
+        ai_provider = AiProviderFactory.get_provider(effective_provider)
+        raw_data = ai_provider.generate_json(prompt, effective_key, base_url=clean_base)
+        consistency = ConsistencyAnalysis.model_validate(raw_data.get("consistency_analysis", {}))
+        negatives = NegativeConstraints.model_validate(raw_data.get("negative_constraints", {}))
+        return {
+            "consistency_analysis": consistency.model_dump(),
+            "negative_constraints": negatives.model_dump(),
+        }
 
     @staticmethod
     def _resolve_credentials(
         api_key: Optional[str],
         provider: Optional[str],
-        base_url: Optional[str]
+        base_url: Optional[str],
     ) -> Tuple[Optional[str], str, Optional[str]]:
-        """Hàm phụ trợ xác định API Key, Nhà cung cấp và Base URL hiệu dụng."""
-        clean_provider = (provider or os.getenv("AI_PROVIDER", "gemini")).lower().strip()
-        clean_base = base_url or os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
+        """
+        Hàm phụ trợ xác định API Key, Nhà cung cấp và Base URL hiệu dụng.
 
-        key_name = "OPENAI_API_KEY" if clean_provider == "openai" else "GEMINI_API_KEY"
-        key = api_key or os.getenv(key_name)
-
-        return key, clean_provider, clean_base
-
-    # ========================================================
-    # DỮ LIỆU DỰ PHÒNG NGOẠI TUYẾN (Offline Fallbacks - 0 Token)
-    # ========================================================
-    @staticmethod
-    def _get_offline_fallback_global() -> Dict[str, Any]:
-        """Tạo dữ liệu phân tích toàn cục dự phòng ngoại tuyến chuẩn theo Controlled Vocabulary Enums."""
-        return {
-            "identity": {
-                "character_type": "Nhân vật Sprite Pixel Art (Chế độ Ngoại tuyến)",
-                "gender_presentation": GenderPresentation.UNSPECIFIED.value,
-                "body_type": BodyType.CHIBI.value,
-                "distinctive_features": ["Thiết kế chuẩn game 2D"],
-                "silhouette": "Hình khối cân đối",
-                "shape_language": [ShapeLanguage.ROUNDED.value, ShapeLanguage.HEAVY_BLOCK.value],
-                "facial_features": "Khuôn mặt pixel art tối giản",
-                "costume_description": "Trang phục phiêu lưu phong cách cổ điển",
-                "accessories": ["Trang bị cơ bản"]
-            },
-            "anatomy": {
-                "body_structure": BodyStructure.CHIBI_HUMANOID.value,
-                "head_description": "Đầu to rõ nét, chiếm 30-35% chiều cao",
-                "torso_description": "Thân trên khối hộp gọn gàng",
-                "arm_structure": "Hai tay buông xuôi linh hoạt",
-                "leg_structure": "Hai chân ngắn vững chãi",
-                "unusual_body_parts": [],
-                "identifiable_landmarks": ["Đường cổ", "Thắt lưng", "Gót chân"],
-                "relative_limb_placement": LimbPlacement.GROUNDED_NEUTRAL.value,
-                "anatomical_ambiguities": []
-            },
-            "pixel_style": {
-                "art_style": PixelArtEra.CLASSIC_16BIT.value,
-                "outline_style": OutlineStyle.SELECTIVE_OUTLINE.value,
-                "shading_style": ShadingStyle.CEL_SHADING.value,
-                "dithering_style": DitheringStyle.NONE.value,
-                "pixel_cluster_style": PixelClusterStyle.CHUNKY_CLUSTERS.value,
-                "detail_density": DetailDensity.MODERATE.value,
-                "pixel_cleanliness": PixelCleanliness.VERY_CLEAN.value,
-                "lighting_direction": LightingDirection.TOP_LEFT.value,
-                "visual_artifacts": []
-            },
-            "materials": [
-                {
-                    "region_name": "Vùng da mặt",
-                    "material_type": MaterialType.SKIN.value,
-                    "color_description": "Tone da tự nhiên",
-                    "shadow_description": "Bóng ngả cam ấm",
-                    "highlight_description": None,
-                    "reflectivity": Reflectivity.MATTE.value,
-                    "pixel_texture": PixelTexture.SMOOTH.value,
-                    "shading_description": "Phân mảng phẳng mềm"
-                },
-                {
-                    "region_name": "Trang phục",
-                    "material_type": MaterialType.CLOTH.value,
-                    "color_description": "Màu sắc chủ đạo theo sprite",
-                    "shadow_description": "Bóng đậm tạo nếp gấp",
-                    "highlight_description": None,
-                    "reflectivity": Reflectivity.MATTE.value,
-                    "pixel_texture": PixelTexture.FIBROUS.value,
-                    "shading_description": "Đổ bóng mảng 2 cấp độ"
-                }
-            ]
-        }
-
-    @staticmethod
-    def _get_offline_fallback_directions() -> Dict[str, Any]:
-        """Tạo dữ liệu 3 hướng nhìn dự phòng ngoại tuyến chuẩn theo ViewType và OrientationAngle Enums."""
-        def _make_dir(view, orient):
-            return {
-                "view_type": view.value,
-                "body_orientation": orient.value,
-                "head_orientation": orient.value,
-                "visible_body_parts": ["Đầu", "Thân", "Chi nhìn thấy"],
-                "occluded_body_parts": ["Bộ phận phía sau"],
-                "visible_accessories": ["Phụ kiện trước"],
-                "accessory_placement": "Theo trục cơ thể",
-                "silhouette_description": f"Hình dáng đặc trưng góc nhìn {view.value}",
-                "view_specific_features": [f"Chi tiết nổi bật góc {view.value}"],
-                "occlusion_rules": ["Thân trước che thân sau"]
-            }
-        return {
-            "down": _make_dir(ViewType.FRONT, OrientationAngle.FRONT_FACING),
-            "side": _make_dir(ViewType.RIGHT_PROFILE, OrientationAngle.RIGHT_PROFILE),
-            "up": _make_dir(ViewType.BACK, OrientationAngle.BACK_FACING)
-        }
-
-    @staticmethod
-    def _get_offline_fallback_animations() -> Dict[str, Any]:
-        """Tạo dữ liệu hoạt họa dự phòng ngoại tuyến chuẩn theo AnimationType và LoopCharacteristics Enums."""
-        def _make_anim_prof(anim_type, count, seq, loop_char=LoopCharacteristics.SEAMLESS):
-            return {
-                "animation_type": anim_type.value,
-                "frame_count": count,
-                "frame_descriptions": [f"Frame {i+1}: Tư thế {anim_type.value} nhịp {i+1}" for i in range(count)],
-                "moving_body_parts": ["Chân", "Tay"] if anim_type == AnimationType.WALK else ["Ngực nhún"],
-                "fixed_body_parts": ["Trục đầu"],
-                "leg_motion": "Bước chân so le tuần hoàn" if anim_type == AnimationType.WALK else "Đứng yên bám sàn",
-                "arm_motion": "Vung tay theo bước chân" if anim_type == AnimationType.WALK else "Hạ xuôi tự nhiên",
-                "secondary_motion": "Tà áo đung đưa nhẹ",
-                "motion_sequence": seq,
-                "loop_characteristics": loop_char.value,
-                "observed_inconsistencies": []
-            }
-        dir_anim = {
-            "idle": _make_anim_prof(AnimationType.IDLE, 3, "F1 -> F2 nhún -> F3 về ban đầu"),
-            "walk": _make_anim_prof(AnimationType.WALK, 4, "Chân trái bước -> Thu chân -> Chân phải bước -> Thu chân")
-        }
-        return {"down": dir_anim, "side": dir_anim, "up": dir_anim}
-
-    @staticmethod
-    def _get_offline_fallback_constraints(global_data: Dict[str, Any]) -> Dict[str, Any]:
-        return {
-            "consistency_analysis": {
-                "invariant_features": ["Màu sắc chủ đạo của trang phục", "Tỷ lệ đầu to thân lùn Chibi"],
-                "view_dependent_features": ["Khuôn mặt chỉ thấy ở hướng Down", "Lưng thấy ở hướng Up"],
-                "animation_dependent_features": ["Độ vung của chân khi bước đi"],
-                "detected_inconsistencies": [],
-                "preservation_requirements": ["Giữ nguyên phong cách viền Selout và bảng màu gốc"]
-            },
-            "negative_constraints": {
-                "forbidden_design_changes": ["Không tự ý đổi màu nhận diện", "Không biến nhân vật thành tỷ lệ người thật 8 đầu"],
-                "visual_defects_to_avoid": ["Tránh viền đen tuyền lem nhem", "Tránh pillow shading", "Tránh hạt pixel mồ côi"],
-                "animation_defects_to_avoid": ["Tránh trượt chân (foot sliding)", "Tránh giật khung hình khi lặp vòng"]
-            }
-        }
+        @param {Optional[str]} api_key Khóa API truyền vào.
+        @param {Optional[str]} provider Tên nhà cung cấp AI.
+        @param {Optional[str]} base_url Địa chỉ máy chủ proxy.
+        @returns {Tuple[Optional[str], str, Optional[str]]} (Khóa hiệu dụng, Provider, Base URL).
+        """
+        return AiCredentialsService.resolve_credentials(
+            project_id=None,
+            api_key=api_key,
+            provider=provider,
+            base_url=base_url,
+        )

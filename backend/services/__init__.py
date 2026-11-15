@@ -29,6 +29,7 @@ from .settings_service import SettingsService
 from .sprite_service import SpriteService
 from .user_service import UserService
 from .image_gen_service import ImageGenService
+from .ai_credentials_service import AiCredentialsService
 from .translation_service import TranslationService
 
 # ========================================================
@@ -52,5 +53,6 @@ __all__ = [
     "SpriteService",
     "UserService",
     "ImageGenService",
+    "AiCredentialsService",
     "TranslationService",
 ]

@@ -27,6 +27,8 @@ from backend.db import SessionLocal
 from backend.services.project_service import ProjectService
 # SettingsService: Dịch vụ cấu hình hệ thống & che dấu API Key
 from backend.services.settings_service import SettingsService
+# AiCredentialsService: Dịch vụ hợp nhất phân giải thông tin xác thực AI
+from backend.services.ai_credentials_service import AiCredentialsService
 # Schemas: DTO kiểm tra dữ liệu yêu cầu và phản hồi sinh ảnh
 from backend.schemas.image_gen import ImageGenRequest, ImageGenResponse, GeneratedImageItem
 
@@ -62,41 +64,16 @@ class ImageGenService:
         base_url: Optional[str] = None
     ) -> Tuple[Optional[str], str, Optional[str]]:
         """
-        Xác định thông tin xác thực hiệu lực (API Key, Provider, Base URL):
-        1. Ưu tiên khóa API truyền trực tiếp.
-        2. Nếu có project_id: Tra cứu trong CSDL MySQL của dự án.
-        3. Nếu chưa có: Lấy từ biến môi trường toàn cục (.env).
+        Xác định thông tin xác thực hiệu lực (API Key, Provider, Base URL) qua AiCredentialsService.
         
         @returns {Tuple[Optional[str], str, Optional[str]]} (api_key, provider, base_url).
         """
-        eff_key = api_key
-        eff_prov = provider
-        eff_base = base_url
-
-        # 1. Tra cứu CSDL dự án nếu có project_id
-        if not eff_key and project_id:
-            try:
-                service = ProjectService()
-                with SessionLocal() as db:
-                    eff_key, eff_prov, eff_base = service.resolve_project_credentials(
-                        db=db,
-                        project_id=project_id,
-                        api_key=api_key,
-                        provider=provider,
-                        base_url=base_url
-                    )
-            except Exception as exc:
-                logging.warning(f"Không thể đọc cấu hình API Key từ CSDL dự án {project_id}: {exc}")
-
-        # 2. Tra cứu biến môi trường hệ thống (.env) nếu vẫn chưa có
-        clean_provider = (eff_prov or os.getenv("AI_PROVIDER", "gemini")).lower().strip()
-        clean_base = eff_base or os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
-
-        if not eff_key:
-            env_var = "OPENAI_API_KEY" if clean_provider == "openai" else "GEMINI_API_KEY"
-            eff_key = os.getenv(env_var)
-
-        return eff_key, clean_provider, clean_base
+        return AiCredentialsService.resolve_credentials(
+            project_id=project_id,
+            api_key=api_key,
+            provider=provider,
+            base_url=base_url,
+        )
 
     @classmethod
     def get_status(cls, project_id: Optional[int] = None) -> Dict[str, Any]:
@@ -109,17 +86,7 @@ class ImageGenService:
         key, provider, base_url = cls.resolve_credentials(project_id=project_id)
         has_key = bool(key and key.strip())
         masked_key = SettingsService.mask_api_key(key) if has_key else ""
-
-        ai_enabled = True
-        if project_id:
-            try:
-                service = ProjectService()
-                with SessionLocal() as db:
-                    cfg = service.get_api_config(db, project_id)
-                    if cfg and cfg.get("ai_enabled") is False:
-                        ai_enabled = False
-            except Exception:
-                pass
+        ai_enabled = AiCredentialsService.is_ai_enabled(project_id)
 
         return {
             "status": "success",
@@ -141,20 +108,11 @@ class ImageGenService:
         @returns {ImageGenResponse} Danh sách các ảnh đã được tạo kèm metadata.
         """
         # Kiểm tra công tắc AI của dự án
-        if request.project_id:
-            try:
-                service = ProjectService()
-                with SessionLocal() as db:
-                    cfg = service.get_api_config(db, request.project_id)
-                    if cfg and cfg.get("ai_enabled") is False:
-                        raise ValueError(
-                            "Tính năng AI hiện đang bị tắt trong 'Cài đặt dự án'. "
-                            "Vui lòng bật lại công tắc AI trước khi thực hiện tạo ảnh!"
-                        )
-            except ValueError:
-                raise
-            except Exception:
-                pass
+        if request.project_id and not AiCredentialsService.is_ai_enabled(request.project_id):
+            raise ValueError(
+                "Tính năng AI hiện đang bị tắt trong 'Cài đặt dự án'. "
+                "Vui lòng bật lại công tắc AI trước khi thực hiện tạo ảnh!"
+            )
 
         # 1. Trích xuất thông tin xác thực hiệu lực
         key, provider, base_url = cls.resolve_credentials(
