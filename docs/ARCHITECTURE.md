@@ -33,6 +33,10 @@ Hệ thống kết hợp **2 tầng xử lý**:
 
 ```text
 Sprite_normalizer/
+├── .agents/                        # Quản lý Agent Skills của Antigravity IDE (Taste Skill)
+│   └── skills/
+│       └── design-taste-frontend/  # Skill thiết kế giao diện chuẩn Dark Fantasy Atelier
+│
 ├── backend/                        # Mã nguồn máy chủ Backend (FastAPI, Python)
 │   ├── providers/                  # Tầng tích hợp AI Vision bên ngoài (Gemini, OpenAI qua Factory)
 │   │   ├── base.py                 # Abstract Base Class BaseAiProvider (Hợp đồng giao tiếp AI)
@@ -128,8 +132,17 @@ Sprite_normalizer/
 │   ├── test_prompt_builder_service.py # Test ma trận 15 frame & biên dịch prompt 3 tầng
 │   └── test_sprite_workspace.py    # Test cắt lưới Sprite Sheet thích ứng & ZIP
 │
-└── docs/                           # Tài liệu kỹ thuật
-    └── ARCHITECTURE.md             # Bản vẽ kiến trúc toàn diện (File này)
+├── docs/                           # Tài liệu kỹ thuật
+│   └── ARCHITECTURE.md             # Bản vẽ kiến trúc toàn diện (File này)
+│
+├── .env.example                    # Mẫu cấu hình biến môi trường kết nối MySQL và AI
+├── .gitignore                      # Quy tắc loại trừ secrets, build và cache của Git
+├── GEMINI.md                       # Bản quy chuẩn lập trình bắt buộc (100% chú thích tiếng Việt)
+├── package.json                    # Điều phối script npm cho toàn bộ Monorepo (npm run dev)
+├── README.md                       # Tài liệu hướng dẫn dự án
+├── run.bat                         # Tiện ích khởi chạy 1-click trên hệ điều hành Windows
+├── run.py                          # Script Python điều phối song song Backend & Frontend
+└── skills-lock.json                # Khóa phiên bản và mã băm toàn vẹn của Agent Skills
 ```
 
 ---
