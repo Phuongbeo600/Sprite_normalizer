@@ -3,9 +3,9 @@
 # ========================================================
 # io: Xử lý byte buffer ảnh
 import io
-# json: Đọc các vùng và đoạn đo gửi từ trình vẽ sprite.
+# json: Đọc các vùng và đoạn đo gửi từ trình vẽ sprite
 import json
-# base64: Chuyển các PNG đã cắt sang dữ liệu xem trước trên trình duyệt.
+# base64: Chuyển các PNG đã cắt sang dữ liệu xem trước trên trình duyệt
 from base64 import b64encode
 # dataclasses: Chuyển đổi dataclass CharacterMetrics sang dict
 from dataclasses import asdict
@@ -20,7 +20,7 @@ from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends, Q
 from fastapi.responses import Response
 # sqlalchemy: Quản lý phiên làm việc Session với MySQL
 from sqlalchemy.orm import Session
-# PIL (Pillow): Mở ảnh tải lên và áp dụng hướng ảnh theo thông tin EXIF.
+# PIL (Pillow): Mở ảnh tải lên và áp dụng hướng ảnh theo thông tin EXIF
 from PIL import Image, ImageOps
 
 # ========================================================
@@ -34,7 +34,7 @@ from backend.repositories.sprite_repository import SpriteRepository
 from backend.services.sprite_service import SpriteService
 # AnatomyService: Dịch vụ phân tích giải phẫu học và tạo ảnh trực quan
 from backend.services.character.anatomy_service import AnatomyService
-# resize_image: Thu nhỏ toàn bộ ảnh theo kích thước pixel.
+# resize_image: Thu nhỏ toàn bộ ảnh theo kích thước pixel
 from backend.core.processing.sprite_editing import recover_native_sprite, resize_sprite as resize_image
 # GodotExportService: Dịch vụ đóng gói tài nguyên nhân vật xuất xưởng cho Godot 4
 from backend.services.testbed.godot_export_service import GodotExportService
@@ -45,7 +45,23 @@ from backend.services.testbed.godot_export_service import GodotExportService
 # (Không áp dụng cho file backend)
 
 sprites_router = APIRouter(tags=["Sprite Operations"])
+sprite_repo = SpriteRepository()
 
+
+def get_sprite_repository() -> SpriteRepository:
+    """Dependency cung cấp instance SpriteRepository hỗ trợ Dependency Injection."""
+    return sprite_repo
+
+
+def _validate_image_upload(file: UploadFile) -> None:
+    """Kiểm tra định dạng file tải lên có phải là hình ảnh hay không."""
+    if not file.content_type or not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="File tải lên phải là định dạng hình ảnh.")
+
+
+# ========================================================
+# PHẦN 1: CÁC TUYẾN XỬ LÝ & GIẢI TÍCH ẢNH KHÔNG LƯU TRẠNG THÁI (Stateless Processing)
+# ========================================================
 
 @sprites_router.post("/detect-resolution")
 def detect_sprite_resolution(file: Annotated[UploadFile, File()]):
@@ -140,8 +156,7 @@ async def normalize_sprite(
     Chuẩn hóa kích thước khung hình sprite, cắt viền thừa và căn lề điểm neo.
     Hỗ trợ căn chỉnh thông minh theo mốc chân tiếp đất sinh học (ground_y) do AI phát hiện.
     """
-    if not file.content_type.startswith("image/"):
-        raise HTTPException(status_code=400, detail="File tải lên phải là định dạng hình ảnh.")
+    _validate_image_upload(file)
 
     try:
         contents = await file.read()
@@ -163,8 +178,7 @@ async def analyze_character(
     auto_remove_bg: bool = Form(True),
 ):
     """Đo tỷ lệ và tạo lớp phủ bằng các thuật toán Python."""
-    if not file.content_type.startswith("image/"):
-        raise HTTPException(status_code=400, detail="File tải lên phải là định dạng hình ảnh.")
+    _validate_image_upload(file)
 
     try:
         contents = await file.read()
@@ -230,10 +244,8 @@ def export_godot_package(
 
 
 # ========================================================
-# CÁC TUYẾN API LƯU TRỮ ẢNH THẬT VÀO MYSQL (project_sprites & sprite_frames)
+# PHẦN 2: CÁC TUYẾN QUẢN LÝ DỮ LIỆU SPRITE CSDL MYSQL (Project Sprites CRUD)
 # ========================================================
-sprite_repo = SpriteRepository()
-
 
 @sprites_router.get("/sprites")
 def list_project_sprites(
@@ -340,4 +352,3 @@ def delete_sprite(
     """
     success = sprite_repo.delete_sprite(db, sprite_id, project_id)
     return {"status": "success" if success else "failed", "message": f"Đã xóa sprite ID {sprite_id} khỏi MySQL"}
-

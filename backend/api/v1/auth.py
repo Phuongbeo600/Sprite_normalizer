@@ -1,26 +1,25 @@
 # ========================================================
 # 1. THƯ VIỆN NỀN TẢNG PYTHON (Cấu trúc & Kiểu)
 # ========================================================
-# typing: Khai báo kiểu tùy chọn
-from typing import Optional
+# (Không có phụ thuộc trực tiếp từ Python core)
 
 # ========================================================
 # 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
 # ========================================================
 # fastapi: Khởi tạo router, xử lý lỗi HTTP và Dependency Injection
 from fastapi import APIRouter, Depends, HTTPException
-# pydantic: Định nghĩa Schema kiểm tra tính hợp lệ dữ liệu
-from pydantic import BaseModel, Field
 # sqlalchemy: Phiên làm việc cơ sở dữ liệu
 from sqlalchemy.orm import Session
 
 # ========================================================
-# 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Services & Database)
+# 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Services, Database & Schemas)
 # ========================================================
 # get_db: Dependency cấp phiên MySQL
 from backend.db import get_db
 # UserService: Dịch vụ nghiệp vụ xác thực và người dùng
 from backend.services.user_service import UserService
+# Schemas: DTO kiểm tra dữ liệu yêu cầu đăng nhập, đăng ký và cập nhật hồ sơ
+from backend.schemas.auth import LoginRequest, RegisterRequest, UpdateProfileRequest
 
 # ========================================================
 # 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
@@ -31,31 +30,13 @@ auth_router = APIRouter(prefix="/auth", tags=["Xác thực & Tài khoản"])
 user_service = UserService()
 
 
-class LoginRequest(BaseModel):
-    """Schema yêu cầu đăng nhập tài khoản."""
-    username: str = Field(..., description="Tên tài khoản hoặc địa chỉ Gmail")
-    password: str = Field(..., description="Mật khẩu")
+def get_user_service() -> UserService:
+    """Dependency cung cấp UserService hỗ trợ Dependency Injection."""
+    return user_service
 
 
-class RegisterRequest(BaseModel):
-    """Schema yêu cầu đăng ký tài khoản mới có Họ, Tên đệm, Tên và Gmail."""
-    username: str = Field(..., description="Tên tài khoản định dạng Gmail")
-    password: str = Field(..., description="Mật khẩu")
-    last_name: Optional[str] = Field(None, description="Họ của người dùng")
-    middle_name: Optional[str] = Field(None, description="Tên đệm")
-    first_name: Optional[str] = Field(None, description="Tên chính")
-
-
-class UpdateProfileRequest(BaseModel):
-    """Schema cập nhật hồ sơ cá nhân và đổi mật khẩu."""
-    user_id: int = Field(..., description="Mã ID tài khoản")
-    last_name: Optional[str] = Field(None, description="Họ mới")
-    middle_name: Optional[str] = Field(None, description="Tên đệm mới")
-    first_name: Optional[str] = Field(None, description="Tên mới")
-    username: Optional[str] = Field(None, description="Gmail tài khoản mới")
-    avatar_url: Optional[str] = Field(None, description="Ảnh đại diện Base64")
-    current_password: Optional[str] = Field(None, description="Mật khẩu cũ (nếu muốn đổi mật khẩu)")
-    new_password: Optional[str] = Field(None, description="Mật khẩu mới")
+# Export lại các schemas đảm bảo tương thích ngược 100%
+__all__ = ["auth_router", "LoginRequest", "RegisterRequest", "UpdateProfileRequest", "get_user_service"]
 
 
 @auth_router.post("/login")

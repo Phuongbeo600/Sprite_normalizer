@@ -108,23 +108,12 @@ class GeminiProvider(BaseAiProvider):
             }
         }
 
-        last_error = ""
-        for model in self.CANDIDATE_MODELS:
-            url = self.API_URL_TEMPLATE.format(model=model, api_key=clean_key)
-            try:
-                resp = requests.post(url, json=payload, timeout=20)
-                if resp.status_code == 200:
-                    raw_text = resp.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
-                    cleaned_json = self._clean_json_text(raw_text)
-                    data = json.loads(cleaned_json)
-                    data["model_used"] = model
-                    return data
-                last_error = f"{model} status {resp.status_code}: {resp.text[:100]}"
-            except Exception as e:
-                last_error = f"{model} error: {str(e)}"
-                continue
-
-        raise RuntimeError(f"Tất cả các Model Gemini Vision đều không phản hồi: {last_error}")
+        return self._execute_generation(
+            clean_key=clean_key,
+            payload=payload,
+            error_prefix="Tất cả các Model Gemini Vision đều không phản hồi",
+            timeout=20
+        )
 
     def generate_json(
         self,
@@ -152,11 +141,35 @@ class GeminiProvider(BaseAiProvider):
             }
         }
 
+        return self._execute_generation(
+            clean_key=clean_key,
+            payload=payload,
+            error_prefix="Không thể kết nối Gemini API",
+            timeout=20
+        )
+
+    def _execute_generation(
+        self,
+        clean_key: str,
+        payload: Dict[str, Any],
+        error_prefix: str,
+        timeout: int = 20
+    ) -> Dict[str, Any]:
+        """
+        Thực thi vòng lặp gọi API qua danh sách Candidate Models của Gemini.
+        Tự động bóc tách chuỗi JSON an toàn và bổ sung metadata model_used.
+
+        @param {str} clean_key Khóa API đã chuẩn hóa.
+        @param {Dict[str, Any]} payload Nội dung JSON gửi tới Gemini.
+        @param {str} error_prefix Tiền tố thông báo lỗi nếu toàn bộ model thất bại.
+        @param {int} timeout Thời gian chờ phản hồi tối đa.
+        @returns {Dict[str, Any]} Dữ liệu JSON đã giải mã từ phản hồi.
+        """
         last_error = ""
         for model in self.CANDIDATE_MODELS:
             url = self.API_URL_TEMPLATE.format(model=model, api_key=clean_key)
             try:
-                resp = requests.post(url, json=payload, timeout=20)
+                resp = requests.post(url, json=payload, timeout=timeout)
                 if resp.status_code == 200:
                     raw_text = resp.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
                     cleaned_json = self._clean_json_text(raw_text)
@@ -164,11 +177,13 @@ class GeminiProvider(BaseAiProvider):
                     data["model_used"] = model
                     return data
                 last_error = f"{model} status {resp.status_code}"
+                if resp.text:
+                    last_error += f": {resp.text[:100]}"
             except Exception as e:
                 last_error = f"{model} error: {str(e)}"
                 continue
 
-        raise RuntimeError(f"Không thể kết nối Gemini API: {last_error}")
+        raise RuntimeError(f"{error_prefix}: {last_error}")
 
     @staticmethod
     def _clean_json_text(raw_text: str) -> str:

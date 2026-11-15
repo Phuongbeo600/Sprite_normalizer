@@ -11,10 +11,21 @@
 # ========================================================
 # 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (AI Providers)
 # ========================================================
+# BaseAiProvider: Interface cơ sở cho phân tích thị giác và sinh văn bản
 from .base import BaseAiProvider
+# GeminiProvider: Provider Google Gemini
 from .gemini_provider import GeminiProvider
+# OpenAiProvider: Provider OpenAI
 from .openai_provider import OpenAiProvider
+# AiProviderFactory: Factory cho Vision/Text Provider
 from .factory import AiProviderFactory
+# Subpackage image_gen: Nhà cung cấp dịch vụ tạo ảnh AI
+from .image_gen import (
+    BaseImageGenProvider,
+    GeminiImagenProvider,
+    OpenAiDalleProvider,
+    ImageGenProviderFactory
+)
 
 # ========================================================
 # 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
@@ -25,5 +36,9 @@ __all__ = [
     "BaseAiProvider",
     "GeminiProvider",
     "OpenAiProvider",
-    "AiProviderFactory"
+    "AiProviderFactory",
+    "BaseImageGenProvider",
+    "GeminiImagenProvider",
+    "OpenAiDalleProvider",
+    "ImageGenProviderFactory"
 ]

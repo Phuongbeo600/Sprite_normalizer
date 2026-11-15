@@ -4,7 +4,7 @@
 # json: Phân tích cú pháp dữ liệu JSON từ API phản hồi
 import json
 # typing: Khai báo kiểu dữ liệu
-from typing import Dict, Any, Optional, Tuple
+from typing import Dict, Any, Optional, Tuple, List
 
 # ========================================================
 # 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
@@ -96,50 +96,30 @@ class OpenAiProvider(BaseAiProvider):
 
         img_b64 = self.encode_image_to_base64(image)
         clean_base = (base_url or self.DEFAULT_BASE_URL).rstrip("/")
-        url = f"{clean_base}/chat/completions"
-        headers = {
-            "Authorization": f"Bearer {clean_key}",
-            "Content-Type": "application/json"
-        }
 
-        last_error = ""
-        for model in self._models_for_base(clean_base):
-            payload = {
-                "model": model,
-                "response_format": {"type": "json_object"},
-                "messages": [
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": prompt.strip()},
                     {
-                        "role": "user",
-                        "content": [
-                            {"type": "text", "text": prompt.strip()},
-                            {
-                                "type": "image_url",
-                                "image_url": {
-                                    "url": f"data:image/png;base64,{img_b64}"
-                                }
-                            }
-                        ]
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:image/png;base64,{img_b64}"
+                        }
                     }
-                ],
+                ]
             }
-            if model == self.DEFAULT_MODEL:
-                payload["reasoning_effort"] = "none"
-            else:
-                payload["temperature"] = 0.1
+        ]
 
-            try:
-                resp = requests.post(url, json=payload, headers=headers, timeout=25)
-                if resp.status_code == 200:
-                    raw_text = resp.json()["choices"][0]["message"]["content"].strip()
-                    data = json.loads(raw_text)
-                    data["model_used"] = f"OpenAI {model}"
-                    return data
-                last_error = f"{model} status {resp.status_code}: {resp.text[:100]}"
-            except Exception as e:
-                last_error = f"{model} error: {str(e)}"
-                continue
-
-        raise RuntimeError(f"OpenAI ChatGPT Vision không phản hồi: {last_error}")
+        return self._execute_chat_completions(
+            clean_key=clean_key,
+            clean_base=clean_base,
+            messages=messages,
+            default_temperature=0.1,
+            error_prefix="OpenAI ChatGPT Vision không phản hồi",
+            timeout=25
+        )
 
     def generate_json(
         self,
@@ -160,6 +140,41 @@ class OpenAiProvider(BaseAiProvider):
             raise ValueError("Chưa cấu hình OpenAI API Key.")
 
         clean_base = (base_url or self.DEFAULT_BASE_URL).rstrip("/")
+        messages = [
+            {"role": "system", "content": "You are a professional pixel art art director and prompt engineer. Always return valid JSON."},
+            {"role": "user", "content": prompt.strip()}
+        ]
+
+        return self._execute_chat_completions(
+            clean_key=clean_key,
+            clean_base=clean_base,
+            messages=messages,
+            default_temperature=0.3,
+            error_prefix="OpenAI ChatGPT không phản hồi",
+            timeout=25
+        )
+
+    def _execute_chat_completions(
+        self,
+        clean_key: str,
+        clean_base: str,
+        messages: List[Dict[str, Any]],
+        default_temperature: float,
+        error_prefix: str,
+        timeout: int = 25
+    ) -> Dict[str, Any]:
+        """
+        Thực thi gửi yêu cầu Chat Completions qua danh sách model tương thích của OpenAI.
+        Tự động cấu hình reasoning_effort cho gpt-6-luna hoặc temperature cho các model khác.
+
+        @param {str} clean_key Khóa OpenAI API.
+        @param {str} clean_base Địa chỉ gốc API đã chuẩn hóa.
+        @param {List[Dict[str, Any]]} messages Danh sách các lượt hội thoại.
+        @param {float} default_temperature Nhiệt độ sáng tạo cho model thông thường.
+        @param {str} error_prefix Tiền tố thông báo lỗi nếu toàn bộ model thất bại.
+        @param {int} timeout Thời gian chờ phản hồi tối đa.
+        @returns {Dict[str, Any]} Dữ liệu JSON bóc tách từ phản hồi.
+        """
         url = f"{clean_base}/chat/completions"
         headers = {
             "Authorization": f"Bearer {clean_key}",
@@ -168,29 +183,26 @@ class OpenAiProvider(BaseAiProvider):
 
         last_error = ""
         for model in self._models_for_base(clean_base):
-            payload = {
+            payload: Dict[str, Any] = {
                 "model": model,
                 "response_format": {"type": "json_object"},
-                "messages": [
-                    {"role": "system", "content": "You are a professional pixel art art director and prompt engineer. Always return valid JSON."},
-                    {"role": "user", "content": prompt.strip()}
-                ],
+                "messages": messages,
             }
             if model == self.DEFAULT_MODEL:
                 payload["reasoning_effort"] = "none"
             else:
-                payload["temperature"] = 0.3
+                payload["temperature"] = default_temperature
 
             try:
-                resp = requests.post(url, json=payload, headers=headers, timeout=25)
+                resp = requests.post(url, json=payload, headers=headers, timeout=timeout)
                 if resp.status_code == 200:
                     raw_text = resp.json()["choices"][0]["message"]["content"].strip()
                     data = json.loads(raw_text)
                     data["model_used"] = f"OpenAI {model}"
                     return data
-                last_error = f"{model} status {resp.status_code}"
+                last_error = f"{model} status {resp.status_code}: {resp.text[:100]}"
             except Exception as e:
                 last_error = f"{model} error: {str(e)}"
                 continue
 
-        raise RuntimeError(f"OpenAI ChatGPT không phản hồi: {last_error}")
+        raise RuntimeError(f"{error_prefix}: {last_error}")

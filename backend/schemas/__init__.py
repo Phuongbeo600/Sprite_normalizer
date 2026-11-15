@@ -11,10 +11,23 @@
 # ========================================================
 # 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Pydantic Schemas)
 # ========================================================
-# Schemas hiện có cho Dự án, Cài đặt và Cố vấn Prompt
-from .project import ProjectCreateRequest, ProjectItem, ProjectListResponse
+# Schemas xác thực người dùng
+from .auth import LoginRequest, RegisterRequest, UpdateProfileRequest
+# Schemas cho Dự án, Cài đặt và Cố vấn Prompt
+from .project import (
+    ProjectCreateRequest,
+    ProjectItem,
+    ProjectListResponse,
+    ProjectApiConfigRequest,
+    SaveCharacterPresetRequest
+)
 from .settings import SettingsResponse, SettingsUpdateRequest, TestApiKeyRequest
-from .character.prompt import PromptAdviceRequest, NewCharacterPromptRequest
+from .character.prompt import (
+    PromptAdviceRequest,
+    NewCharacterPromptRequest,
+    GeneratePromptFromProfileRequest,
+    CompileSpriteSheetPromptRequest
+)
 # Schema mới cho Phân tích Asset nhân vật tham chiếu AI
 from .character import (
     IdentityAnalysis,
@@ -41,15 +54,23 @@ from .character import (
 # (Không áp dụng cho file backend)
 
 __all__ = [
-    # Schemas hệ thống hiện tại
+    # Schemas xác thực
+    "LoginRequest",
+    "RegisterRequest",
+    "UpdateProfileRequest",
+    # Schemas hệ thống dự án & cài đặt
     "ProjectCreateRequest",
     "ProjectItem",
     "ProjectListResponse",
+    "ProjectApiConfigRequest",
+    "SaveCharacterPresetRequest",
     "SettingsResponse",
     "SettingsUpdateRequest",
     "TestApiKeyRequest",
     "PromptAdviceRequest",
     "NewCharacterPromptRequest",
+    "GeneratePromptFromProfileRequest",
+    "CompileSpriteSheetPromptRequest",
     # Schemas phân tích nhân vật mới
     "IdentityAnalysis",
     "AnatomyAnalysis",

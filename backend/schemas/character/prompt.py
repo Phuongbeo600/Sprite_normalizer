@@ -50,3 +50,34 @@ class NewCharacterPromptRequest(BaseModel):
     api_key: Optional[str] = Field(None, description="Khóa API tùy chọn")
     provider: Optional[str] = Field(None, description="Nhà cung cấp AI tùy chọn")
     base_url: Optional[str] = Field(None, description="Địa chỉ máy chủ proxy tùy chọn")
+
+
+class GeneratePromptFromProfileRequest(BaseModel):
+    """Schema yêu cầu sinh Prompt dựa trên Hồ sơ nhân vật (Hỗ trợ tương thích ngược)."""
+    project_id: Optional[int] = Field(None, description="Mã dự án để tự động lấy API Key từ MySQL")
+    profile_data: Dict[str, Any] = Field(default_factory=dict, description="Toàn bộ dữ liệu hồ sơ nhân vật (AIAnalysis)")
+    character_concept: Optional[str] = Field(None, description="Ý tưởng nhân vật mới (Tương thích cũ)")
+    core_concept: Optional[str] = Field(None, description="Ý tưởng nhân vật mới (Chuẩn mới)")
+    outfit_and_colors: Optional[str] = Field(None, description="Trang phục & màu sắc riêng của con mới")
+    weapons_and_props: Optional[str] = Field(None, description="Vũ khí & đạo cụ riêng con mới cầm")
+    stature_rule: str = Field("Bằng nhân vật gốc (Tỷ lệ chuẩn)", description="Quy tắc vóc dáng")
+    inherit_scale: bool = Field(True, description="Kế thừa tỷ lệ kích thước game")
+    inherit_style: bool = Field(True, description="Kế thừa phong cách viền & đổ bóng pixel")
+    metrics: Optional[Dict[str, Any]] = Field(None, description="Số đo pixel hình học từ Bước 1")
+    target_direction: str = Field("Sprite Sheet 3x5 (15 frames)", description="Góc nhìn mục tiêu cần sinh ảnh")
+    frame_actions: Optional[Dict[str, Any]] = Field(None, description="Ma trận chi tiết 15 frame hoạt họa chân tay đối nghịch")
+    compiled_positive_prompt: Optional[str] = Field(None, description="Câu positive prompt đã biên dịch")
+    compiled_negative_prompt: Optional[str] = Field(None, description="Câu negative prompt đã biên dịch")
+    api_key: Optional[str] = Field(None, description="Khóa API tùy chọn")
+    provider: Optional[str] = Field(None, description="Nhà cung cấp AI tùy chọn")
+    base_url: Optional[str] = Field(None, description="Địa chỉ máy chủ proxy tùy chọn")
+
+
+class CompileSpriteSheetPromptRequest(BaseModel):
+    """Schema yêu cầu biên dịch câu Prompt 3 Tầng hoàn chỉnh từ ma trận 15 frames."""
+    character_concept: str = Field(..., description="Ý tưởng nhân vật mới")
+    profile_data: Optional[Dict[str, Any]] = Field(default_factory=dict, description="Dữ liệu phân tích 7 Schemas")
+    frame_actions: Optional[Dict[str, Any]] = Field(None, description="Ma trận 15 frame đã chỉnh sửa từ người dùng")
+    outfit_and_colors: Optional[str] = Field(None, description="Trang phục & màu sắc")
+    weapons_and_props: Optional[str] = Field(None, description="Vũ khí & phụ kiện")
+    custom_instructions: Optional[str] = Field(None, description="Ghi chú đạo diễn bổ sung")

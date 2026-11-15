@@ -1,8 +1,13 @@
+"""
+Module: backend.repositories.character_preset_repository
+Mục đích: Kho lưu trữ bản ghi phân tích chỉ số và prompt nhân vật mẫu (Character Presets).
+Ai gọi nó: `ProjectService` khi lưu hoặc đọc các bản phân tích nhân vật theo từng dự án.
+Tại sao tồn tại: Đóng gói toàn bộ các thao tác CSDL MySQL đối với bảng 'project_character_presets', đảm bảo tính toàn vẹn dữ liệu theo từng project_id.
+"""
+
 # ========================================================
-# 1. THƯ VIỆN NỀN TẢNG PYTHON (Cấu trúc dữ liệu & Xử lý JSON)
+# 1. THƯ VIỆN NỀN TẢNG PYTHON (Cấu trúc dữ liệu & Kiểu)
 # ========================================================
-# json: Chuyển đổi từ điển dữ liệu sang chuỗi JSON lưu trữ trong MySQL
-import json
 # typing: Khai báo kiểu danh sách, từ điển, tùy chọn
 from typing import List, Optional, Dict, Any
 
@@ -14,10 +19,12 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 # ========================================================
-# 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Internal modules)
+# 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Base & Serializers)
 # ========================================================
 # BaseRepository: Lớp cơ sở trừu tượng cho các kho lưu trữ
 from .base import BaseRepository
+# safe_json_dumps, deserialize_preset_record: Tiện ích tuần tự hóa JSON an toàn
+from .serializers import safe_json_dumps, deserialize_preset_record
 # ensure_preset_columns: Tự động bổ sung cột frame_actions_data nếu thiếu
 from backend.db import ensure_preset_columns
 
@@ -41,26 +48,14 @@ class CharacterPresetRepository(BaseRepository):
         @param {Session} db Phiên làm việc cơ sở dữ liệu.
         @returns {List[Dict[str, Any]]} Danh sách tóm tắt tất cả các bản ghi.
         """
-        rows = db.execute(
-            text("""
-                SELECT id, project_id, name, sprite_name, new_character_concept,
-                       target_direction, stature_rule, metrics_data, created_at
-                FROM project_character_presets
-                ORDER BY id DESC
-            """)
-        ).mappings()
-
-        results = []
-        for r in rows:
-            item = dict(r)
-            # Giải mã JSON metrics_data nếu được lưu dưới dạng chuỗi
-            if isinstance(item.get("metrics_data"), str):
-                try:
-                    item["metrics_data"] = json.loads(item["metrics_data"])
-                except Exception:
-                    pass
-            results.append(item)
-        return results
+        sql = text("""
+            SELECT id, project_id, name, sprite_name, new_character_concept,
+                   target_direction, stature_rule, metrics_data, created_at
+            FROM project_character_presets
+            ORDER BY id DESC
+        """)
+        rows = db.execute(sql).mappings()
+        return [deserialize_preset_record(dict(r), json_keys=["metrics_data"]) for r in rows]
 
     def get_all_by_project(self, db: Session, project_id: int) -> List[Dict[str, Any]]:
         """
@@ -70,28 +65,15 @@ class CharacterPresetRepository(BaseRepository):
         @param {int} project_id Mã định danh dự án.
         @returns {List[Dict[str, Any]]} Danh sách tóm tắt các bản ghi đã lưu.
         """
-        rows = db.execute(
-            text("""
-                SELECT id, project_id, name, sprite_name, new_character_concept,
-                       target_direction, stature_rule, metrics_data, created_at
-                FROM project_character_presets
-                WHERE project_id = :project_id
-                ORDER BY id DESC
-            """),
-            {"project_id": project_id}
-        ).mappings()
-
-        results = []
-        for r in rows:
-            item = dict(r)
-            # Giải mã JSON metrics_data nếu được lưu dưới dạng chuỗi
-            if isinstance(item.get("metrics_data"), str):
-                try:
-                    item["metrics_data"] = json.loads(item["metrics_data"])
-                except Exception:
-                    pass
-            results.append(item)
-        return results
+        sql = text("""
+            SELECT id, project_id, name, sprite_name, new_character_concept,
+                   target_direction, stature_rule, metrics_data, created_at
+            FROM project_character_presets
+            WHERE project_id = :project_id
+            ORDER BY id DESC
+        """)
+        rows = db.execute(sql, {"project_id": project_id}).mappings()
+        return [deserialize_preset_record(dict(r), json_keys=["metrics_data"]) for r in rows]
 
     def get_by_id(self, db: Session, entity_id: int, project_id: Optional[int] = None) -> Optional[Dict[str, Any]]:
         """
@@ -126,6 +108,7 @@ class CharacterPresetRepository(BaseRepository):
         try:
             row = db.execute(text(sql), params).mappings().first()
         except Exception:
+            # Cơ chế tự phục hồi: bổ sung cột nếu bảng MySQL bị thiếu cột
             db.rollback()
             ensure_preset_columns(db)
             db.commit()
@@ -134,15 +117,7 @@ class CharacterPresetRepository(BaseRepository):
         if not row:
             return None
 
-        data = dict(row)
-        # Chuyển đổi JSON sang Python Dict nếu cần
-        for key in ["metrics_data", "profile_data", "frame_actions_data"]:
-            if isinstance(data.get(key), str):
-                try:
-                    data[key] = json.loads(data[key])
-                except Exception:
-                    pass
-        return data
+        return deserialize_preset_record(dict(row))
 
     def create(self, db: Session, **kwargs) -> Dict[str, Any]:
         """
@@ -155,9 +130,6 @@ class CharacterPresetRepository(BaseRepository):
         project_id = kwargs.get("project_id")
         name = kwargs.get("name", "Bản phân tích nhân vật").strip()
         sprite_name = kwargs.get("sprite_name")
-        metrics_data = kwargs.get("metrics_data")
-        profile_data = kwargs.get("profile_data")
-        frame_actions_data = kwargs.get("frame_actions_data")
         new_concept = kwargs.get("new_character_concept", "").strip()
         outfit = kwargs.get("outfit_and_colors")
         weapons = kwargs.get("weapons_and_props")
@@ -167,10 +139,10 @@ class CharacterPresetRepository(BaseRepository):
         negative = kwargs.get("negative_prompt", "").strip()
         notes = kwargs.get("technical_notes")
 
-        # Tuần tự hóa JSON nếu là dict
-        metrics_json = json.dumps(metrics_data, ensure_ascii=False) if metrics_data and not isinstance(metrics_data, str) else metrics_data
-        profile_json = json.dumps(profile_data, ensure_ascii=False) if profile_data and not isinstance(profile_data, str) else profile_data
-        frame_actions_json = json.dumps(frame_actions_data, ensure_ascii=False) if frame_actions_data and not isinstance(frame_actions_data, str) else frame_actions_data
+        # Tuần tự hóa JSON an toàn thông qua serializers helper
+        metrics_json = safe_json_dumps(kwargs.get("metrics_data"))
+        profile_json = safe_json_dumps(kwargs.get("profile_data"))
+        frame_actions_json = safe_json_dumps(kwargs.get("frame_actions_data"))
 
         sql_insert = """
             INSERT INTO project_character_presets (

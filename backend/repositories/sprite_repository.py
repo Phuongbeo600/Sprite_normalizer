@@ -1,8 +1,6 @@
 # ========================================================
 # 1. THƯ VIỆN NỀN TẢNG PYTHON (Cấu trúc dữ liệu & Kiểu)
 # ========================================================
-# json: Chuyển đổi từ điển sang chuỗi JSON cho cột metadata
-import json
 # typing: Định nghĩa các kiểu danh sách, từ điển, tùy chọn
 from typing import List, Optional, Dict, Any
 
@@ -18,6 +16,8 @@ from sqlalchemy.orm import Session
 # ========================================================
 # BaseRepository: Lớp cơ sở trừu tượng
 from .base import BaseRepository
+# safe_json_dumps: Chuyển đổi an toàn đối tượng/từ điển sang chuỗi JSON
+from .serializers import safe_json_dumps
 
 # ========================================================
 # 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
@@ -77,7 +77,7 @@ class SpriteRepository(BaseRepository):
             INSERT INTO project_sprites (project_id, name, raw_image_data, processing_metadata, status)
             VALUES (:project_id, :name, :raw_image_data, :processing_metadata, 'raw');
         """)
-        meta_json = json.dumps(metadata) if metadata else None
+        meta_json = safe_json_dumps(metadata)
         result = db.execute(sql, {
             "project_id": project_id,
             "name": name,
@@ -106,7 +106,7 @@ class SpriteRepository(BaseRepository):
                 updated_at = CURRENT_TIMESTAMP
             WHERE id = :id AND project_id = :project_id;
         """)
-        meta_json = json.dumps(metadata) if metadata else None
+        meta_json = safe_json_dumps(metadata)
         result = db.execute(sql, {
             "id": sprite_id,
             "project_id": project_id,
