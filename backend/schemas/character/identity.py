@@ -118,38 +118,41 @@ class IdentityAnalysis(BaseModel):
     @classmethod
     def normalize_gender(cls, v):
         """Tự động ánh xạ chuỗi giới tính sang Enum GenderPresentation chuẩn."""
-        if isinstance(v, str):
-            clean = v.lower()
-            if "masculine" in clean or "nam" in clean:
-                return GenderPresentation.MASCULINE
-            if "feminine" in clean or "nữ" in clean:
-                return GenderPresentation.FEMININE
-            if "androgynous" in clean or "trung tính" in clean:
-                return GenderPresentation.ANDROGYNOUS
-            if "non-binary" in clean or "phi giới tính" in clean:
-                return GenderPresentation.NON_BINARY
-            if "creature" in clean or "không xác định" in clean or "unspecified" in clean:
-                return GenderPresentation.UNSPECIFIED
+        if not isinstance(v, str):
+            return v
+        clean = v.lower()
+        gender_rules = (
+            (("masculine", "nam"), GenderPresentation.MASCULINE),
+            (("feminine", "nữ"), GenderPresentation.FEMININE),
+            (("androgynous", "trung tính"), GenderPresentation.ANDROGYNOUS),
+            (("non-binary", "phi giới tính"), GenderPresentation.NON_BINARY),
+            (("creature", "không xác định", "unspecified"), GenderPresentation.UNSPECIFIED),
+        )
+        for keywords, target_enum in gender_rules:
+            if any(kw in clean for kw in keywords):
+                return target_enum
         return v
 
     @field_validator("body_type", mode="before")
     @classmethod
     def normalize_body_type(cls, v):
         """Tự động ánh xạ chuỗi vóc dáng sang Enum BodyType chuẩn."""
-        if isinstance(v, str):
-            clean = v.lower()
-            if "chibi" in clean and ("semi" in clean or "3" in clean):
-                return BodyType.SEMI_CHIBI
-            if "chibi" in clean or "lùn" in clean or "2." in clean:
-                return BodyType.CHIBI
-            if "bulky" in clean or "muscular" in clean or "vạm vỡ" in clean or "cơ bắp" in clean:
-                return BodyType.BULKY
-            if "slender" in clean or "slim" in clean or "thanh mảnh" in clean:
-                return BodyType.SLENDER
-            if "heroic" in clean or "tall" in clean or "cao" in clean:
-                return BodyType.HEROIC
-            if "petite" in clean or "nhỏ" in clean:
-                return BodyType.PETITE
-            if "regular" in clean or "average" in clean:
-                return BodyType.REGULAR
+        if not isinstance(v, str):
+            return v
+        clean = v.lower()
+        # Ưu tiên kiểm tra Semi-Chibi trước Chibi chuẩn để tránh nhận diện nhầm
+        if "chibi" in clean and ("semi" in clean or "3" in clean):
+            return BodyType.SEMI_CHIBI
+
+        body_rules = (
+            (("chibi", "lùn", "2."), BodyType.CHIBI),
+            (("bulky", "muscular", "vạm vỡ", "cơ bắp"), BodyType.BULKY),
+            (("slender", "slim", "thanh mảnh"), BodyType.SLENDER),
+            (("heroic", "tall", "cao"), BodyType.HEROIC),
+            (("petite", "nhỏ"), BodyType.PETITE),
+            (("regular", "average"), BodyType.REGULAR),
+        )
+        for keywords, target_enum in body_rules:
+            if any(kw in clean for kw in keywords):
+                return target_enum
         return v

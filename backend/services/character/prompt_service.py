@@ -44,47 +44,8 @@ class PromptService:
         @param {PromptAdviceRequest} request Dữ liệu yêu cầu từ client.
         @returns {Dict[str, Any]} Bản phân tích chi tiết và positive/negative prompt.
         """
-        # 1. Phục hồi đối tượng CharacterMetrics từ dictionary
-        m_dict = request.metrics
-        metrics = CharacterMetrics(
-            canvas_width=m_dict.get("canvas_width", 64),
-            canvas_height=m_dict.get("canvas_height", 64),
-            visible_x_min=m_dict.get("visible_x_min", 0),
-            visible_y_min=m_dict.get("visible_y_min", 0),
-            visible_x_max=m_dict.get("visible_x_max", 63),
-            visible_y_max=m_dict.get("visible_y_max", 63),
-            visible_width=m_dict.get("visible_width", 64),
-            visible_height=m_dict.get("visible_height", 64),
-            neck_y=m_dict.get("neck_y", 20),
-            head_x_min=m_dict.get("head_x_min", 16),
-            head_y_min=m_dict.get("head_y_min", 0),
-            head_x_max=m_dict.get("head_x_max", 48),
-            head_y_max=m_dict.get("head_y_max", 20),
-            head_width=m_dict.get("head_width", 32),
-            head_height=m_dict.get("head_height", 20),
-            body_x_min=m_dict.get("body_x_min", 10),
-            body_y_min=m_dict.get("body_y_min", 21),
-            body_x_max=m_dict.get("body_x_max", 54),
-            body_y_max=m_dict.get("body_y_max", 63),
-            body_width=m_dict.get("body_width", 44),
-            body_height=m_dict.get("body_height", 43),
-            torso_height=m_dict.get("torso_height", 20),
-            torso_width=m_dict.get("torso_width", 44),
-            head_ratio=m_dict.get("head_ratio", 0.31),
-            heads_tall=m_dict.get("heads_tall", 3.2),
-            head_to_body_width_ratio=m_dict.get("head_to_body_width_ratio", 0.73),
-            body_aspect_ratio=m_dict.get("body_aspect_ratio", 1.02),
-            style_category=m_dict.get("style_category", "Semi-Chibi"),
-            summary_text=m_dict.get("summary_text", ""),
-            crotch_y=m_dict.get("crotch_y"),
-            ground_y=m_dict.get("ground_y"),
-            anatomical_height=m_dict.get("anatomical_height"),
-            torso_box=m_dict.get("torso_box"),
-            legs_box=m_dict.get("legs_box"),
-            weapon_box=m_dict.get("weapon_box"),
-            cape_wings_box=m_dict.get("cape_wings_box"),
-            shadow_box=m_dict.get("shadow_box")
-        )
+        # 1. Phục hồi đối tượng CharacterMetrics từ dictionary bằng phương thức chuẩn hóa
+        metrics = CharacterMetrics.from_dict(request.metrics)
 
         active_provider = (request.provider or os.getenv("AI_PROVIDER", "gemini")).strip().lower()
         active_base_url = request.base_url or os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
