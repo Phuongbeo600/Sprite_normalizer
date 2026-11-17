@@ -152,8 +152,8 @@ skills/
 data/skills/
 
 # ========================================================
-# 7. TÀI LIỆU HỌC TẬP & BẢN XUẤT PDF (Learning Docs & Exported PDFs)
+# 7. TÀI LIỆU HỌC TẬP, AGENT & BẢN XUẤT PDF (Docs & Exported PDFs)
 # ========================================================
-# Thư mục tài liệu hướng dẫn học, đọc hiểu mã nguồn và các bản xuất PDF/HTML
-docs/learning/
+# Toàn bộ thư mục tài liệu dự án (docs/learning/, docs/agent/, PDF, HTML)
+docs/
 

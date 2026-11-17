@@ -68,12 +68,12 @@ def detect_sprite_resolution(file: Annotated[UploadFile, File()]):
     """Trả kích thước lưới nhận diện và PNG đã khôi phục nếu ảnh bị phóng to."""
     try:
         with Image.open(file.file) as source:
-            image, scale = recover_native_sprite(ImageOps.exif_transpose(source))
+            image, scale = recover_native_sprite(ImageOps.exif_transpose(source))#Thu nhỏ ảnh về đúng kích thước thật mà AI đã phóng to lên
             return {
                 "width": image.width,
                 "height": image.height,
                 "scale": scale,
-                "png": b64encode(SpriteService.encode_png(image)).decode("ascii") if scale > 1 else None,
+                "png": b64encode(SpriteService.encode_png(image)).decode("ascii") if scale > 1 else None,#ảnh trả về đã chuẩn hoá
             }
     except (OSError, ValueError, Image.DecompressionBombError) as error:
         raise HTTPException(status_code=400, detail="Không đọc được lưới pixel của ảnh.") from error
@@ -89,7 +89,7 @@ def resize_sprite(
     try:
         with Image.open(file.file) as source:
             image = resize_image(ImageOps.exif_transpose(source), target_width, target_height)
-            return Response(SpriteService.encode_png(image), media_type="image/png")
+            return Response(SpriteService.encode_png(image), media_type="image/png") # Response trả về một đối tượng luôn chứ không phải file json
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
     except (OSError, Image.DecompressionBombError) as error:
@@ -98,11 +98,11 @@ def resize_sprite(
 
 @sprites_router.post("/slice-sheet")
 def slice_sprite_sheet(
-    file: Annotated[UploadFile, File()],
+    file: Annotated[UploadFile, File()],# không điền gì trong File() vì là trường bắt buộc nếu người dùng không tải file lên sẽ báo lỗi
     rows: Annotated[int, Form(ge=1, le=256)],
     columns: Annotated[int, Form(ge=1, le=256)],
     output: Annotated[Literal["json", "zip"], Form()] = "json",
-    auto_anchor: Annotated[bool, Form()] = False,
+    auto_anchor: Annotated[bool, Form()] = False, # tự động căn tâm, neo chân
 ):
     """Cắt lưới Sprite Sheet thích ứng và trả danh sách PNG hoặc tệp ZIP (Hỗ trợ auto_anchor)."""
     try:
@@ -112,7 +112,7 @@ def slice_sprite_sheet(
                 return Response(
                     SpriteService.sheet_zip(image, rows, columns, auto_anchor=auto_anchor),
                     media_type="application/zip",
-                    headers={"Content-Disposition": 'attachment; filename="sprite-frames.zip"'},
+                    headers={"Content-Disposition": 'attachment; filename="sprite-frames.zip"'},#Cho phép tải file từ hệ thống xuống
                 )
             return {"frames": [
                 {"name": name, "width": width, "height": height, "png": b64encode(png).decode("ascii")}
@@ -129,7 +129,7 @@ def analyze_sprite_colors(file: UploadFile = File(...)):
     """Đo màu và đặc trưng pixel trên máy chủ ứng dụng."""
     try:
         with Image.open(file.file) as image:
-            return SpriteService.analyze_colors(ImageOps.exif_transpose(image))
+            return SpriteService.analyze_colors(ImageOps.exif_transpose(image))#analyze_color-thuật toán phân tích màu và exif_transpose là xoay ảnh về đúng chiều
     except (OSError, ValueError, Image.DecompressionBombError) as error:
         raise HTTPException(status_code=400, detail="Không đọc được ảnh để phân tích màu.") from error
 
@@ -185,7 +185,7 @@ async def analyze_character(
         with Image.open(io.BytesIO(contents)) as source:
             image = ImageOps.exif_transpose(source)
 
-        metrics, message, annotated_b64 = AnatomyService.analyze_sprite(
+        metrics, message, annotated_b64 = AnatomyService.analyze_sprite( #metrics chứa dữ liệu đầu , cổ, chân ở python đã tính
             image=image, auto_remove_bg=auto_remove_bg,
         )
 
