@@ -287,37 +287,36 @@ export default function TabReferenceView({
 
           {colorError && <p className="atelier-ws-error" role="alert">{colorError}</p>}
 
-          {pixelReport ? (
-            <div className="atelier-readings-grid">
-              <div className="atelier-reading-box">
-                <span className="atelier-reading-label">Màu trên lưới</span>
-                <span className="atelier-reading-value">{pixelReport.palette.total_colors} màu</span>
-              </div>
-              <div className="atelier-reading-box">
-                <span className="atelier-reading-label">Lưới pixel gốc</span>
-                <span className="atelier-reading-value">{pixelReport.grid.native_size_wh.join(' × ')}</span>
-              </div>
-              <div className="atelier-reading-box">
-                <span className="atelier-reading-label">Độ tương phản WCAG</span>
-                <span className="atelier-reading-value">{pixelReport.palette.contrast_ratio_wcag}:1</span>
-              </div>
-              <div className="atelier-reading-box">
-                <span className="atelier-reading-label">Dải đổ bóng (Ramps)</span>
-                <span className="atelier-reading-value">{pixelReport.shading.n_ramps} dải</span>
-              </div>
+          {/* Lưới 4 chỉ số: Hiển thị kết quả đo thật nếu có, hoặc hiển thị khung Blueprint Placeholder đồng bộ */}
+          <div className="atelier-readings-grid">
+            <div className={`atelier-reading-box ${!pixelReport ? (localAction === 'colors' ? 'is-loading' : 'is-placeholder') : ''}`}>
+              <span className="atelier-reading-label">Màu trên lưới</span>
+              <span className="atelier-reading-value">
+                {pixelReport ? `${pixelReport.palette.total_colors} màu` : (palette?.total_colors > 0 ? `${palette.total_colors} màu` : '--')}
+              </span>
             </div>
-          ) : (
-            <p style={{ margin: 0, fontSize: '0.78rem', color: '#94a3b8' }}>
-              {palette
-                ? palette.total_colors > 0
-                  ? `Bảng màu hồ sơ có ${palette.total_colors} màu nhận diện.`
-                  : 'Ảnh chưa có pixel nhìn thấy để phân tích màu.'
-                : 'Bảng màu và dải đổ bóng sẽ xuất hiện sau khi phân tích.'}
-            </p>
-          )}
+            <div className={`atelier-reading-box ${!pixelReport ? (localAction === 'colors' ? 'is-loading' : 'is-placeholder') : ''}`}>
+              <span className="atelier-reading-label">Lưới pixel gốc</span>
+              <span className="atelier-reading-value">
+                {pixelReport ? pixelReport.grid.native_size_wh.join(' × ') : '-- × --'}
+              </span>
+            </div>
+            <div className={`atelier-reading-box ${!pixelReport ? (localAction === 'colors' ? 'is-loading' : 'is-placeholder') : ''}`}>
+              <span className="atelier-reading-label">Độ tương phản WCAG</span>
+              <span className="atelier-reading-value">
+                {pixelReport ? `${pixelReport.palette.contrast_ratio_wcag}:1` : (palette?.contrast_ratio ? `${palette.contrast_ratio}:1` : '--:1')}
+              </span>
+            </div>
+            <div className={`atelier-reading-box ${!pixelReport ? (localAction === 'colors' ? 'is-loading' : 'is-placeholder') : ''}`}>
+              <span className="atelier-reading-label">Dải đổ bóng (Ramps)</span>
+              <span className="atelier-reading-value">
+                {pixelReport ? `${pixelReport.shading.n_ramps} dải` : (palette?.shading_steps ? `${palette.shading_steps} dải` : '-- dải')}
+              </span>
+            </div>
+          </div>
 
-          {/* Dải Swatches màu chủ đạo */}
-          {swatches.length > 0 && (
+          {/* Dải mẫu màu chủ đạo: Hiển thị danh sách màu thật hoặc khay 8 ô trống Blueprint */}
+          {swatches.length > 0 ? (
             <div>
               <p style={{ margin: '0 0 6px', fontSize: '0.74rem', color: '#a39bc2', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>
                 Màu sắc chủ đạo nhận diện:
@@ -330,6 +329,26 @@ export default function TabReferenceView({
                   </li>
                 ))}
               </ul>
+            </div>
+          ) : (
+            <div className="atelier-empty-palette-tray">
+              <div className="atelier-empty-palette-header">
+                <span className="atelier-empty-palette-label">Khay màu chủ đạo</span>
+                <span className="atelier-empty-palette-status">
+                  {localAction === 'colors'
+                    ? 'Đang quét quang học và bóc tách dải màu…'
+                    : 'Bảng màu sẽ hiển thị sau khi phân tích'}
+                </span>
+              </div>
+              <div className="atelier-empty-palette-slots">
+                {[...Array(8)].map((_, idx) => (
+                  <div
+                    key={idx}
+                    className={`atelier-empty-swatch-slot ${localAction === 'colors' ? 'is-loading' : ''}`}
+                    title="Ô màu dự kiến"
+                  />
+                ))}
+              </div>
             </div>
           )}
 

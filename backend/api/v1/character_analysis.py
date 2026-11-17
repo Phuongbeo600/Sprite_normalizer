@@ -74,8 +74,8 @@ def _resolve_project_api_key(
 @character_analysis_router.get("/vision-status")
 def get_vision_status(project_id: Optional[int] = None):
     """Đọc trạng thái cấu hình AI cục bộ, không gọi nhà cung cấp."""
-    ai_enabled = AiCredentialsService.is_ai_enabled(project_id)
-    credentials = _resolve_project_api_key(project_id, None, None, None)
+    ai_enabled = AiCredentialsService.is_ai_enabled(project_id) #Xem dự án này có cho dùng AI không
+    credentials = _resolve_project_api_key(project_id, None, None, None)# Đi tìm bộ thông tin xác thực (API key,provider)
     key, provider, _ = CharacterAnalysisService._resolve_credentials(*credentials)
     ready = provider in VISION_PROVIDERS and bool((key or "").strip()) and ai_enabled
     return {
@@ -88,8 +88,8 @@ def get_vision_status(project_id: Optional[int] = None):
 
 @character_analysis_router.post("/style-prompt", response_model=ReferenceStylePrompt)
 async def generate_reference_style_prompt(
-    file: Annotated[UploadFile, File()],
-    python_metrics_json: Annotated[str, Form(max_length=12000)],
+    file: Annotated[UploadFile, File()],#lấy ảnh nạp lên từ người dùng
+    python_metrics_json: Annotated[str, Form(max_length=12000)],#Annotated dùng để kẹp luật đi kèm, kiểu là str, độ dài tối đa 12k
     project_id: Annotated[Optional[int], Form()] = None,
 ) -> ReferenceStylePrompt:
     """Tạo chỉ dẫn phong cách từ ảnh đã chọn và các số đo của Studio."""
@@ -251,7 +251,7 @@ async def generate_prompt_from_profile(request: GeneratePromptFromProfileRequest
     Hỗ trợ đầy đủ ma trận 15 frames hoạt họa Sprite Sheet (3 Hướng × 5 Frames có cả Chân và Tay).
     """
     try:
-        concept = request.core_concept or request.character_concept or "Pixel Art Character"
+        concept = request.core_concept or request.character_concept or "Pixel Art Character"# lấy ý tưởng người dùng ở ô nhập promt
         eff_key, eff_prov, eff_base = _resolve_project_api_key(
             request.project_id, request.api_key, request.provider, request.base_url
         )
