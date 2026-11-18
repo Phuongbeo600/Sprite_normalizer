@@ -37,6 +37,8 @@ import TabAnimationsView from './components/TabAnimationsView';
 import TabReferenceView from './components/TabReferenceView';
 // Component hiển thị phân hệ sinh prompt cho nhân vật mới
 import TabConstraintsPromptView from './components/TabConstraintsPromptView';
+// PromptStudioEmptyState: Màn hình trang trí Pixel Art khi chưa đo đạc sprite ở Tab 1
+import PromptStudioEmptyState from './components/PromptStudioEmptyState';
 // Các hàm gửi yêu cầu phân tích, sinh prompt và lưu hồ sơ.
 import { requestAnalysis, requestProfilePrompt, requestSavePreset, requestVisionStatus } from './analysisApi';
 // Hàm gom số đo Python để gửi cho bộ phân tích phong cách.
@@ -370,6 +372,15 @@ export default function ProjectAnalysis({
     isGeneratingStyle && `Đang chờ ${providerLabel} viết chỉ dẫn phong cách…`,
   ].filter(Boolean).join(' ');
 
+  // Kiểm tra người dùng đã hoàn thành đo đạc ở Tab 1 (hoặc đã nạp preset có sẵn từ MySQL) hay chưa
+  const hasMeasured = Boolean(
+    metrics ||
+    loadedPresetConfig ||
+    (palette && palette.total_colors > 0) ||
+    (profileData?.region_measurements && Object.keys(profileData.region_measurements?.measurements || {}).length > 0) ||
+    (profileData?.manual_region_measurements && Object.keys(profileData.manual_region_measurements?.measurements || {}).length > 0)
+  );
+
   return (
     <div className="atelier-analysis-root" aria-label="Studio phân tích giải phẫu và sinh prompt">
       {/* ================================================================ */}
@@ -607,21 +618,28 @@ export default function ProjectAnalysis({
 
       {/* PHÂN HỆ 3: PHÒNG SINH PROMPT & RÀNG BUỘC 15-FRAME (TAB CONSTRAINTS PROMPT) */}
       <div hidden={workspaceMode !== 'prompt_studio'}>
-        <TabConstraintsPromptView
-          consistency={profileData.consistency_analysis}
-          negativeConstraints={profileData.negative_constraints}
-          fullProfile={profileData}
-          measuredGeometry={metrics}
-          onGeneratePrompt={handleGeneratePromptFromProfile}
-          generatingPrompt={generatingProfilePrompt}
-          generatedPromptResult={generatedProfilePrompt}
-          onSavePreset={handleSavePreset}
-          savingPreset={savingPreset}
-          saveSuccessMsg={saveSuccessMsg}
-          initialConfig={loadedPresetConfig}
-          onSendPromptToImageGen={onSendPromptToImageGen}
-          isAiEnabled={isAiEnabled}
-        />
+        {hasMeasured ? (
+          <TabConstraintsPromptView
+            consistency={profileData.consistency_analysis}
+            negativeConstraints={profileData.negative_constraints}
+            fullProfile={profileData}
+            measuredGeometry={metrics}
+            onGeneratePrompt={handleGeneratePromptFromProfile}
+            generatingPrompt={generatingProfilePrompt}
+            generatedPromptResult={generatedProfilePrompt}
+            onSavePreset={handleSavePreset}
+            savingPreset={savingPreset}
+            saveSuccessMsg={saveSuccessMsg}
+            initialConfig={loadedPresetConfig}
+            onSendPromptToImageGen={onSendPromptToImageGen}
+            isAiEnabled={isAiEnabled}
+          />
+        ) : (
+          <PromptStudioEmptyState
+            hasReference={Boolean(reference)}
+            onGoToMeasure={() => setWorkspaceMode('reference')}
+          />
+        )}
       </div>
     </div>
   );
