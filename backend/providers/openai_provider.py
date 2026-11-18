@@ -37,7 +37,7 @@ class OpenAiProvider(BaseAiProvider):
     PROXY_MODELS = ("gpt-4o-mini", "gpt-4o", "chatgpt-4o-latest", DEFAULT_MODEL)
 
     @classmethod
-    def _models_for_base(cls, base_url: str) -> Tuple[str, ...]:
+    def _models_for_base(cls, base_url: str) -> Tuple[str, ...]:#cls class trỏ luôn vào biến hiện tại
         """Giữ thứ tự model tương thích với proxy đã cấu hình."""
         return (cls.DEFAULT_MODEL,) if base_url.lower() == cls.DEFAULT_BASE_URL else cls.PROXY_MODELS
 
@@ -55,19 +55,19 @@ class OpenAiProvider(BaseAiProvider):
 
         clean_base = (base_url or self.DEFAULT_BASE_URL).rstrip("/")
         headers = {
-            "Authorization": f"Bearer {clean_key}",
-            "Content-Type": "application/json"
+            "Authorization": f"Bearer {clean_key}",#Xin quyền truy cập open ai bằng key
+            "Content-Type": "application/json"#Loại thông tin sẽ gửi lên
         }
         url = f"{clean_base}/chat/completions"
-        model = self._models_for_base(clean_base)[0]
+        model = self._models_for_base(clean_base)[0]#Chọn models
         payload = {"model": model, "messages": [{"role": "user", "content": "ping"}]}
         if model == self.DEFAULT_MODEL:
-            payload.update(reasoning_effort="none", max_completion_tokens=8)
+            payload.update(reasoning_effort="none", max_completion_tokens=8)#reasoning_effort là tham số dành riêng cho gpt-6, tắt suy nghĩ sâu trả lời ngay lập tức để kiểm tra kết nối không tốn token mấy
         else:
-            payload["max_tokens"] = 5
+            payload["max_tokens"] = 5#các model cũ 
 
         try:
-            resp = requests.post(url, json=payload, headers=headers, timeout=12)
+            resp = requests.post(url, json=payload, headers=headers, timeout=12)#Chưa gửi promt, chỉ gửi ping để test kết nối
             if resp.status_code == 200:
                 return True, "Kết nối thành công! Khóa OpenAI ChatGPT hoạt động hoàn hảo."
             return False, f"OpenAI ChatGPT báo lỗi ({resp.status_code}): {resp.text[:120]}"
@@ -94,8 +94,8 @@ class OpenAiProvider(BaseAiProvider):
         if not clean_key:
             raise ValueError("Chưa cấu hình OpenAI API Key.")
 
-        img_b64 = self.encode_image_to_base64(image)
-        clean_base = (base_url or self.DEFAULT_BASE_URL).rstrip("/")
+        img_b64 = self.encode_image_to_base64(image)# biến ảnh thành chữ
+        clean_base = (base_url or self.DEFAULT_BASE_URL).rstrip("/")# Địa chỉ máy chủ
 
         messages = [
             {
@@ -116,7 +116,7 @@ class OpenAiProvider(BaseAiProvider):
             clean_key=clean_key,
             clean_base=clean_base,
             messages=messages,
-            default_temperature=0.1,
+            default_temperature=0.1,# giảm độ bịa của AI xuống cực thấp
             error_prefix="OpenAI ChatGPT Vision không phản hồi",
             timeout=25
         )

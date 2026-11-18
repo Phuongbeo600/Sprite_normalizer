@@ -23,7 +23,6 @@ from .project import (
 )
 from .settings import SettingsResponse, SettingsUpdateRequest, TestApiKeyRequest
 from .character.prompt import (
-    PromptAdviceRequest,
     NewCharacterPromptRequest,
     GeneratePromptFromProfileRequest,
     CompileSpriteSheetPromptRequest
@@ -67,7 +66,6 @@ __all__ = [
     "SettingsResponse",
     "SettingsUpdateRequest",
     "TestApiKeyRequest",
-    "PromptAdviceRequest",
     "NewCharacterPromptRequest",
     "GeneratePromptFromProfileRequest",
     "CompileSpriteSheetPromptRequest",

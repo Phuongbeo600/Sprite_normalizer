@@ -14,10 +14,9 @@
 # Phân hệ Hồ sơ nhân vật & Prompt Studio (Character)
 from .character.character_analysis_service import CharacterAnalysisService
 from .character.prompt_builder_service import PromptBuilderService
-from .character.prompt_service import PromptService
 from .character.reference_style_service import generate_style_prompt
 from .character.anatomy_service import AnatomyService
-from .character import character_analysis_service, prompt_builder_service, prompt_service, reference_style_service, anatomy_service
+from .character import character_analysis_service, prompt_builder_service, reference_style_service, anatomy_service
 
 # Phân hệ Phòng thử nghiệm Godot (Testbed)
 from .testbed.testbed_service import TestbedService
@@ -41,7 +40,6 @@ __all__ = [
     # Character & Prompt
     "CharacterAnalysisService",
     "PromptBuilderService",
-    "PromptService",
     "generate_style_prompt",
     "AnatomyService",
     # Godot Testbed

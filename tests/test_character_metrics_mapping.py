@@ -18,10 +18,6 @@ from unittest.mock import patch
 # ========================================================
 # CharacterMetrics: Cấu trúc dữ liệu số đo giải phẫu nhân vật mẫu
 from backend.core.metrics.character_metrics import CharacterMetrics
-# PromptService: Dịch vụ cố vấn Prompt AI và toán học nghịch đảo
-from backend.services.character.prompt_service import PromptService
-# PromptAdviceRequest: DTO yêu cầu sinh kế hoạch tỷ lệ nghịch đảo
-from backend.schemas.character.prompt import PromptAdviceRequest
 
 # ========================================================
 # 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
@@ -32,7 +28,7 @@ from backend.schemas.character.prompt import PromptAdviceRequest
 class TestCharacterMetricsMapping(unittest.TestCase):
     """
     Bộ kiểm thử đặc tính (Characterization Tests) cho việc chuyển đổi dữ liệu
-    từ điển (Dictionary) sang đối tượng CharacterMetrics và tích hợp trong PromptService.
+    từ điển (Dictionary) sang đối tượng CharacterMetrics.
     Bảo đảm hành vi mapping không bị hồi quy trong Giai đoạn C2.
     """
 
@@ -151,28 +147,6 @@ class TestCharacterMetricsMapping(unittest.TestCase):
         exported_dict = original.to_dict()
         restored = CharacterMetrics.from_dict(exported_dict)
         self.assertEqual(original, restored)
-
-    def test_prompt_service_generate_advice_offline_fallback(self):
-        """Kiểm tra PromptService sinh kế hoạch toán học thành công khi không có API Key."""
-        req = PromptAdviceRequest(
-            metrics=self.full_dict,
-            character_concept="Nữ pháp sư băng giá",
-            head_rule="Bằng nhân vật gốc (Tỷ lệ chuẩn)",
-            body_width_rule="Bằng nhân vật gốc",
-            body_height_rule="Bằng nhân vật gốc",
-            api_key=None,
-            provider="gemini"
-        )
-        # Giả lập không có biến môi trường API Key để buộc chạy nhánh offline fallback
-        with patch.dict("os.environ", {}, clear=True):
-            result = PromptService.generate_prompt_advice(req)
-
-        self.assertIn("recommended_game_canvas", result)
-        self.assertIn("inverse_math_plan", result)
-        self.assertIn("positive_prompt", result)
-        self.assertIn("negative_prompt", result)
-        self.assertIn("detail_level_analysis", result)
-        self.assertTrue(len(result["positive_prompt"]) > 50)
 
 
 if __name__ == "__main__":

@@ -14,7 +14,6 @@
 # Phân hệ xử lý hình học & biến đổi sprite (Processing)
 from .processing.normalizer import SpriteNormalizer
 from .processing.masking import BackgroundMaskExtractor
-from .processing.inverse_scaling import InverseScalingEngine
 from .processing.visual_renderer import AnatomyVisualRenderer
 from .processing.sprite_editing import recover_native_sprite, resize_sprite, slice_sheet
 
@@ -34,7 +33,6 @@ __all__ = [
     # Processing
     "SpriteNormalizer",
     "BackgroundMaskExtractor",
-    "InverseScalingEngine",
     "AnatomyVisualRenderer",
     "recover_native_sprite",
     "resize_sprite",

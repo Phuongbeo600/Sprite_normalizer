@@ -55,8 +55,7 @@ from backend.schemas.character import (
 from backend.schemas import (
     ProjectCreateRequest,
     ProjectItem,
-    SettingsUpdateRequest,
-    PromptAdviceRequest
+    SettingsUpdateRequest
 )
 
 # ========================================================
@@ -377,13 +376,6 @@ class TestCharacterSchemas(unittest.TestCase):
         # Kiểm tra SettingsUpdateRequest
         s_req = SettingsUpdateRequest(provider="openai", openai_api_key="sk-test123456789")
         self.assertEqual(s_req.provider, "openai")
-
-        # Kiểm tra PromptAdviceRequest
-        pr_req = PromptAdviceRequest(
-            metrics={"head_width": 32, "head_height": 20},
-            character_concept="Chiến binh"
-        )
-        self.assertEqual(pr_req.character_concept, "Chiến binh")
 
     def test_08_json_schema_generation(self):
         """Kiểm tra tính tương thích sinh JSON Schema cho OpenAI Structured Outputs."""

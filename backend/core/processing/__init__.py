@@ -13,7 +13,6 @@
 # ========================================================
 from .normalizer import SpriteNormalizer
 from .masking import BackgroundMaskExtractor
-from .inverse_scaling import InverseScalingEngine
 from .visual_renderer import AnatomyVisualRenderer
 from .sprite_editing import recover_native_sprite, resize_sprite, slice_sheet
 
@@ -25,7 +24,6 @@ from .sprite_editing import recover_native_sprite, resize_sprite, slice_sheet
 __all__ = [
     "SpriteNormalizer",
     "BackgroundMaskExtractor",
-    "InverseScalingEngine",
     "AnatomyVisualRenderer",
     "recover_native_sprite",
     "resize_sprite",

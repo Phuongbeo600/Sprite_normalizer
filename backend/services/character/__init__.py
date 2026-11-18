@@ -13,7 +13,6 @@
 # ========================================================
 from .character_analysis_service import CharacterAnalysisService
 from .prompt_builder_service import PromptBuilderService
-from .prompt_service import PromptService
 from .reference_style_service import generate_style_prompt
 from .anatomy_service import AnatomyService
 
@@ -25,7 +24,6 @@ from .anatomy_service import AnatomyService
 __all__ = [
     "CharacterAnalysisService",
     "PromptBuilderService",
-    "PromptService",
     "generate_style_prompt",
     "AnatomyService",
 ]

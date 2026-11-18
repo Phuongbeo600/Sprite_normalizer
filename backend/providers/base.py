@@ -100,4 +100,4 @@ class BaseAiProvider(ABC):
 
         buffered = io.BytesIO()
         img_to_send.save(buffered, format="PNG")
-        return base64.b64encode(buffered.getvalue()).decode("utf-8")
+        return base64.b64encode(buffered.getvalue()).decode("utf-8")# lấy ảnh từ ram ra thành byte nhị phân, base64 ép thành chữ, rồi chuyển thành str
