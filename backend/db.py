@@ -33,16 +33,16 @@ load_dotenv(dotenv_path=env_path)
 # Tạo địa chỉ URL kết nối CSDL MySQL với mã hóa utf8mb4 hỗ trợ tiếng Việt đầy đủ
 database_url = URL.create(
     drivername="mysql+pymysql",
-    username=os.getenv("SPRITE_DB_USER", "sprite_app"),
+    username=os.getenv("SPRITE_DB_USER", "sprite_app"),#Lấy ten tài khoản từ env, nếu không có mặc định để sprite_app
     password=os.getenv("SPRITE_DB_PASSWORD", ""),
     host=os.getenv("SPRITE_DB_HOST", "127.0.0.1"),
     port=int(os.getenv("SPRITE_DB_PORT", "3306")),
     database=os.getenv("SPRITE_DB_NAME", "sprite_normalizer"),
-    query={"charset": "utf8mb4"},
+    query={"charset": "utf8mb4"},# Dùng bảng mã tiếng việt
 )
 
-engine = create_engine(database_url, pool_pre_ping=True)
-SessionLocal = sessionmaker(bind=engine)
+engine = create_engine(database_url, pool_pre_ping=True)# Tạo engine kết nối CSDL với code python, pool_pre_ping là nếu không dùng Myspl sẽ tự động đóng
+SessionLocal = sessionmaker(bind=engine)# Đối tượng , phiển dùng riêng cho từng chức năng
 
 
 def ensure_project_columns(conn_or_session):
@@ -111,7 +111,7 @@ def init_db():
     """
     try:
         with engine.begin() as conn:
-            # 1. Tạo bảng users lưu tài khoản và phân quyền
+            #  Tạo bảng users lưu tài khoản và phân quyền
             conn.execute(text("""
                 CREATE TABLE IF NOT EXISTS users (
                     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -130,7 +130,7 @@ def init_db():
             # Tự động cập nhật cột nếu bảng users đã tạo từ trước
             ensure_user_columns(conn)
 
-            # 2. Khởi tạo tài khoản Admin mặc định (admin / mật khẩu: 1)
+            #  Khởi tạo tài khoản Admin mặc định (admin / mật khẩu: 1)
             conn.execute(text("""
                 INSERT IGNORE INTO users (id, username, password, role, full_name)
                 VALUES (1, 'admin', '1', 'admin', 'Quản trị viên tối cao');
@@ -139,82 +139,16 @@ def init_db():
                 conn.execute(text("UPDATE users SET password = '1', role = 'admin' WHERE username = 'admin';"))
             except Exception:
                 pass
-
-            # 2b. Khởi tạo / Đồng bộ tài khoản mẫu kiểm thử origin@gmail.com (id = 2 / mật khẩu: 123456)
+            # Tạo tài khoản kiểm thử mẫu nếu bên trong mysql chưa có
             try:
-                # Kiểm tra tài khoản có username 'origin@gmail.com'
-                u_by_name = conn.execute(
-                    text("SELECT id FROM users WHERE username = 'origin@gmail.com';")
-                ).mappings().first()
-
-                # Kiểm tra tài khoản có id = 2
-                u_by_id2 = conn.execute(
-                    text("SELECT id, username FROM users WHERE id = 2;")
-                ).mappings().first()
-
-                if u_by_name and u_by_name["id"] == 2:
-                    # Trường hợp 1: origin@gmail.com đã đúng ở id = 2 -> Cập nhật mật khẩu 123456
-                    conn.execute(text("""
-                        UPDATE users 
-                        SET password = '123456', 
-                            role = 'user', 
-                            first_name = 'Origin', 
-                            full_name = 'Origin (Tài khoản mẫu kiểm thử)'
-                        WHERE id = 2;
-                    """))
-                elif u_by_name and u_by_name["id"] != 2:
-                    # Trường hợp 2: origin@gmail.com đang ở id khác -> giải phóng id = 2 nếu bị chiếm rồi chuyển về id = 2
-                    old_id = u_by_name["id"]
-                    if u_by_id2:
-                        conn.execute(text("DELETE FROM users WHERE id = 2;"))
-                    conn.execute(
-                        text("""
-                            UPDATE users 
-                            SET id = 2, 
-                                password = '123456', 
-                                role = 'user', 
-                                first_name = 'Origin', 
-                                full_name = 'Origin (Tài khoản mẫu kiểm thử)'
-                            WHERE id = :old_id;
-                        """),
-                        {"old_id": old_id}
-                    )
-                    try:
-                        conn.execute(
-                            text("UPDATE projects SET user_id = 2 WHERE user_id = :old_id;"),
-                            {"old_id": old_id}
-                        )
-                    except Exception:
-                        pass
-                elif not u_by_name and u_by_id2:
-                    # Trường hợp 3: Có id = 2 nhưng mang username khác -> Chuyển thành origin@gmail.com
-                    conn.execute(text("""
-                        UPDATE users 
-                        SET username = 'origin@gmail.com', 
-                            password = '123456', 
-                            role = 'user', 
-                            first_name = 'Origin', 
-                            full_name = 'Origin (Tài khoản mẫu kiểm thử)'
-                        WHERE id = 2;
-                    """))
-                else:
-                    # Trường hợp 4: Chưa có cả hai -> Chèn mới id = 2
-                    conn.execute(text("""
-                        INSERT INTO users (id, username, password, role, first_name, full_name)
-                        VALUES (2, 'origin@gmail.com', '123456', 'user', 'Origin', 'Origin (Tài khoản mẫu kiểm thử)');
-                    """))
+                conn.execute(text("""
+                INSERT IGNORE INTO users ( username, password, role, first_name, full_name)
+        VALUES ('origin@gmail.com', '123456', 'user', 'Origin', 'Tài khoản mẫu kiểm thử');
+        """))
             except Exception:
-                # Dự phòng an toàn: Luôn đảm bảo tài khoản origin@gmail.com có mật khẩu 123456
-                try:
-                    conn.execute(text("""
-                        UPDATE users 
-                        SET password = '123456', role = 'user' 
-                        WHERE username = 'origin@gmail.com';
-                    """))
-                except Exception:
-                    pass
+                pass
 
-            # 3. Tạo bảng projects nếu chưa tồn tại
+            #  Tạo bảng projects nếu chưa tồn tại
             conn.execute(text("""
                 CREATE TABLE IF NOT EXISTS projects (
                     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -229,22 +163,18 @@ def init_db():
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
             """))
 
-            # 4. Bổ sung các cột lưu API và user_id nếu bảng projects đã tồn tại từ các phiên bản cũ
+            # Bổ sung các cột lưu API và user_id nếu bảng projects đã tồn tại từ các phiên bản cũ
             ensure_project_columns(conn)
 
-            # 5. Gán các dự án cũ chưa có user_id cho tài khoản Admin (id = 1)
+            # Gán các dự án cũ chưa có user_id cho tài khoản Admin (id = 1)
             try:
                 conn.execute(text("UPDATE projects SET user_id = 1 WHERE user_id IS NULL;"))
             except Exception:
                 pass
 
-            # 5b. Đảm bảo dự án ID 2 thuộc sở hữu của tài khoản kiểm thử origin@gmail.com (user_id = 2)
-            try:
-                conn.execute(text("UPDATE projects SET user_id = 2 WHERE id = 2;"))
-            except Exception:
-                pass
+           
 
-            # 6. Tạo bảng project_character_presets liên kết với projects(id)
+            # Tạo bảng project_character_presets liên kết với projects(id)
             conn.execute(text("""
                 CREATE TABLE IF NOT EXISTS project_character_presets (
                     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -267,7 +197,7 @@ def init_db():
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
             """))
 
-            # 4. Tự động kiểm tra và thêm cột frame_actions_data nếu bảng preset đã tạo trước đó
+            # Tự động kiểm tra và thêm cột frame_actions_data nếu bảng preset đã tạo trước đó
             ensure_preset_columns(conn)
     except Exception as e:
         # Ghi log cảnh báo an toàn tránh lỗi Unicode trên console Windows

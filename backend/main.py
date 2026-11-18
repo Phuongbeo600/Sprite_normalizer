@@ -39,7 +39,7 @@ async def lifespan(app: FastAPI):
     Khởi tạo và cập nhật cấu trúc cơ sở dữ liệu MySQL khi ứng dụng bắt đầu khởi chạy.
     """
     try:
-        init_db()
+        init_db()# Khởi tạo và cập nhật cấu trúc cơ sở dữ liệu MySQL khi ứng dụng bắt đầu khởi chạy.
     except Exception as err:
         print(f"[Lifespan] Cảnh báo khởi tạo CSDL: {err}")
     yield
@@ -54,11 +54,11 @@ app = FastAPI(
 
 # Cấu hình CORS để frontend React kết nối thuận tiện
 app.add_middleware(
-    CORSMiddleware,
+    CORSMiddleware,#Cho phép backend và frontend dù hai cổng khác nhau, và chính sách bảo mật nhưng vẫn gửi endponit qua lại được cho nhau
     allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["*"],# cho phép backend và frontend gửi endpoint qua lại với nhau
+    allow_headers=["*"],#Nhãn dán
 )
 
 # Đăng ký các router từ api/
