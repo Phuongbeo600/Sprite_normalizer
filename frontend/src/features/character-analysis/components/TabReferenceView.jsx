@@ -264,11 +264,11 @@ export default function TabReferenceView({
               <Palette size={16} />
               <span>Bảng màu &amp; Phong cách Pixel Art</span>
             </h4>
-            <button
+            <button // nút phân tích màu
               className="atelier-btn-primary-action"
               style={{ width: 'auto', padding: '6px 14px', fontSize: '0.78rem', margin: 0 }}
               type="button"
-              disabled={!reference || busy}
+              disabled={!reference || busy} // Chưa nạp ảnh, nút mờ đi
               onClick={() => onMeasure('colors')}
             >
               {localAction === 'colors' ? (
