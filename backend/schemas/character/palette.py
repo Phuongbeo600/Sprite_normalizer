@@ -62,3 +62,9 @@ class PaletteMetrics(BaseModel):
 
     # Câu lệnh Prompt quy chuẩn màu sắc chung sinh ra từ 6 tiêu chí này
     master_color_prompt: str = Field(default="", description="Đoạn prompt tiếng Anh chuẩn mô tả toàn bộ hệ màu")
+
+    # Đối chiếu lượng tử hóa theo chuẩn LibreSprite (Màu thô vs Màu thực tế)
+    raw_colors_count: Optional[int] = Field(default=None, description="Tổng số màu thô quét được theo thuật toán LibreSprite")
+    ai_intermediate_colors: Optional[int] = Field(default=None, description="Số lượng màu trung gian/anti-aliasing do AI sinh ra")
+    has_ai_noise_warning: Optional[bool] = Field(default=False, description="Cảnh báo ảnh có nhiều màu trung gian từ AI")
+    noise_ratio: Optional[float] = Field(default=None, description="Tỷ lệ màu trung gian so với tổng số màu")

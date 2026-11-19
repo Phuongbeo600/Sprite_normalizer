@@ -15,6 +15,7 @@ from .normalizer import SpriteNormalizer
 from .masking import BackgroundMaskExtractor
 from .visual_renderer import AnatomyVisualRenderer
 from .sprite_editing import recover_native_sprite, resize_sprite, slice_sheet
+from .palette_generator import LibreSpriteOctreeQuantizer, create_palette_from_sprite
 
 # ========================================================
 # 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
@@ -28,4 +29,6 @@ __all__ = [
     "recover_native_sprite",
     "resize_sprite",
     "slice_sheet",
+    "LibreSpriteOctreeQuantizer",
+    "create_palette_from_sprite",
 ]

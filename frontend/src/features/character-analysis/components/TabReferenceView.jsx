@@ -17,7 +17,9 @@ import {
   Wand2,
   Crop,
   Sparkles,
-  ArrowRight
+  ArrowRight,
+  AlertTriangle,
+  CheckCircle2
 } from 'lucide-react';
 
 // ========================================================
@@ -292,8 +294,13 @@ export default function TabReferenceView({
             <div className={`atelier-reading-box ${!pixelReport ? (localAction === 'colors' ? 'is-loading' : 'is-placeholder') : ''}`}>
               <span className="atelier-reading-label">Màu trên lưới</span>
               <span className="atelier-reading-value">
-                {pixelReport ? `${pixelReport.palette.total_colors} màu` : (palette?.total_colors > 0 ? `${palette.total_colors} màu` : '--')}
+                {pixelReport ? `${pixelReport.palette.clean_colors_count || pixelReport.palette.total_colors} màu` : (palette?.total_colors > 0 ? `${palette.total_colors} màu` : '--')}
               </span>
+              {(pixelReport?.palette?.raw_colors_count || palette?.raw_colors_count) ? (
+                <span style={{ fontSize: '0.66rem', color: '#f59e0b', marginTop: '2px', display: 'block', fontWeight: 500 }}>
+                  ({pixelReport?.palette?.raw_colors_count || palette?.raw_colors_count} màu thô ban đầu)
+                </span>
+              ) : null}
             </div>
             <div className={`atelier-reading-box ${!pixelReport ? (localAction === 'colors' ? 'is-loading' : 'is-placeholder') : ''}`}>
               <span className="atelier-reading-label">Lưới pixel gốc</span>
@@ -314,6 +321,53 @@ export default function TabReferenceView({
               </span>
             </div>
           </div>
+
+          {/* Cảnh báo màu trung gian từ AI (Đối chiếu màu thô vs Lưới thực tế) */}
+          {(pixelReport?.palette?.has_ai_noise_warning || palette?.has_ai_noise_warning) && (
+            <div
+              style={{
+                margin: '10px 0 12px',
+                padding: '8px 12px',
+                borderRadius: '6px',
+                background: 'rgba(245, 158, 11, 0.12)',
+                border: '1px solid rgba(245, 158, 11, 0.35)',
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: '8px',
+                fontSize: '0.74rem',
+                color: '#fef3c7',
+                lineHeight: 1.45,
+              }}
+            >
+              <AlertTriangle size={15} color="#f59e0b" style={{ flexShrink: 0, marginTop: '2px' }} />
+              <div>
+                <strong style={{ color: '#fbbf24', display: 'block', marginBottom: '2px' }}>
+                  Cảnh báo màu trung gian từ AI (AI Anti-Aliasing Detected):
+                </strong>
+                Ảnh quét được <strong>{pixelReport?.palette?.raw_colors_count || palette?.raw_colors_count} màu thô</strong>, trong đó có <strong>{pixelReport?.palette?.ai_intermediate_colors || palette?.ai_intermediate_colors} màu trung gian/mờ viền</strong> do AI sinh ra. Hệ thống đã tự động lọc sạch và chốt lại <strong>{pixelReport?.palette?.clean_colors_count || pixelReport?.palette?.total_colors || palette?.total_colors} màu Pixel Art chuẩn</strong> trên lưới logic.
+              </div>
+            </div>
+          )}
+
+          {(!pixelReport?.palette?.has_ai_noise_warning && !palette?.has_ai_noise_warning && (pixelReport?.palette?.raw_colors_count || palette?.raw_colors_count)) && (
+            <div
+              style={{
+                margin: '10px 0 12px',
+                padding: '6px 10px',
+                borderRadius: '6px',
+                background: 'rgba(16, 185, 129, 0.10)',
+                border: '1px solid rgba(16, 185, 129, 0.3)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontSize: '0.72rem',
+                color: '#a7f3d0',
+              }}
+            >
+              <CheckCircle2 size={13} color="#10b981" />
+              <span>Bảng màu chuẩn tinh khiết: Không phát hiện màu mờ hoặc viền nhiễu từ AI.</span>
+            </div>
+          )}
 
           {/* Dải mẫu màu chủ đạo: Hiển thị danh sách màu thật hoặc khay 8 ô trống Blueprint */}
           {swatches.length > 0 ? (
