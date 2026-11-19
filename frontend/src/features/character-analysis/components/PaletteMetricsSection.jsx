@@ -122,10 +122,19 @@ export default function PaletteMetricsSection({ paletteMetrics }) {
             <span className="palette-metric-title">
               <Droplets size={14} color="#8b5cf6" /> 1. Ngân sách màu (Color Budget)
             </span>
-            <span className="profile-tag">{paletteMetrics.total_colors} màu</span>
+            <span className="profile-tag">
+              {paletteMetrics.total_colors} màu
+              {paletteMetrics.raw_colors_count && paletteMetrics.raw_colors_count !== paletteMetrics.total_colors
+                ? ` (từ ${paletteMetrics.raw_colors_count} màu thô)`
+                : ''}
+            </span>
           </div>
           <div className="palette-metric-value">{paletteMetrics.palette_era}</div>
-          <div className="palette-metric-desc">Đo chính xác số lượng mã màu độc nhất sử dụng trong nhân vật mẫu.</div>
+          <div className="palette-metric-desc">
+            {paletteMetrics.raw_colors_count && paletteMetrics.raw_colors_count !== paletteMetrics.total_colors
+              ? `Đã lọc từ ${paletteMetrics.raw_colors_count} màu thô ban đầu, loại bỏ ${paletteMetrics.ai_intermediate_colors || (paletteMetrics.raw_colors_count - paletteMetrics.total_colors)} màu trung gian do AI sinh ra.`
+              : 'Đo chính xác số lượng mã màu độc nhất sử dụng trong nhân vật mẫu.'}
+          </div>
         </div>
 
         {/* Tiêu chí 2: Mã màu neo chủ đạo */}

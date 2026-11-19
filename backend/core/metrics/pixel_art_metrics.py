@@ -914,12 +914,29 @@ def analyze_sprite(image: Image.Image, force_scale: Optional[float] = None,
     a = native[..., 3]
     non_bg = a > 10
     semi_ratio = float(((a > 10) & (a < 250)).sum() / max(int(non_bg.sum()), 1))
+
+    # Đo số màu thô ban đầu (kể cả nhiễu do AI sinh ra) theo thuật toán quét điểm ảnh của LibreSprite
+    raw_vis = rgba[..., 3] > 10
+    raw_pixels = rgba[..., :3][raw_vis]
+    raw_unique_count = int(len(np.unique(raw_pixels, axis=0))) if len(raw_pixels) > 0 else 0
+    clean_count = int(ctx.K)
+    ai_intermediate = max(0, raw_unique_count - clean_count)
+    has_noise = bool((raw_unique_count > clean_count * 1.25) and (ai_intermediate >= 4))
+    noise_ratio = round(ai_intermediate / max(raw_unique_count, 1), 3)
+
+    pal_report = analyze_palette(ctx)
+    pal_report["raw_colors_count"] = raw_unique_count
+    pal_report["clean_colors_count"] = clean_count
+    pal_report["ai_intermediate_colors"] = ai_intermediate
+    pal_report["has_ai_noise_warning"] = has_noise
+    pal_report["noise_ratio"] = noise_ratio
+
     return {
         "grid": {"pixel_size": grid.period, "phase_xy": [grid.phase_x, grid.phase_y],
                  "confidence": round(grid.confidence, 3), "on_grid_fraction": round(grid.on_grid_fraction, 3),
                  "native_size_wh": [native.shape[1], native.shape[0]]},
         "semi_transparent_ratio": round(semi_ratio, 4),
-        "palette": analyze_palette(ctx),
+        "palette": pal_report,
         "outline": outline,
         "shading": analyze_ramps(ctx, is_out),
         "clusters": analyze_clusters(ctx),

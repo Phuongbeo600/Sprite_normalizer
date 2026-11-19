@@ -159,7 +159,11 @@ class HeuristicPaletteAnalyzer:
             saturation_type=sat_type,
             contrast_ratio=contrast_val,
             contrast_type=contrast_type,
-            master_color_prompt=master_prompt
+            master_color_prompt=master_prompt,
+            raw_colors_count=total_unique,
+            ai_intermediate_colors=0,
+            has_ai_noise_warning=False,
+            noise_ratio=0.0,
         )
 
     def from_pixel_art_report(self, report: dict) -> PaletteMetrics:
@@ -196,6 +200,11 @@ class HeuristicPaletteAnalyzer:
             ))
         top_hex_list = [swatch.hex_code for swatch in dominant]
 
+        raw_colors = palette.get("raw_colors_count", total_colors)
+        ai_intermediate = palette.get("ai_intermediate_colors", 0)
+        has_noise = palette.get("has_ai_noise_warning", False)
+        noise_ratio = palette.get("noise_ratio", 0.0)
+
         return PaletteMetrics(
             total_colors=total_colors,
             palette_era=era,
@@ -215,7 +224,23 @@ class HeuristicPaletteAnalyzer:
                 outline_style, saturation_type, contrast_type, contrast,
                 outline_thickness=outline["thickness_px"],
             ),
+            raw_colors_count=raw_colors,
+            ai_intermediate_colors=ai_intermediate,
+            has_ai_noise_warning=has_noise,
+            noise_ratio=noise_ratio,
         )
+
+    @staticmethod
+    def create_libresprite_palette(
+        image: Image.Image,
+        max_colors: int = 256,
+        with_alpha: bool = True
+    ) -> Dict[str, Any]:
+        """
+        Tạo bảng màu 100% chuẩn thuật toán Octree của LibreSprite (Create Palette from Current Sprite).
+        """
+        from backend.core.processing.palette_generator import create_palette_from_sprite
+        return create_palette_from_sprite(image, max_colors=max_colors, with_alpha=with_alpha)
 
     # ========================================================
     # CÁC PHƯƠNG THỨC TRỢ LÝ PHÂN TÍCH CHUYÊN BIỆT

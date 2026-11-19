@@ -40,7 +40,7 @@ class BaseRepository(ABC):
         pass
 
     @abstractmethod
-    def create(self, db: Session, **kwargs) -> Dict[str, Any]:
+    def create(self, db: Session, **kwargs) -> Dict[str, Any]: #tham số kwargs gom tham số đã gán giá trị thành dict
         """Tạo một bản ghi mới."""
         pass
 

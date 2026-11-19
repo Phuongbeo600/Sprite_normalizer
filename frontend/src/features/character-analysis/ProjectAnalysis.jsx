@@ -174,7 +174,7 @@ export default function ProjectAnalysis({
       setReference({
         file,
         name: file.name,
-        url: URL.createObjectURL(file),
+        url: URL.createObjectURL(file),// tạo một đường dẫn từ file nhị phân được lưu trong ram
       });
       setAnnotatedUrl(null);
       setMetrics(null);
@@ -222,11 +222,11 @@ export default function ProjectAnalysis({
    * @param {'colors'|'size'} action Phép đo Python được yêu cầu.
    */
   const handleLocalMeasure = async (action) => {
-    if (!reference || localAction) return;
-    const version = referenceVersion.current;
-    const measureColors = action === 'colors';
+    if (!reference || localAction) return; //reference là biến lưu nạp ảnh , localAction lưu trạng thái đo đạc hiện tại
+    const version = referenceVersion.current; // kiểm tra xem nếu người dùng đột ngột huỷ ảnh đang nạp mà nạp ảnh khác thì tính lại
+    const measureColors = action === 'colors'; // đo màu là true, đo kích thước là false
     const setError = measureColors ? setColorError : setAnalysisError;
-    setLocalAction(action);
+    setLocalAction(action);// đánh dấu trên màn hình là đang làm
     setError('');
     try {
       const result = await requestAnalysis(reference.file, measureColors ? '/api/analyze-colors' : '/api/analyze');
@@ -415,7 +415,7 @@ export default function ProjectAnalysis({
             <input
               type="file"
               accept="image/png,image/jpeg,image/webp"
-              onChange={handleReferenceChange}
+              onChange={handleReferenceChange} //lắng nghe sự kiện và gọi hàm
               disabled={Boolean(progress)}
             />
           </label>

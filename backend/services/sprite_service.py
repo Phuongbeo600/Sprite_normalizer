@@ -58,13 +58,39 @@ class SpriteService:
         return buffer.getvalue()
     @staticmethod
     def analyze_colors(image: Image.Image) -> dict:
-        """Trả báo cáo đo màu cục bộ và đặc tả bảng màu dùng trong Studio."""
+        """Trả báo cáo đo màu cục bộ và đặc tả bảng màu dùng trong Studio tích hợp thuật toán LibreSprite."""
         analyzer = HeuristicPaletteAnalyzer()
         report = analyze_sprite(image)
         if "error" in report:
-            return {"palette_metrics": analyzer.analyze_palette(image).model_dump(), "pixel_art_report": None}
+            libresprite_res = analyzer.create_libresprite_palette(image, max_colors=256)
+            fallback_metrics = analyzer.analyze_palette(image).model_dump()
+            fallback_metrics["raw_colors_count"] = libresprite_res["raw_colors_count"]
+            fallback_metrics["libresprite_palette"] = libresprite_res["palette"]
+            return {"palette_metrics": fallback_metrics, "pixel_art_report": None}
+
+        libresprite_res = analyzer.create_libresprite_palette(image, max_colors=256)
+        metrics = analyzer.from_pixel_art_report(report)
+        metrics_dict = metrics.model_dump()
+
+        raw_count = libresprite_res["raw_colors_count"]
+        clean_count = metrics.total_colors
+        ai_noise = max(0, raw_count - clean_count)
+        has_warning = (raw_count > clean_count * 1.25) and (ai_noise >= 4)
+
+        metrics_dict["raw_colors_count"] = raw_count
+        metrics_dict["ai_intermediate_colors"] = ai_noise
+        metrics_dict["has_ai_noise_warning"] = has_warning
+        metrics_dict["libresprite_palette"] = libresprite_res["palette"]
+
+        # Đồng bộ vào pixel_art_report để frontend hiển thị
+        report["palette"]["raw_colors_count"] = raw_count
+        report["palette"]["clean_colors_count"] = clean_count
+        report["palette"]["ai_intermediate_colors"] = ai_noise
+        report["palette"]["has_ai_noise_warning"] = has_warning
+        report["palette"]["libresprite_palette"] = libresprite_res["palette"]
+
         return {
-            "palette_metrics": analyzer.from_pixel_art_report(report).model_dump(),
+            "palette_metrics": metrics_dict,
             "pixel_art_report": report,
         }
 

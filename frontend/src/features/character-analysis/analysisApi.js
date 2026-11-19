@@ -27,8 +27,8 @@
  * @returns {Promise<Object>} Kết quả xử lý ảnh từ máy chủ.
  */
 export async function requestAnalysis(file, url, fields = {}) {
-  const body = new FormData();
-  body.append('file', file);
+  const body = new FormData(); // form đóng gói ảnh thành nhị phân
+  body.append('file', file); // thêm ảnh được nạp vào form
   Object.entries(fields).forEach(([name, value]) => body.append(name, value));
   const response = await fetch(url, { method: 'POST', body });
   const payload = await response.json();
