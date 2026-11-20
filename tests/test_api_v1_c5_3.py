@@ -4,6 +4,7 @@
 # sys, os: Thiết lập đường dẫn module gốc cho kiểm thử
 import sys
 import os
+import asyncio
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 # io: Xử lý bộ đệm ảnh nhị phân trong bộ nhớ
 import io
@@ -38,7 +39,11 @@ from backend.api.v1.sprites import (
     _validate_image_upload,
     detect_sprite_resolution,
     resize_sprite,
-    slice_sprite_sheet
+    slice_sprite_sheet,
+    save_raw_sprite,
+    save_sliced_pack,
+    get_sprite_frames,
+    get_frame_image
 )
 from backend.repositories.sprite_repository import SpriteRepository
 from backend.api.v1.auth import get_user_service
@@ -162,6 +167,68 @@ class TestSpriteRouterRefactoringC53(unittest.TestCase):
         res_slice = slice_sprite_sheet(upload_slice, rows=2, columns=2, output="json")
         self.assertIn("frames", res_slice)
         self.assertEqual(len(res_slice["frames"]), 4)
+
+    def test_save_raw_sprite_api_duplicate_detection(self):
+        """Kiểm tra API save_raw_sprite phát hiện ảnh trùng lặp qua băm SHA-256 và trả về is_duplicate=True."""
+        from unittest.mock import patch
+
+        # Giả lập trường hợp phát hiện mã băm đã tồn tại
+        with patch("backend.api.v1.sprites.sprite_repo.get_by_hash") as mock_get_hash:
+            mock_get_hash.return_value = {"id": 88, "name": "existing_hero.png"}
+
+            buf = io.BytesIO(b"duplicate_sprite_test_bytes")
+            upload_file = UploadFile(buf, filename="hero_copy.png")
+            mock_db = MagicMock()
+
+            result = asyncio.run(save_raw_sprite(
+                file=upload_file,
+                project_id=1,
+                name="hero_copy.png",
+                db=mock_db
+            ))
+
+            self.assertEqual(result["status"], "success")
+            self.assertEqual(result["id"], 88)
+            self.assertTrue(result["is_duplicate"])
+            self.assertIn("chặn lưu trùng lặp", result["message"])
+
+    def test_save_sliced_pack_api(self):
+        """Kiểm tra API save_sliced_pack lưu bộ frame vào thư mục thành công."""
+        from unittest.mock import patch
+
+        img = Image.new("RGBA", (32, 32), color="purple")
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        buf.seek(0)
+
+        upload_file = UploadFile(buf, filename="mage_3x3.png")
+        mock_db = MagicMock()
+
+        with patch("backend.api.v1.sprites.sprite_repo.save_sliced_pack") as mock_save_pack:
+            mock_save_pack.return_value = {
+                "sprite_id": 12,
+                "folder_name": "Phap_Su_Tim",
+                "sheet_name": "mage_3x3.png",
+                "frame_count": 4,
+                "is_duplicate_sheet": False
+            }
+
+            result = asyncio.run(save_sliced_pack(
+                file=upload_file,
+                project_id=1,
+                folder_name="Phap_Su_Tim",
+                rows=2,
+                columns=2,
+                auto_anchor=False,
+                fps=6,
+                db=mock_db
+            ))
+
+            self.assertEqual(result["status"], "success")
+            self.assertEqual(result["sprite_id"], 12)
+            self.assertEqual(result["folder_name"], "Phap_Su_Tim")
+            self.assertEqual(result["frame_count"], 4)
+            self.assertIn("Phap_Su_Tim", result["message"])
 
 
 if __name__ == "__main__":

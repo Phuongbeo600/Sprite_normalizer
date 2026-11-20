@@ -509,12 +509,27 @@ class TestSpriteRepository(unittest.TestCase):
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 project_id INTEGER NOT NULL,
                 name VARCHAR(255) NOT NULL,
+                file_hash VARCHAR(64),
+                folder_name VARCHAR(150) DEFAULT 'Mặc định',
+                is_sheet BOOLEAN DEFAULT 1,
                 raw_image_data BLOB,
                 processed_image_data BLOB,
                 processing_metadata TEXT,
                 status VARCHAR(50) DEFAULT 'raw',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """))
+        self.db.execute(text("""
+            CREATE TABLE sprite_frames (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                sprite_id INTEGER NOT NULL,
+                project_id INTEGER NOT NULL,
+                frame_index INTEGER NOT NULL,
+                frame_name VARCHAR(255),
+                frame_image_data BLOB NOT NULL,
+                metadata TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """))
         self.db.commit()
@@ -566,6 +581,71 @@ class TestSpriteRepository(unittest.TestCase):
         deleted = self.sprite_repo.delete_sprite(self.db, sprite_id, project_id=1)
         self.assertTrue(deleted)
         self.assertIsNone(self.sprite_repo.get_by_id(self.db, sprite_id))
+
+    def test_save_raw_sprite_deduplication(self):
+        """Kiểm tra cơ chế băm SHA-256 ngăn chặn lưu trùng lặp ảnh trong cùng một dự án."""
+        img_bytes = b"sample_pixel_art_sprite_bytes_123"
+
+        # Lưu lần 1
+        id_1 = self.sprite_repo.save_raw_sprite(
+            db=self.db,
+            project_id=1,
+            name="hero_walk_1.png",
+            raw_image_bytes=img_bytes
+        )
+        self.assertGreater(id_1, 0)
+
+        # Lưu lần 2 với cùng nội dung bytes trong cùng project_id
+        id_2 = self.sprite_repo.save_raw_sprite(
+            db=self.db,
+            project_id=1,
+            name="hero_walk_duplicate.png",
+            raw_image_bytes=img_bytes
+        )
+        # Phải trả về cùng id_1, không tạo thêm bản ghi mới
+        self.assertEqual(id_1, id_2)
+
+        # Kiểm tra tổng số bản ghi trong project_id = 1 chỉ duy nhất là 1
+        sprites = self.sprite_repo.get_sprites_by_project(self.db, project_id=1)
+        self.assertEqual(len(sprites), 1)
+        self.assertIsNotNone(sprites[0].get("file_hash"))
+
+    def test_save_sliced_pack_and_frames(self):
+        """Kiểm tra lưu trọn gói Sprite Sheet kèm toàn bộ các frame cắt rời vào thư mục."""
+        sheet_bytes = b"sheet_binary_data_abc"
+        frames = [
+            {"index": 1, "name": "frame_001.png", "bytes": b"f1_bytes", "size": [32, 32]},
+            {"index": 2, "name": "frame_002.png", "bytes": b"f2_bytes", "size": [32, 32]},
+            {"index": 3, "name": "frame_003.png", "bytes": b"f3_bytes", "size": [32, 32]},
+        ]
+        res = self.sprite_repo.save_sliced_pack(
+            db=self.db,
+            project_id=1,
+            folder_name="Mage_Purple_15f",
+            sheet_name="mage_sheet.png",
+            sheet_bytes=sheet_bytes,
+            frames=frames,
+            metadata={"rows": 1, "columns": 3, "fps": 6}
+        )
+        self.assertGreater(res["sprite_id"], 0)
+        self.assertEqual(res["folder_name"], "Mage_Purple_15f")
+        self.assertEqual(res["frame_count"], 3)
+
+        # Kiểm tra lấy danh sách frame
+        saved_frames = self.sprite_repo.get_sprite_frames(self.db, res["sprite_id"])
+        self.assertEqual(len(saved_frames), 3)
+        self.assertEqual(saved_frames[0]["frame_name"], "frame_001.png")
+
+        # Kiểm tra lấy dữ liệu ảnh của frame
+        img_data = self.sprite_repo.get_frame_image(self.db, saved_frames[0]["id"])
+        self.assertEqual(img_data, b"f1_bytes")
+
+        # Kiểm tra get_sprites_by_project có frame_count = 3
+        sprites = self.sprite_repo.get_sprites_by_project(self.db, project_id=1)
+        sheet_record = next((s for s in sprites if s["id"] == res["sprite_id"]), None)
+        self.assertIsNotNone(sheet_record)
+        self.assertEqual(sheet_record["frame_count"], 3)
+        self.assertEqual(sheet_record["folder_name"], "Mage_Purple_15f")
 
 
 if __name__ == "__main__":

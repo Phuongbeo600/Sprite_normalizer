@@ -11,6 +11,9 @@ import { useEffect, useRef, useState } from 'react';
 import {
   Download,
   FolderOpen,
+  FolderPlus,
+  Check,
+  X,
   Grid2X2,
   Image as ImageIcon,
   LoaderCircle,
@@ -39,12 +42,11 @@ import DrawingToolbar from './components/DrawingToolbar';
 import PixelCanvas from './components/PixelCanvas';
 // Khung thẻ gập mở Accordion cho các công cụ thiết lập.
 import CollapsibleCard from './components/CollapsibleCard';
-// Các yêu cầu xử lý và lưu ảnh của bàn làm việc.
+// Các yêu cầu xử lý và phân tích ảnh của bàn làm việc.
 import {
   processImage,
-  saveProcessedSprite,
-  saveRawSprite,
   analyzeSpriteColors,
+  saveSlicedPackToVault,
 } from './workspaceApi';
 
 // ========================================================
@@ -69,9 +71,15 @@ const MAX_FRAMES = 256;
  * @param {Object} [props.currentProject] Dự án hiện tại đang mở.
  * @param {File|null} [props.incomingFile] Tệp ảnh được chuyển tiếp từ màn hình Tạo ảnh AI hoặc Studio.
  * @param {string[]|null} [props.incomingPalette] Bảng màu trích xuất chuyển tiếp từ màn hình Phân tích.
+ * @param {Object|null} [props.incomingSheetData] Dữ liệu trọn bộ frame cắt rời và thông số lưới nạp từ CSDL MySQL.
  * @returns {React.ReactElement} Giao diện bàn làm việc chuẩn hóa sprite.
  */
-export default function Workspace({ currentProject, incomingFile = null, incomingPalette = null }) {
+export default function Workspace({
+  currentProject,
+  incomingFile = null,
+  incomingPalette = null,
+  incomingSheetData = null
+}) {
   // Chế độ làm việc: 'single' (Ảnh đơn) | 'sheet' (Sprite Sheet hoạt họa)
   const [mode, setMode] = useState('single');
   // Dữ liệu ảnh nguồn ban đầu
@@ -131,6 +139,12 @@ export default function Workspace({ currentProject, incomingFile = null, incomin
   const spriteDbIdRef = useRef(null);
   // Bộ đệm lưu tạm ảnh đã chuẩn hóa nếu người dùng bấm áp dụng trước khi lưu raw xong
   const pendingProcessedBlobRef = useRef(null);
+
+  // Quản lý Modal lưu bộ Frame cắt rời vào Thư mục Kho tài nguyên
+  const [showSavePackModal, setShowSavePackModal] = useState(false);
+  const [packFolderName, setPackFolderName] = useState('');
+  const [savingPack, setSavingPack] = useState(false);
+  const [savePackStatus, setSavePackStatus] = useState({ success: false, message: '' });
 
   // Tham chiếu DOM đến vùng xem và tọa độ kéo chuột
   const viewport = useRef(null);
@@ -402,23 +416,10 @@ export default function Workspace({ currentProject, incomingFile = null, incomin
       fetchPalette(file);
     }
 
-    // Đặt lại mã định danh CSDL và bộ đệm hàng đợi
+    // Đặt lại mã định danh CSDL và bộ đệm hàng đợi (Không tự động lưu vào CSDL khi chưa có yêu cầu từ người dùng)
     spriteDbIdRef.current = null;
     pendingProcessedBlobRef.current = null;
     setSpriteDbId(null);
-
-    // Tự động lưu ảnh nguồn vào CSDL MySQL.
-    if (currentProject?.id) {
-      saveRawSprite(file, currentProject.id, fallbackName, (savedId) => {
-        setSpriteDbId(savedId);
-        spriteDbIdRef.current = savedId;
-        // Nếu ảnh đã được xử lý xong trong khi đang chờ lưu raw, lưu ảnh xử lý ngay lập tức
-        if (pendingProcessedBlobRef.current) {
-          saveProcessedSprite(pendingProcessedBlobRef.current, currentProject.id, savedId);
-          pendingProcessedBlobRef.current = null;
-        }
-      });
-    }
 
     image.onload = () => {
       if (version !== uploadVersion.current) return;
@@ -451,7 +452,7 @@ export default function Workspace({ currentProject, incomingFile = null, incomin
     });
   }
 
-  // Nạp lại ảnh và bảng màu khi có tệp chuyển đến từ Studio hoặc Tạo ảnh AI.
+  // Nạp lại ảnh, bảng màu và bộ frame khi có tệp chuyển đến từ Studio, Tạo ảnh AI hoặc Kho tài nguyên CSDL.
   useEffect(() => {
     if (!incomingFile) return;
     loadSourceImage(
@@ -462,7 +463,23 @@ export default function Workspace({ currentProject, incomingFile = null, incomin
       },
       incomingPalette
     );
-  }, [incomingFile, incomingPalette]);
+
+    // Nếu có dữ liệu trọn bộ frame cắt rời từ CSDL MySQL (lấy dữ liệu thực từ cột frame_image_data)
+    if (incomingSheetData && incomingSheetData.frames && incomingSheetData.frames.length > 0) {
+      setMode('sheet');
+      setRows(incomingSheetData.rows || 3);
+      setColumns(incomingSheetData.columns || 5);
+      setAutoAnchor(Boolean(incomingSheetData.autoAnchor));
+      setFps(incomingSheetData.fps || 6);
+      setSheet({
+        rows: incomingSheetData.rows || 3,
+        columns: incomingSheetData.columns || 5,
+        frames: incomingSheetData.frames,
+      });
+      setFrameIndex(null); // Mặc định hiển thị toàn bộ Sheet gốc và thanh Timeline 15 frame ở đáy
+      setOpenSections((prev) => ({ ...prev, sheetSlice: true, sheetExport: true }));
+    }
+  }, [incomingFile, incomingPalette, incomingSheetData]);
 
   /**
    * Bật/tắt trạng thái đóng mở của một khung Accordion
@@ -536,15 +553,7 @@ export default function Workspace({ currentProject, incomingFile = null, incomin
       });
       setShowResult(true);
 
-      // Lưu ảnh đã chuẩn hóa vào MySQL
-      if (currentProject?.id) {
-        const activeDbId = spriteDbIdRef.current || spriteDbId;
-        if (activeDbId) {
-          saveProcessedSprite(blob, currentProject.id, activeDbId);
-        } else {
-          pendingProcessedBlobRef.current = blob;
-        }
-      }
+      // Kết quả được lưu tạm trên RAM/Canvas để xem trước và tải về, không tự ý ghi vào CSDL MySQL
       setZoom(null);
     } catch (failure) {
       setError(failure.message);
@@ -613,6 +622,44 @@ export default function Workspace({ currentProject, incomingFile = null, incomin
       setError(failure.message);
     } finally {
       setBusy('');
+    }
+  }
+
+  /**
+   * Lưu trọn gói Sprite Sheet và toàn bộ các frame cắt rời vào một Thư mục trong Kho tài nguyên MySQL.
+   */
+  async function handleConfirmSavePack() {
+    if (!currentProject?.id) {
+      setSavePackStatus({ success: false, message: 'Vui lòng chọn hoặc mở một dự án trước khi lưu.' });
+      return;
+    }
+    if (!source?.file || !sheet) return;
+
+    setSavingPack(true);
+    setSavePackStatus({ success: false, message: '' });
+
+    try {
+      const res = await saveSlicedPackToVault({
+        file: source.file,
+        projectId: currentProject.id,
+        folderName: packFolderName.trim() || 'Mặc định',
+        rows: sheet.rows,
+        columns: sheet.columns,
+        autoAnchor: autoAnchor,
+        fps: fps || 6,
+      });
+
+      setSavePackStatus({
+        success: true,
+        message: `Đã lưu thành công ${res.frame_count} frame vào thư mục "${res.folder_name}"!`
+      });
+      setTimeout(() => {
+        setShowSavePackModal(false);
+      }, 1600);
+    } catch (err) {
+      setSavePackStatus({ success: false, message: err.message || 'Lỗi khi lưu bộ frame.' });
+    } finally {
+      setSavingPack(false);
     }
   }
 
@@ -1074,6 +1121,27 @@ export default function Workspace({ currentProject, incomingFile = null, incomin
                     onToggle={() => toggleSection('sheetExport')}
                   >
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      {/* Nút lưu trọn gói vào Thư mục Kho tài nguyên */}
+                      <button
+                        className="atelier-btn-primary-action"
+                        type="button"
+                        onClick={() => {
+                          const base = (source?.file?.name || 'SpriteSheet').replace(/\.[^/.]+$/, '');
+                          setPackFolderName(`${base}_${sheet.rows}x${sheet.columns}`);
+                          setSavePackStatus({ success: false, message: '' });
+                          setShowSavePackModal(true);
+                        }}
+                        style={{
+                          background: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)',
+                          borderColor: '#c084fc',
+                          boxShadow: '0 0 15px rgba(168, 85, 247, 0.35)',
+                          marginBottom: '4px'
+                        }}
+                      >
+                        <FolderPlus size={15} />
+                        <span>Lưu bộ Frame vào Thư mục</span>
+                      </button>
+
                       <button
                         className="atelier-btn-secondary-action"
                         type="button"
@@ -1343,6 +1411,204 @@ export default function Workspace({ currentProject, incomingFile = null, incomin
           onFpsChange={setFps}
           onSelectFrame={selectFrame}
         />
+      )}
+
+      {/* ================================================================ */}
+      {/* 4. MODAL LƯU BỘ FRAME & SHEET VÀO THƯ MỤC KHO TÀI NGUYÊN        */}
+      {/* ================================================================ */}
+      {showSavePackModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(5, 3, 13, 0.78)',
+            backdropFilter: 'blur(6px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '16px'
+          }}
+          onClick={() => setShowSavePackModal(false)}
+        >
+          <div
+            style={{
+              width: '100%',
+              maxWidth: '460px',
+              backgroundColor: '#120d24',
+              border: '1px solid #7c3aed',
+              boxShadow: '0 16px 40px rgba(0, 0, 0, 0.6), 0 0 24px rgba(124, 58, 237, 0.25)',
+              borderRadius: '14px',
+              overflow: 'hidden',
+              display: 'flex',
+              flexDirection: 'column'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Tiêu đề Modal */}
+            <div
+              style={{
+                padding: '14px 18px',
+                borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                background: 'linear-gradient(90deg, rgba(124, 58, 237, 0.15) 0%, transparent 100%)'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <FolderPlus size={18} color="#c084fc" />
+                <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 600, color: '#f3e8ff' }}>
+                  Lưu bộ Frame vào Thư mục Kho
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowSavePackModal(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#94a3b8',
+                  cursor: 'pointer',
+                  padding: '4px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  borderRadius: '4px'
+                }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Nội dung Modal */}
+            <div style={{ padding: '18px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div>
+                <label
+                  style={{
+                    display: 'block',
+                    fontSize: '0.8rem',
+                    fontWeight: 600,
+                    color: '#cbd5e1',
+                    marginBottom: '6px'
+                  }}
+                >
+                  Tên Thư mục / Bộ hoạt họa nhân vật:
+                </label>
+                <input
+                  type="text"
+                  value={packFolderName}
+                  onChange={(e) => setPackFolderName(e.target.value)}
+                  placeholder="Ví dụ: Pháp sư tím_3x5"
+                  style={{
+                    width: '100%',
+                    boxSizing: 'border-box',
+                    padding: '9px 12px',
+                    backgroundColor: '#1b1433',
+                    border: '1px solid rgba(192, 132, 252, 0.35)',
+                    borderRadius: '8px',
+                    color: '#fff',
+                    fontSize: '0.875rem',
+                    outline: 'none'
+                  }}
+                  autoFocus
+                />
+              </div>
+
+              {/* Tóm tắt nội dung gói lưu */}
+              <div
+                style={{
+                  backgroundColor: 'rgba(255, 255, 255, 0.03)',
+                  border: '1px solid rgba(255, 255, 255, 0.06)',
+                  borderRadius: '10px',
+                  padding: '12px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px',
+                  fontSize: '0.8rem',
+                  color: '#94a3b8'
+                }}
+              >
+                <div style={{ fontWeight: 600, color: '#e2e8f0', marginBottom: '2px' }}>
+                  📦 Nội dung gói tài nguyên sẽ lưu:
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                  <div>• <strong>Sheet gốc:</strong> {source?.dimensions?.width || 0}×{source?.dimensions?.height || 0}px</div>
+                  <div>• <strong>Số frame:</strong> {sheet?.frames?.length || (sheet?.rows * sheet?.columns)} frame</div>
+                  <div>• <strong>Lưới cắt:</strong> {sheet?.rows} hàng × {sheet?.columns} cột</div>
+                  <div>• <strong>Tốc độ:</strong> {fps} FPS</div>
+                </div>
+              </div>
+
+              {/* Thông báo trạng thái */}
+              {savePackStatus.message && (
+                <div
+                  style={{
+                    padding: '10px 14px',
+                    borderRadius: '8px',
+                    fontSize: '0.8rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    backgroundColor: savePackStatus.success ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                    border: `1px solid ${savePackStatus.success ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)'}`,
+                    color: savePackStatus.success ? '#6ee7b7' : '#fca5a5'
+                  }}
+                >
+                  {savePackStatus.success ? <Check size={16} /> : <AlertCircle size={16} />}
+                  <span>{savePackStatus.message}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Chân Modal */}
+            <div
+              style={{
+                padding: '12px 18px',
+                borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: '10px',
+                backgroundColor: 'rgba(0, 0, 0, 0.2)'
+              }}
+            >
+              <button
+                type="button"
+                className="atelier-btn-secondary-action"
+                onClick={() => setShowSavePackModal(false)}
+                disabled={savingPack}
+                style={{ padding: '7px 14px', margin: 0 }}
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                className="atelier-btn-primary-action"
+                onClick={handleConfirmSavePack}
+                disabled={savingPack || !packFolderName.trim()}
+                style={{
+                  padding: '7px 18px',
+                  margin: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  background: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)'
+                }}
+              >
+                {savingPack ? (
+                  <>
+                    <LoaderCircle size={14} className="atelier-ws-spinner-icon" />
+                    <span>Đang lưu vào kho…</span>
+                  </>
+                ) : (
+                  <>
+                    <Check size={14} />
+                    <span>Xác nhận Lưu vào Kho</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -36,6 +36,7 @@ export default function ProjectTabs({
   imageGenNegativePrompt,
   transferredImageForWorkspace,
   transferredPaletteForWorkspace,
+  transferredSheetDataForWorkspace,
   transferredImageForGodot,
   selectedGodotCharIds,
   onCloseProject,
@@ -91,6 +92,7 @@ export default function ProjectTabs({
             currentProject={currentProject}
             incomingFile={transferredImageForWorkspace}
             incomingPalette={transferredPaletteForWorkspace}
+            incomingSheetData={transferredSheetDataForWorkspace}
           />
         </div>
 

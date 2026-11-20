@@ -1,6 +1,8 @@
 # ========================================================
 # 1. THƯ VIỆN NỀN TẢNG PYTHON (Hệ thống & Bộ đệm)
 # ========================================================
+# hashlib: Băm SHA-256 dữ liệu ảnh nhị phân để ngăn chặn lưu trùng lặp
+import hashlib
 # io: Xử lý byte buffer ảnh
 import io
 # json: Đọc các vùng và đoạn đo gửi từ trình vẽ sprite
@@ -270,19 +272,41 @@ async def save_raw_sprite(
     db: Session = Depends(get_db)
 ):
     """
-    Lưu trực tiếp ảnh thô ban đầu (chưa qua xử lý) vào cột raw_image_data (MEDIUMBLOB) trong MySQL.
+    Lưu ảnh thô ban đầu vào MySQL với cơ chế băm SHA-256 chống lưu trùng lặp.
+    Nếu ảnh đã tồn tại trong dự án, hệ thống trả về thông báo và ID hiện có mà không tạo bản ghi rác mới.
     """
     try:
         raw_bytes = await file.read()
         sprite_name = name or file.filename or "sprite_raw"
+        file_hash = hashlib.sha256(raw_bytes).hexdigest() if raw_bytes else None
+
+        # Kiểm tra chống trùng lặp theo mã băm SHA-256
+        existing = sprite_repo.get_by_hash(db, project_id, file_hash) if file_hash else None
+        if existing:
+            return {
+                "status": "success",
+                "id": existing["id"],
+                "name": existing["name"],
+                "file_hash": file_hash,
+                "is_duplicate": True,
+                "message": f"Ảnh này đã tồn tại trong dự án (Mã: {existing['id']}), hệ thống tự động tái sử dụng và chặn lưu trùng lặp."
+            }
+
         sprite_id = sprite_repo.save_raw_sprite(
             db=db,
             project_id=project_id,
             name=sprite_name,
             raw_image_bytes=raw_bytes,
-            metadata={"filename": file.filename, "size_bytes": len(raw_bytes)}
+            metadata={"filename": file.filename, "size_bytes": len(raw_bytes), "file_hash": file_hash}
         )
-        return {"status": "success", "id": sprite_id, "name": sprite_name, "message": "Đã lưu ảnh gốc vào MySQL thành công!"}
+        return {
+            "status": "success",
+            "id": sprite_id,
+            "name": sprite_name,
+            "file_hash": file_hash,
+            "is_duplicate": False,
+            "message": "Đã lưu ảnh gốc vào MySQL thành công!"
+        }
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Lỗi khi lưu ảnh gốc vào CSDL: {str(exc)}")
 
@@ -352,3 +376,115 @@ def delete_sprite(
     """
     success = sprite_repo.delete_sprite(db, sprite_id, project_id)
     return {"status": "success" if success else "failed", "message": f"Đã xóa sprite ID {sprite_id} khỏi MySQL"}
+
+
+@sprites_router.post("/sprites/save-sliced-pack")
+async def save_sliced_pack(
+    file: UploadFile = File(..., description="Tệp ảnh Sprite Sheet gốc"),
+    project_id: int = Form(..., description="Mã định danh dự án"),
+    folder_name: str = Form("Mặc định", description="Tên thư mục gom nhóm"),
+    rows: int = Form(..., description="Số hàng trong lưới"),
+    columns: int = Form(..., description="Số cột trong lưới"),
+    auto_anchor: bool = Form(False, description="Tự động căn tâm và neo chân"),
+    fps: int = Form(6, description="Tốc độ khung hình hoạt họa"),
+    db: Session = Depends(get_db)
+):
+    """
+    Lưu trọn gói bộ Sprite Sheet và toàn bộ các khung hình đã cắt rời vào CSDL MySQL:
+    - Bảng 'project_sprites': Lưu ảnh Sheet gốc, băm SHA-256 chống trùng và gán folder_name.
+    - Bảng 'sprite_frames': Bóc tách từng ô frame và lưu nguyên tử trong cùng một phiên.
+    """
+    try:
+        raw_bytes = await file.read()
+        sheet_name = file.filename or f"sheet_{rows}x{columns}.png"
+
+        # Mở ảnh bằng Pillow và tự động cắt thành các ô frame
+        image = Image.open(io.BytesIO(raw_bytes))
+        image = ImageOps.exif_transpose(image)
+
+        frames_list = []
+        for idx, (frame_name, frame_size, png_bytes) in enumerate(
+            SpriteService.sheet_frames(image, rows=rows, columns=columns, auto_anchor=auto_anchor),
+            start=1
+        ):
+            frames_list.append({
+                "index": idx,
+                "name": frame_name,
+                "bytes": png_bytes,
+                "size": list(frame_size),
+                "metadata": {
+                    "width": frame_size[0],
+                    "height": frame_size[1],
+                    "row": (idx - 1) // columns + 1,
+                    "col": (idx - 1) % columns + 1
+                }
+            })
+
+        metadata = {
+            "rows": rows,
+            "columns": columns,
+            "auto_anchor": auto_anchor,
+            "fps": fps,
+            "original_width": image.width,
+            "original_height": image.height,
+            "frame_count": len(frames_list),
+            "filename": sheet_name
+        }
+
+        result = sprite_repo.save_sliced_pack(
+            db=db,
+            project_id=project_id,
+            folder_name=folder_name.strip() or "Mặc định",
+            sheet_name=sheet_name,
+            sheet_bytes=raw_bytes,
+            frames=frames_list,
+            metadata=metadata
+        )
+
+        return {
+            "status": "success",
+            "sprite_id": result["sprite_id"],
+            "folder_name": result["folder_name"],
+            "sheet_name": result["sheet_name"],
+            "frame_count": result["frame_count"],
+            "message": f"Đã lưu thành công bộ {result['frame_count']} frame vào thư mục '{result['folder_name']}'!"
+        }
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Lỗi khi lưu bộ frame vào thư mục: {str(exc)}")
+
+
+@sprites_router.get("/sprites/{sprite_id}/frames")
+def get_sprite_frames(
+    sprite_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Lấy danh sách các frame cắt rời của một tấm Sprite Sheet trong CSDL.
+    """
+    try:
+        frames = sprite_repo.get_sprite_frames(db, sprite_id)
+        # Bổ sung URL tải ảnh cho từng frame
+        for f in frames:
+            f["image_url"] = f"/api/sprites/frames/{f['id']}/image"
+            if isinstance(f.get("metadata"), str):
+                try:
+                    f["metadata"] = json.loads(f["metadata"])
+                except Exception:
+                    pass
+        return {"status": "success", "sprite_id": sprite_id, "frames": frames}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Lỗi khi lấy danh sách frame: {str(exc)}")
+
+
+@sprites_router.get("/sprites/frames/{frame_id}/image")
+def get_frame_image(
+    frame_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Tải ảnh nhị phân trực tiếp của một frame cắt rời từ MySQL dạng image/png.
+    """
+    img_bytes = sprite_repo.get_frame_image(db, frame_id)
+    if not img_bytes:
+        raise HTTPException(status_code=404, detail="Không tìm thấy ảnh frame trong MySQL.")
+    return Response(content=img_bytes, media_type="image/png")

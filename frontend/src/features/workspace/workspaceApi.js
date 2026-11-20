@@ -105,3 +105,39 @@ export async function analyzeSpriteColors(file, signal) {
   }
   return response.json();
 }
+
+/**
+ * Lưu trọn gói Sprite Sheet và toàn bộ các frame cắt rời vào một Thư mục trong CSDL MySQL.
+ *
+ * @param {Object} params Tham số cấu hình gói lưu.
+ * @param {File|Blob} params.file Tệp ảnh Sprite Sheet gốc.
+ * @param {number|string} params.projectId Mã định danh dự án.
+ * @param {string} params.folderName Tên thư mục gom nhóm.
+ * @param {number} params.rows Số hàng trong lưới cắt.
+ * @param {number} params.columns Số cột trong lưới cắt.
+ * @param {boolean} [params.autoAnchor=false] Căn tâm và neo chân.
+ * @param {number} [params.fps=6] Tốc độ khung hình.
+ * @returns {Promise<Object>} Phản hồi từ máy chủ.
+ */
+export async function saveSlicedPackToVault({ file, projectId, folderName, rows, columns, autoAnchor = false, fps = 6 }) {
+  const body = new FormData();
+  body.append('file', file);
+  body.append('project_id', String(projectId));
+  body.append('folder_name', folderName);
+  body.append('rows', String(rows));
+  body.append('columns', String(columns));
+  body.append('auto_anchor', String(Boolean(autoAnchor)));
+  body.append('fps', String(fps));
+
+  const response = await fetch('/api/sprites/save-sliced-pack', {
+    method: 'POST',
+    body
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => null);
+    throw new Error(err?.detail || 'Không thể lưu bộ frame vào thư mục.');
+  }
+
+  return response.json();
+}
