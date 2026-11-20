@@ -136,6 +136,8 @@ export default function Workspace({ currentProject, incomingFile = null, incomin
   const viewport = useRef(null);
   const drag = useRef(null);
   const uploadVersion = useRef(0);
+  // Tọa độ dịch chuyển tự do của bàn vẽ khi rê chuột (Pan Offset)
+  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
 
   // Danh sách các mã màu HEX của bảng màu sprite
   const [paletteColors, setPaletteColors] = useState([]);
@@ -286,6 +288,46 @@ export default function Workspace({ currentProject, incomingFile = null, incomin
   }
 
   /**
+   * Thêm một mã màu mới vào danh sách bảng màu sprite hiện tại.
+   *
+   * @param {string} colorToAppend Mã màu HEX cần thêm (ví dụ '#ff0055').
+   * @returns {void}
+   */
+  function handleAddPaletteColor(colorToAppend) {
+    if (!colorToAppend || typeof colorToAppend !== 'string') return;
+    const cleanHex = colorToAppend.trim();
+    if (!/^#[0-9A-Fa-f]{3,8}$/.test(cleanHex)) return;
+
+    let fullHex = cleanHex.toLowerCase();
+    if (fullHex.length === 4) {
+      fullHex = `#${fullHex[1]}${fullHex[1]}${fullHex[2]}${fullHex[2]}${fullHex[3]}${fullHex[3]}`;
+    }
+
+    setPaletteColors((prev) => [...prev, fullHex]);
+    setActiveColor(fullHex);
+  }
+
+  /**
+   * Xóa một ô màu khỏi bảng màu theo vị trí chỉ số (index).
+   *
+   * @param {number} indexToRemove Vị trí chỉ số màu cần xóa trong mảng màu.
+   * @returns {void}
+   */
+  function handleDeletePaletteColor(indexToRemove) {
+    if (paletteColors.length <= 1) return;
+    if (indexToRemove < 0 || indexToRemove >= paletteColors.length) return;
+
+    const nextColors = paletteColors.filter((_, idx) => idx !== indexToRemove);
+    setPaletteColors(nextColors);
+
+    // Tự động chuyển màu active sang ô lân cận để không bị mất dấu
+    const nextIndex = Math.min(indexToRemove, nextColors.length - 1);
+    if (nextIndex >= 0 && nextColors[nextIndex]) {
+      setActiveColor(nextColors[nextIndex]);
+    }
+  }
+
+  /**
    * Đồng bộ dữ liệu khi người dùng vẽ hoặc chỉnh sửa trực tiếp trên canvas
    *
    * @param {Blob} blob Dữ liệu nhị phân ảnh mới.
@@ -346,6 +388,7 @@ export default function Workspace({ currentProject, incomingFile = null, incomin
     setFrameIndex(null);
     setPlaying(false);
     setZoom(null);
+    setPanOffset({ x: 0, y: 0 });
     setError('');
     setShowResult(true);
 
@@ -580,6 +623,7 @@ export default function Workspace({ currentProject, incomingFile = null, incomin
     setPlaying(false);
     setFrameIndex(index);
     setZoom(null);
+    setPanOffset({ x: 0, y: 0 });
   }
 
   /**
@@ -603,31 +647,65 @@ export default function Workspace({ currentProject, incomingFile = null, incomin
   }
 
   /**
-   * Bắt đầu kéo trượt (Pan) trên canvas
+   * Bắt đầu kéo trượt (Pan) trên canvas hoặc khung nhìn
+   *
+   * @param {React.PointerEvent} event Sự kiện con trỏ chuột.
+   * @returns {void}
    */
   function startPan(event) {
-    if (event.button !== 0 || !preview) return;
-    const node = event.currentTarget;
-    drag.current = { x: event.clientX + node.scrollLeft, y: event.clientY + node.scrollTop };
-    node.setPointerCapture(event.pointerId);
-    node.classList.add('is-panning');
+    if ((activeTool !== 'pan' && event.button !== 1) || !preview) return;
+    if (event.button !== 0 && event.button !== 1) return;
+
+    drag.current = {
+      startX: event.clientX,
+      startY: event.clientY,
+      originX: panOffset.x,
+      originY: panOffset.y,
+    };
+    try {
+      event.target.setPointerCapture(event.pointerId);
+    } catch {
+      // Bỏ qua nếu target không hỗ trợ capture
+    }
+    if (viewport.current) {
+      viewport.current.classList.add('is-panning');
+    }
   }
 
   /**
-   * Di chuyển trượt (Pan)
+   * Di chuyển trượt (Pan) theo tọa độ kéo chuột
+   *
+   * @param {React.PointerEvent} event Sự kiện con trỏ chuột.
+   * @returns {void}
    */
   function movePan(event) {
     if (!drag.current) return;
-    event.currentTarget.scrollLeft = drag.current.x - event.clientX;
-    event.currentTarget.scrollTop = drag.current.y - event.clientY;
+    const dx = event.clientX - drag.current.startX;
+    const dy = event.clientY - drag.current.startY;
+    setPanOffset({
+      x: Math.round(drag.current.originX + dx),
+      y: Math.round(drag.current.originY + dy),
+    });
   }
 
   /**
-   * Kết thúc kéo trượt
+   * Kết thúc kéo trượt (Pan)
+   *
+   * @param {React.PointerEvent} [event] Sự kiện con trỏ chuột.
+   * @returns {void}
    */
   function stopPan(event) {
     drag.current = null;
-    event.currentTarget.classList.remove('is-panning');
+    if (viewport.current) {
+      viewport.current.classList.remove('is-panning');
+    }
+    try {
+      if (event?.target?.hasPointerCapture?.(event.pointerId)) {
+        event.target.releasePointerCapture(event.pointerId);
+      }
+    } catch {
+      // Bỏ qua
+    }
   }
 
   return (
@@ -701,7 +779,10 @@ export default function Workspace({ currentProject, incomingFile = null, incomin
               type="button"
               className="atelier-ws-zoom-btn"
               disabled={!preview}
-              onClick={() => setZoom(null)}
+              onClick={() => {
+                setZoom(null);
+                setPanOffset({ x: 0, y: 0 });
+              }}
               title="Khôi phục kích thước vừa khung nhìn"
             >
               Vừa khung
@@ -740,6 +821,8 @@ export default function Workspace({ currentProject, incomingFile = null, incomin
           paletteColors={paletteColors}
           activeColor={activeColor}
           onSelectActiveColor={setActiveColor}
+          onAddColor={handleAddPaletteColor}
+          onDeleteColor={handleDeletePaletteColor}
           isLoading={isPaletteLoading || Boolean(busy)}
           onRescanPalette={() =>
             (result?.file || source?.file) && fetchPalette(result?.file || source?.file)
@@ -752,10 +835,10 @@ export default function Workspace({ currentProject, incomingFile = null, incomin
             className="atelier-ws-viewport"
             ref={viewport}
             aria-label="Bàn vẽ canvas sprite"
-            onPointerDown={activeTool === 'pan' ? startPan : undefined}
-            onPointerMove={activeTool === 'pan' ? movePan : undefined}
-            onPointerUp={activeTool === 'pan' ? stopPan : undefined}
-            onLostPointerCapture={activeTool === 'pan' ? stopPan : undefined}
+            onPointerDown={startPan}
+            onPointerMove={movePan}
+            onPointerUp={stopPan}
+            onLostPointerCapture={stopPan}
           >
             {preview ? (
               sheetMode && frameIndex === null ? (
@@ -764,6 +847,7 @@ export default function Workspace({ currentProject, incomingFile = null, incomin
                   style={{
                     width: preview.width * activeZoom,
                     height: preview.height * activeZoom,
+                    transform: `translate(${panOffset.x}px, ${panOffset.y}px)`,
                   }}
                 >
                   <img
@@ -791,21 +875,32 @@ export default function Workspace({ currentProject, incomingFile = null, incomin
                   )}
                 </div>
               ) : (
-                <PixelCanvas
-                  ref={pixelCanvasRef}
-                  imageUrl={preview.url}
-                  zoom={activeZoom}
-                  activeTool={activeTool}
-                  activeColor={activeColor}
-                  brushSize={brushSize}
-                  showPixelGrid={showPixelGrid}
-                  onColorPicked={setActiveColor}
-                  onImageModified={handleCanvasModified}
-                  onHistoryChange={setHistoryState}
-                  onPanStart={startPan}
-                  onPanMove={movePan}
-                  onPanEnd={stopPan}
-                />
+                <div
+                  className="atelier-ws-canvas-container"
+                  style={{
+                    margin: 'auto',
+                    transform: `translate(${panOffset.x}px, ${panOffset.y}px)`,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <PixelCanvas
+                    ref={pixelCanvasRef}
+                    imageUrl={preview.url}
+                    zoom={activeZoom}
+                    activeTool={activeTool}
+                    activeColor={activeColor}
+                    brushSize={brushSize}
+                    showPixelGrid={showPixelGrid}
+                    onColorPicked={setActiveColor}
+                    onImageModified={handleCanvasModified}
+                    onHistoryChange={setHistoryState}
+                    onPanStart={startPan}
+                    onPanMove={movePan}
+                    onPanEnd={stopPan}
+                  />
+                </div>
               )
             ) : (
               <div className="atelier-ws-empty">
@@ -1196,6 +1291,7 @@ export default function Workspace({ currentProject, incomingFile = null, incomin
                           onClick={() => {
                             setShowResult(false);
                             setZoom(null);
+                            setPanOffset({ x: 0, y: 0 });
                           }}
                         >
                           Ảnh gốc
@@ -1207,6 +1303,7 @@ export default function Workspace({ currentProject, incomingFile = null, incomin
                           onClick={() => {
                             setShowResult(true);
                             setZoom(null);
+                            setPanOffset({ x: 0, y: 0 });
                           }}
                         >
                           Kết quả

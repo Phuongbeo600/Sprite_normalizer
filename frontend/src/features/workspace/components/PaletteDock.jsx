@@ -6,7 +6,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 // ========================================================
 // 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
 // ========================================================
-import { Palette, RefreshCw, Check, Copy } from 'lucide-react';
+import { Palette, RefreshCw, Check, Copy, Plus, Trash2 } from 'lucide-react';
 
 // ========================================================
 // 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Components & Schemas)
@@ -29,6 +29,8 @@ import { Palette, RefreshCw, Check, Copy } from 'lucide-react';
  * @param {string[]} props.paletteColors Danh sách các mã màu HEX của sprite.
  * @param {string} props.activeColor Mã màu HEX đang được chọn để vẽ.
  * @param {Function} props.onSelectActiveColor Hàm cập nhật màu vẽ đang kích hoạt.
+ * @param {Function} [props.onAddColor] Hàm thêm mã màu mới vào bảng màu.
+ * @param {Function} [props.onDeleteColor] Hàm xóa một ô màu khỏi bảng màu theo chỉ số index.
  * @param {boolean} [props.isLoading=false] Trạng thái đang tải hoặc quét bảng màu.
  * @param {Function} [props.onRescanPalette] Hàm kích hoạt quét lại bảng màu từ ảnh hiện tại.
  * @returns {React.ReactElement} Giao diện cột Palette Dock.
@@ -37,6 +39,8 @@ export default function PaletteDock({
   paletteColors = [],
   activeColor = '#000000',
   onSelectActiveColor,
+  onAddColor,
+  onDeleteColor,
   isLoading = false,
   onRescanPalette,
 }) {
@@ -65,9 +69,31 @@ export default function PaletteDock({
       );
       if (idx !== -1) {
         setSelectedIndex(idx);
+      } else if (selectedIndex >= safeColors.length && safeColors.length > 0) {
+        setSelectedIndex(safeColors.length - 1);
       }
     }
-  }, [activeColor, safeColors]);
+  }, [activeColor, safeColors, selectedIndex]);
+
+  /**
+   * Xử lý khi người dùng bấm thêm màu vào bảng màu
+   */
+  const handleAddColor = () => {
+    const targetColor =
+      hexInputText && /^#[0-9A-Fa-f]{3,8}$/.test(hexInputText) ? hexInputText : activeColor;
+    if (onAddColor && targetColor) {
+      onAddColor(targetColor);
+    }
+  };
+
+  /**
+   * Xử lý khi người dùng bấm xóa ô màu đang chọn
+   */
+  const handleDeleteColor = () => {
+    if (onDeleteColor && selectedIndex >= 0 && safeColors.length > 1) {
+      onDeleteColor(selectedIndex);
+    }
+  };
 
   /**
    * Xử lý khi người dùng click vào một ô màu trong bảng màu
@@ -161,6 +187,18 @@ export default function PaletteDock({
                 </button>
               );
             })}
+            {/* Ô thêm màu nhanh dạng Libresprite/Aseprite ở cuối lưới */}
+            {onAddColor && (
+              <button
+                type="button"
+                className="atelier-swatch-add-cell"
+                title={`Thêm màu ${activeColor} vào bảng màu`}
+                disabled={isLoading}
+                onClick={handleAddColor}
+              >
+                <Plus size={12} />
+              </button>
+            )}
           </div>
         ) : (
           <div className="atelier-palette-empty">
@@ -210,10 +248,36 @@ export default function PaletteDock({
               >
                 {copied ? <Check size={12} color="#4ade80" /> : <Copy size={12} />}
               </button>
+              {onAddColor && (
+                <button
+                  type="button"
+                  className="atelier-palette-btn-action add"
+                  title="Thêm màu này vào bảng màu"
+                  disabled={isLoading}
+                  onClick={handleAddColor}
+                >
+                  <Plus size={13} />
+                </button>
+              )}
             </div>
-            <span className="atelier-active-index-pill">
-              Idx-{selectedIndex >= 0 ? selectedIndex : 0}
-            </span>
+
+            <div className="atelier-active-footer-row">
+              <span className="atelier-active-index-pill">
+                Idx-{selectedIndex >= 0 ? selectedIndex : 0}
+              </span>
+              {onDeleteColor && (
+                <button
+                  type="button"
+                  className="atelier-palette-btn-action delete"
+                  title={safeColors.length <= 1 ? 'Không thể xóa màu cuối cùng' : 'Xóa ô màu này khỏi bảng màu'}
+                  disabled={isLoading || safeColors.length <= 1 || selectedIndex < 0}
+                  onClick={handleDeleteColor}
+                >
+                  <Trash2 size={11} />
+                  <span>Xóa ô</span>
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
