@@ -221,6 +221,75 @@ def _build_up_frames(
     }
 
 
+def _extract_geometry_metrics(data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Trích xuất các chỉ số hình học giải phẫu chi tiết của phần đầu và thân (tính bằng pixel).
+
+    @param {Dict[str, Any]} data Dữ liệu hồ sơ gốc (profile_data).
+    @returns {Dict[str, Any]} Từ điển chứa các số đo pixel thực tế.
+    """
+    anatomy = data.get("anatomy") or (data.get("global_analysis") or {}).get("anatomy") or {}
+    metrics = data.get("metrics") or data.get("automatic_geometry") or {}
+
+    heads_tall = metrics.get("heads_tall") or anatomy.get("heads_tall")
+    head_ratio = anatomy.get("head_to_body_ratio")
+    if heads_tall is None and isinstance(head_ratio, str) and ":" in head_ratio:
+        try:
+            heads_tall = float(head_ratio.split(":")[1])
+        except (ValueError, TypeError, IndexError):
+            pass
+    if heads_tall is not None:
+        try:
+            heads_tall = float(heads_tall)
+        except (ValueError, TypeError):
+            heads_tall = None
+
+    head_h = (
+        metrics.get("head_height")
+        or metrics.get("head_height_px")
+        or metrics.get("head_h")
+        or anatomy.get("head_height")
+    )
+    head_w = (
+        metrics.get("head_width")
+        or metrics.get("head_width_px")
+        or metrics.get("head_w")
+        or anatomy.get("head_width")
+    )
+    body_h = (
+        metrics.get("body_height")
+        or metrics.get("body_height_px")
+        or metrics.get("body_h")
+        or anatomy.get("body_height")
+    )
+    body_w = (
+        metrics.get("body_width")
+        or metrics.get("body_width_px")
+        or metrics.get("body_w")
+        or anatomy.get("body_width")
+    )
+    head_to_body_w = (
+        metrics.get("head_to_body_width_ratio")
+        or anatomy.get("head_to_body_width_ratio")
+    )
+    char_h = (
+        metrics.get("anatomical_height")
+        or metrics.get("visible_height")
+        or metrics.get("character_height_px")
+        or anatomy.get("anatomical_height")
+    )
+
+    return {
+        "heads_tall": heads_tall,
+        "head_height": head_h,
+        "head_width": head_w,
+        "body_height": body_h,
+        "body_width": body_w,
+        "head_to_body_width_ratio": head_to_body_w,
+        "character_height": char_h,
+    }
+
+
 def _build_tier0_palette_spec(data: Dict[str, Any], default_era: str, inherit_style: bool) -> Optional[str]:
     """
     Biên dịch Tầng 0: Master Color & Graphic Palette Specifications (Trích xuất từ NumPy/Pillow).
@@ -279,13 +348,50 @@ def _build_tier1_identity_and_style(
 ) -> List[str]:
     """
     Biên dịch Tầng 1: Identity & Style Matrix (Danh tính, tỷ lệ giải phẫu, tham chiếu phong cách).
+    Tích hợp các số đo pixel thực tế của phần đầu và tỷ lệ thân được tính toán từ thuật toán Python.
 
     @returns {List[str]} Danh sách các đoạn prompt của Tầng 1.
     """
+    geom = _extract_geometry_metrics(data)
+    head_h = geom.get("head_height")
+    head_w = geom.get("head_width")
+    body_h = geom.get("body_height")
+    head_to_body_w = geom.get("head_to_body_width_ratio")
+    heads_tall = geom.get("heads_tall")
+
+    anatomy_constraints = [
+        f"Strict anatomy constraints: exactly {height} pixels character height, strict {head_ratio} head-to-body proportion."
+    ]
+
+    if inherit_scale and head_h and head_w:
+        pixel_dim = f"Strict anatomical pixel dimensions: head bounding box is strictly {head_h}px tall by {head_w}px wide (head ratio {head_ratio})."
+        if body_h:
+            pixel_dim += f" Torso and legs: {body_h}px tall."
+        if head_to_body_w:
+            pixel_dim += f" Head-to-body width ratio: {head_to_body_w}."
+        anatomy_constraints.append(pixel_dim)
+
+    if inherit_scale and heads_tall is not None:
+        if heads_tall >= 3.6:
+            anatomy_constraints.append(
+                "Anatomy style: mature semi-realistic human proportions, slender heroic silhouette, small compact head proportion. "
+                "Any helmet, hood, or headwear must be compact and tightly fitted to the skull contours, strictly avoiding oversized helmet bulk or cartoonish bobblehead scale."
+            )
+        elif heads_tall < 3.0:
+            anatomy_constraints.append(
+                "Anatomy style: stylized cute chibi proportions, compact stout body, expressive oversized head."
+            )
+        else:
+            anatomy_constraints.append(
+                "Anatomy style: balanced semi-chibi stylized proportions."
+            )
+
+    anatomy_section = "\n".join(anatomy_constraints)
+
     parts: List[str] = [
         (
             f"Masterpiece authentic {era} pixel art sprite sheet of a {concept}{outfit}{props}.\n"
-            f"Strict anatomy constraints: exactly {height} pixels character height, strict {head_ratio} head-to-body proportion.\n"
+            f"{anatomy_section}\n"
             f"Rendering specifications: {shading}, {lighting}, transparent background, isolated on pure solid transparent background (PNG alpha channel), clean cut-out sprite sheet without background elements or floor shadows."
         )
     ]
@@ -358,20 +464,78 @@ def _build_tier3_frame_matrix(
     return "\n".join(frame_matrix)
 
 
-def _build_negative_prompt() -> str:
+def _build_negative_prompt(
+    data: Optional[Any] = None,
+    heads_tall: Optional[float] = None,
+    inherit_style: bool = True,
+    inherit_scale: bool = True,
+) -> str:
     """
     Tạo câu Negative Prompt tiêu chuẩn chống các khuyết tật pixel art và chống phông nền.
+    Tự động cấm các yếu tố phá hủy tính nhất quán đối chiếu theo nhân vật mẫu (Reference-Aware):
+    - Cấm lệch phong cách viền (nếu mẫu viền đen thì cấm lineless; nếu mẫu lineless thì cấm viền đen dày).
+    - Cấm đổ bóng mịn / 3D / airbrush / gradient / bóng gối bông pillow shading.
+    - Cấm ngược nguồn sáng so với mẫu (ví dụ: cấm bottom lighting, harsh backlighting).
+    - Cấm lệch tỷ lệ giải phẫu (dáng chuẩn thì cấm Chibi/đầu to; dáng Chibi thì cấm chân dài).
 
-    @returns {str} Chuỗi Negative Prompt.
+    @param {Optional[Any]} data Dữ liệu hồ sơ gốc của nhân vật mẫu (hoặc heads_tall nếu truyền trực tiếp).
+    @param {Optional[float]} heads_tall Số đầu của nhân vật để lọc phong cách phù hợp.
+    @param {bool} inherit_style Có áp dụng cấm lệch nét vẽ và đổ bóng của mẫu hay không.
+    @param {bool} inherit_scale Có áp dụng cấm lệch tỷ lệ vóc dáng của mẫu hay không.
+    @returns {str} Chuỗi Negative Prompt đã được tùy biến theo mẫu.
     """
-    return (
-        "background scenery, complex background, gradient background, floor texture, tiles, shadow on floor, "
-        "environment, landscape, horizon line, ground dirt, watermark, noisy background, solid colored background walls, "
-        "blurry, 3D render, smooth vector graphics, photorealistic, anti-aliased edges, "
-        "deformed anatomy, mismatched frame heights, inconsistent clothing colors between frames, "
-        "missing limbs, extra limbs, disjointed pixel clusters, "
-        "frame height flickering, head scaling distortion, irregular grid spacing."
-    )
+    # Hỗ trợ truyền heads_tall trực tiếp ở vị trí tham số đầu tiên (tương thích ngược)
+    if isinstance(data, (int, float)):
+        heads_tall = float(data)
+        data = None
+
+    tokens = [
+        "background scenery, complex background, gradient background, floor texture, tiles, shadow on floor",
+        "environment, landscape, horizon line, ground dirt, watermark, noisy background, solid colored background walls",
+        "blurry, 3D render, smooth vector graphics, photorealistic, anti-aliased edges",
+        "deformed anatomy, mismatched frame heights, inconsistent clothing colors between frames",
+        "missing limbs, extra limbs, disjointed pixel clusters",
+        "frame height flickering, head scaling distortion, irregular grid spacing",
+    ]
+
+    profile = data if isinstance(data, dict) else {}
+    palette = profile.get("palette_metrics") or (profile.get("global_analysis") or {}).get("palette_metrics") or {}
+    pixel_style = profile.get("pixel_style") or (profile.get("global_analysis") or {}).get("pixel_style") or {}
+
+    # 1. Cấm lệch Nét vẽ, Viền và Đổ bóng của Mẫu (khi bật inherit_style)
+    if inherit_style:
+        tokens.append("smooth color gradients, soft airbrush shading, modern 3D lighting, pillow shading, subpixel blur")
+
+        # Cấm lệch phong cách nét viền (Outline Grammar)
+        outline = str(
+            palette.get("outline_style_detected")
+            or pixel_style.get("outline_style")
+            or ""
+        ).lower()
+
+        if "black" in outline or "dark" in outline or "crisp" in outline:
+            tokens.append("lineless, borderless, faint outline, broken outline, colored outer contour")
+        elif "lineless" in outline or "sel-out" in outline or "selective" in outline or "none" in outline:
+            tokens.append("heavy black outline, thick cartoon contour, dark ink lines")
+
+        # Cấm ngược hướng sáng so với mẫu
+        lighting = str(pixel_style.get("lighting_direction") or "").lower()
+        if any(kw in lighting for kw in ["top", "overhead", "left", "right"]):
+            tokens.append("bottom lighting, underlighting, harsh rim light, backlighting, multiple conflicting light sources")
+
+    # 2. Cấm lệch Tỷ lệ giải phẫu số đầu (khi bật inherit_scale)
+    if inherit_scale and heads_tall is not None:
+        if heads_tall >= 3.5:
+            tokens.append(
+                "chibi, super-deformed, SD style, oversized head, bobblehead, giant bulky helmet, "
+                "exaggerated head size, 2-heads tall, 3-heads tall, cute stout body, dwarfish proportions, big head"
+            )
+        elif heads_tall < 3.0:
+            tokens.append(
+                "realistic human anatomy, tall slender model, elongated legs, tiny head, 5-heads tall, 8-heads tall"
+            )
+
+    return ", ".join(tokens)
 
 
 class PromptBuilderService:
@@ -398,13 +562,14 @@ class PromptBuilderService:
         """
         data = profile_data or {}
 
-        # 1. Trích xuất thông số giải phẫu & phong cách từ Schemas
+        # 1. Trích xuất thông số giải phẫu & phong cách từ Schemas và Metrics
         anatomy = data.get("anatomy", {})
         anim_data = data.get("animations", {})
         dir_data = data.get("directions", {})
+        geom = _extract_geometry_metrics(data)
 
-        height = anatomy.get("anatomical_height", 48)
-        head_ratio = anatomy.get("head_to_body_ratio", "1:4.0")
+        height = anatomy.get("anatomical_height") or geom.get("character_height") or 48
+        head_ratio = anatomy.get("head_to_body_ratio") or (f"1:{geom.get('heads_tall')}" if geom.get('heads_tall') else "1:4.0")
 
         # Động học từ Animation Profile (nếu có)
         walk_profile = anim_data.get("walk_profile", {})
@@ -456,10 +621,11 @@ class PromptBuilderService:
         data = profile_data or {}
         anatomy = data.get("anatomy", {})
         pixel_style = data.get("pixel_style", {})
+        geom = _extract_geometry_metrics(data)
 
         # Lấy thông số kỹ thuật cốt lõi
-        height = anatomy.get("anatomical_height", 48)
-        head_ratio = anatomy.get("head_to_body_ratio", "1:4.0")
+        height = anatomy.get("anatomical_height") or geom.get("character_height") or 48
+        head_ratio = anatomy.get("head_to_body_ratio") or (f"1:{geom.get('heads_tall')}" if geom.get('heads_tall') else "1:4.0")
         era = pixel_style.get("pixel_art_era", "16-bit SNES")
         shading = pixel_style.get("shading_style", "2-tone cell shading")
         lighting = pixel_style.get("lighting_direction", "consistent top-left lighting")
@@ -501,7 +667,13 @@ class PromptBuilderService:
             prompt_parts.append(f"Director notes: {custom_instructions.strip()}")
 
         positive_prompt = "\n\n".join(prompt_parts)
-        negative_prompt = _build_negative_prompt()
+        heads_tall_for_neg = geom.get("heads_tall") if inherit_scale else None
+        negative_prompt = _build_negative_prompt(
+            data=data,
+            heads_tall=heads_tall_for_neg,
+            inherit_style=inherit_style,
+            inherit_scale=inherit_scale,
+        )
 
         return {
             "positive_prompt": positive_prompt,

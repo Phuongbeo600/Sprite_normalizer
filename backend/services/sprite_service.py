@@ -24,7 +24,8 @@ from backend.core.metrics.palette_analyzer import HeuristicPaletteAnalyzer
 # analyze_sprite: Phân tích màu, lưới và viền bằng thuật toán Python.
 from backend.core.metrics.pixel_art_metrics import analyze_sprite
 # slice_sheet: Cắt từng ô, giữ kích thước và phần trong suốt của ô gốc.
-from backend.core.processing.sprite_editing import slice_sheet
+# resize_sprite: Thu nhỏ hoặc ép kích thước từng ô theo thuật toán Nearest Neighbor
+from backend.core.processing.sprite_editing import slice_sheet, resize_sprite
 
 # ========================================================
 # 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
@@ -49,12 +50,25 @@ class SpriteService:
             yield f"frame_{index:03}.png", frame.size, cls.encode_png(frame)
 
     @classmethod
-    def sheet_zip(cls, image: Image.Image, rows: int, columns: int, auto_anchor: bool = False) -> bytes:
-        """Đóng gói các PNG theo đúng thứ tự hiển thị."""
+    def sheet_zip(
+        cls,
+        image: Image.Image,
+        rows: int,
+        columns: int,
+        auto_anchor: bool = False,
+        target_width: Optional[int] = None,
+        target_height: Optional[int] = None,
+    ) -> bytes:
+        """Đóng gói các PNG theo đúng thứ tự hiển thị (Hỗ trợ ép kích thước Nearest Neighbor nếu có target_width/height)."""
         buffer = io.BytesIO()
         with ZipFile(buffer, "w") as archive:
-            for name, _, png in cls.sheet_frames(image, rows, columns, auto_anchor=auto_anchor):
-                archive.writestr(name, png)
+            for name, (w, h), png in cls.sheet_frames(image, rows, columns, auto_anchor=auto_anchor):
+                if target_width and target_height and (target_width != w or target_height != h):
+                    frame_img = Image.open(io.BytesIO(png))
+                    resized = resize_sprite(frame_img, width=target_width, height=target_height)
+                    archive.writestr(name, cls.encode_png(resized))
+                else:
+                    archive.writestr(name, png)
         return buffer.getvalue()
     @staticmethod
     def analyze_colors(image: Image.Image) -> dict:

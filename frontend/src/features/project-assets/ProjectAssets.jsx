@@ -65,6 +65,7 @@ export default function ProjectSavedPresets({
   onLoadPresetToStudio,
   onLoadSpriteToWorkspace,
   onDeployCharactersToGodot,
+  onTransferToGodot,
   onSelectTab,
   isActive = false
 }) {
@@ -188,9 +189,64 @@ export default function ProjectSavedPresets({
       if (!res.ok) throw new Error('Không thể tải tệp ảnh từ máy chủ.');
       const blob = await res.blob();
       const file = new File([blob], sprite.name || 'sprite.png', { type: 'image/png' });
-      onLoadSpriteToWorkspace(file);
+
+      // Nếu sprite này có các frame con cắt rời trong CSDL MySQL, tải kèm trọn bộ frame
+      let sheetPayload = null;
+      if (sprite.frame_count > 0 || sprite.is_sheet) {
+        try {
+          const framesRes = await fetch(`/api/sprites/${sprite.id}/frames`);
+          if (framesRes.ok) {
+            const framesData = await framesRes.json();
+            if (framesData?.frames && framesData.frames.length > 0) {
+              let meta = sprite.processing_metadata;
+              if (typeof meta === 'string') {
+                try { meta = JSON.parse(meta); } catch {}
+              }
+              meta = meta || {};
+
+              sheetPayload = {
+                rows: meta.rows || 1,
+                columns: meta.columns || 1,
+                autoAnchor: Boolean(meta.auto_anchor),
+                fps: meta.fps || 6,
+                frames: framesData.frames.map((f) => ({
+                  name: f.frame_name || `frame_${f.frame_index}.png`,
+                  url: f.image_url,
+                  index: f.frame_index,
+                  id: f.id
+                }))
+              };
+            }
+          }
+        } catch (fetchFramesErr) {
+          console.warn('Không thể kéo danh sách frame con từ CSDL:', fetchFramesErr);
+        }
+      }
+
+      onLoadSpriteToWorkspace(file, null, sheetPayload);
     } catch (err) {
       alert('Lỗi nạp ảnh vào Workspace: ' + err.message);
+    }
+  };
+
+  /**
+   * Tải ảnh sprite từ backend và chuyển thẳng vào phòng Thử nghiệm Godot.
+   * @param {Object} sprite Bản ghi sprite
+   */
+  const handleOpenInGodot = async (sprite) => {
+    if (!onTransferToGodot) {
+      if (onSelectTab) onSelectTab('godot_testbed');
+      return;
+    }
+    try {
+      const url = spriteImageUrl(currentProject.id, sprite.id, sprite.has_processed);
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('Không thể tải tệp ảnh từ máy chủ.');
+      const blob = await res.blob();
+      const file = new File([blob], sprite.name || 'character_sheet.png', { type: 'image/png' });
+      onTransferToGodot(file);
+    } catch (err) {
+      alert('Lỗi nạp ảnh vào Godot Testbed: ' + err.message);
     }
   };
 
@@ -609,7 +665,19 @@ export default function ProjectSavedPresets({
                       />
 
                       {/* Tag trạng thái góc trên */}
-                      <div style={{ position: 'absolute', top: '8px', left: '8px', display: 'flex', gap: '4px' }}>
+                      <div style={{ position: 'absolute', top: '8px', left: '8px', display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
+                        <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                          {s.folder_name && s.folder_name !== 'Mặc định' && (
+                            <span className="atelier-assets-metric-pill purple" style={{ fontSize: '0.62rem', background: 'rgba(124, 58, 237, 0.65)', color: '#f3e8ff', border: '1px solid #c084fc' }}>
+                              📁 {s.folder_name}
+                            </span>
+                          )}
+                          {s.frame_count > 0 && (
+                            <span className="atelier-assets-metric-pill indigo" style={{ fontSize: '0.62rem', background: 'rgba(14, 165, 233, 0.45)', color: '#e0f2fe', border: '1px solid #38bdf8' }}>
+                              🎞️ {s.frame_count} frames
+                            </span>
+                          )}
+                        </div>
                         {s.has_processed ? (
                           <span className="atelier-assets-metric-pill emerald" style={{ fontSize: '0.65rem' }}>
                             Đã xử lý
@@ -685,6 +753,17 @@ export default function ProjectSavedPresets({
                           <button
                             type="button"
                             className="atelier-assets-btn-sub"
+                            onClick={() => handleOpenInGodot(s)}
+                            title="Đưa nhân vật này vào phòng Thử nghiệm Godot"
+                            style={{ background: 'rgba(147, 51, 234, 0.18)', borderColor: 'rgba(192, 132, 252, 0.35)', color: '#c084fc' }}
+                          >
+                            <Gamepad2 size={12} />
+                            <span>Thử Godot</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            className="atelier-assets-btn-sub"
                             onClick={() => handleDownloadSprite(s, s.has_processed)}
                             title="Tải ảnh PNG về máy"
                           >
@@ -749,8 +828,18 @@ export default function ProjectSavedPresets({
                       </div>
 
                       {/* Tên ảnh */}
-                      <div style={{ color: '#fff', fontWeight: 500, paddingRight: '12px', wordBreak: 'break-word' }}>
-                        {s.name}
+                      <div style={{ color: '#fff', fontWeight: 500, paddingRight: '12px', wordBreak: 'break-word', display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                        <span>{s.name}</span>
+                        {(s.folder_name && s.folder_name !== 'Mặc định' || s.frame_count > 0) && (
+                          <div style={{ display: 'flex', gap: '4px', fontSize: '0.65rem' }}>
+                            {s.folder_name && s.folder_name !== 'Mặc định' && (
+                              <span style={{ color: '#c084fc' }}>📁 {s.folder_name}</span>
+                            )}
+                            {s.frame_count > 0 && (
+                              <span style={{ color: '#38bdf8' }}>🎞️ {s.frame_count} frames</span>
+                            )}
+                          </div>
+                        )}
                       </div>
 
                       {/* Trạng thái */}
@@ -795,6 +884,15 @@ export default function ProjectSavedPresets({
                           title="Mở vào Workspace"
                         >
                           <Wrench size={12} />
+                        </button>
+                        <button
+                          type="button"
+                          className="atelier-assets-btn-sub"
+                          onClick={() => handleOpenInGodot(s)}
+                          style={{ padding: '4px 6px', color: '#c084fc' }}
+                          title="Thử trong Godot Testbed"
+                        >
+                          <Gamepad2 size={12} />
                         </button>
                         <button
                           type="button"
@@ -1175,6 +1273,7 @@ export default function ProjectSavedPresets({
         handleDownloadSprite,
         onLoadSpriteToWorkspace,
         handleOpenInWorkspace,
+        handleOpenInGodot,
         onClose: () => setSelectedSprite(null)
       })}
 

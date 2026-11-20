@@ -102,12 +102,59 @@ def ensure_user_columns(conn_or_session):
             pass
 
 
+def ensure_sprite_columns(conn_or_session):
+    """
+    Đảm bảo các cột mở rộng tồn tại trong bảng 'project_sprites':
+    - Cột file_hash (VARCHAR(64) NULL): Mã băm SHA-256 của ảnh nhị phân để ngăn chặn lưu trùng lặp.
+    - Cột folder_name (VARCHAR(150) NULL): Tên thư mục gom nhóm tài nguyên.
+    - Cột is_sheet (BOOLEAN DEFAULT TRUE): Cờ đánh dấu đây là ảnh Sprite Sheet hoàn chỉnh.
+
+    @param conn_or_session Kết nối hoặc phiên làm việc CSDL MySQL.
+    """
+    sprite_cols = [
+        ("file_hash", "VARCHAR(64) NULL"),
+        ("folder_name", "VARCHAR(150) NULL DEFAULT 'Mặc định'"),
+        ("is_sheet", "BOOLEAN DEFAULT TRUE")
+    ]
+    for col_name, col_type in sprite_cols:
+        try:
+            conn_or_session.execute(text(f"ALTER TABLE project_sprites ADD COLUMN {col_name} {col_type};"))
+        except Exception:
+            pass
+    try:
+        conn_or_session.execute(text("CREATE INDEX idx_project_sprite_hash ON project_sprites (project_id, file_hash);"))
+    except Exception:
+        pass
+
+
+def ensure_sprite_frame_columns(conn_or_session):
+    """
+    Đảm bảo các cột mở rộng tồn tại trong bảng 'sprite_frames':
+    - Cột frame_name (VARCHAR(255) NULL): Tên tệp khung hình con.
+    - Cột metadata (JSON NULL): Thông số kích thước và tọa độ ô cắt.
+    - Cột project_id (INT NULL): Mã dự án liên kết.
+
+    @param conn_or_session Kết nối hoặc phiên làm việc CSDL MySQL.
+    """
+    frame_cols = [
+        ("frame_name", "VARCHAR(255) NULL"),
+        ("metadata", "JSON NULL"),
+        ("project_id", "INT NULL")
+    ]
+    for col_name, col_type in frame_cols:
+        try:
+            conn_or_session.execute(text(f"ALTER TABLE sprite_frames ADD COLUMN {col_name} {col_type};"))
+        except Exception:
+            pass
+
+
 def init_db():
     """
     Khởi tạo và tự động cập nhật cấu trúc các bảng trong cơ sở dữ liệu MySQL:
     1. Bảng users: Quản lý tài khoản đăng nhập (Admin tối cao và Người dùng thường, Họ tên, Gmail, Avatar).
     2. Bảng projects: Mở rộng các cột lưu API Key, AI enabled và user_id sở hữu.
     3. Bảng project_character_presets: Lưu trữ lịch sử chỉ số giải phẫu pixel, prompt và ma trận 15 frame.
+    4. Bảng project_sprites: Lưu trữ kho ảnh sprite gốc và đã chuẩn hóa, băm SHA-256 chống trùng.
     """
     try:
         with engine.begin() as conn:
@@ -199,6 +246,49 @@ def init_db():
 
             # Tự động kiểm tra và thêm cột frame_actions_data nếu bảng preset đã tạo trước đó
             ensure_preset_columns(conn)
+
+            #  Tạo bảng project_sprites lưu kho ảnh gốc và ảnh đã chuẩn hóa của dự án
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS project_sprites (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    project_id INT NOT NULL,
+                    name VARCHAR(255) NOT NULL,
+                    file_hash VARCHAR(64) NULL,
+                    folder_name VARCHAR(150) NULL DEFAULT 'Mặc định',
+                    is_sheet BOOLEAN DEFAULT TRUE,
+                    raw_image_data MEDIUMBLOB NULL,
+                    processed_image_data MEDIUMBLOB NULL,
+                    processing_metadata JSON NULL,
+                    status VARCHAR(50) DEFAULT 'raw',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    INDEX idx_project_hash (project_id, file_hash),
+                    INDEX idx_project_folder (project_id, folder_name),
+                    CONSTRAINT fk_sprite_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+            """))
+
+            # Tự động kiểm tra và thêm các cột mở rộng nếu bảng project_sprites đã tạo trước đó
+            ensure_sprite_columns(conn)
+
+            #  Tạo bảng sprite_frames lưu các khung hình cắt rời từ Sprite Sheet
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS sprite_frames (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    sprite_id INT NOT NULL,
+                    project_id INT NULL,
+                    frame_index INT NOT NULL,
+                    frame_name VARCHAR(255) NULL,
+                    frame_image_data MEDIUMBLOB NOT NULL,
+                    metadata JSON NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    INDEX idx_sprite_frames_sprite (sprite_id),
+                    CONSTRAINT fk_frame_sprite FOREIGN KEY (sprite_id) REFERENCES project_sprites(id) ON DELETE CASCADE
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+            """))
+
+            # Tự động kiểm tra và thêm các cột mở rộng nếu bảng sprite_frames đã tạo trước đó
+            ensure_sprite_frame_columns(conn)
     except Exception as e:
         # Ghi log cảnh báo an toàn tránh lỗi Unicode trên console Windows
         try:

@@ -80,6 +80,10 @@ const PixelCanvas = forwardRef(function PixelCanvas(
   const historyRef = useRef([]);
   // Vị trí con trỏ lịch sử hiện tại
   const historyIndexRef = useRef(-1);
+  // Lưu URL blob do chính PixelCanvas tự xuất ra để tránh tải lại ảnh lặp
+  const lastSelfGeneratedUrlRef = useRef(null);
+  // Cờ ghi nhận đang kéo rê khung nhìn (Pan)
+  const isPanningRef = useRef(false);
 
   // Kích thước logic thực tế của ảnh (width, height)
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
@@ -119,6 +123,7 @@ const PixelCanvas = forwardRef(function PixelCanvas(
       canvas.toBlob((blob) => {
         if (blob) {
           const url = URL.createObjectURL(blob);
+          lastSelfGeneratedUrlRef.current = url;
           onImageModified(blob, url);
         }
       }, 'image/png');
@@ -130,6 +135,11 @@ const PixelCanvas = forwardRef(function PixelCanvas(
    */
   useEffect(() => {
     if (!imageUrl) return;
+
+    // Nếu imageUrl chính là URL do bàn vẽ vừa tự sinh ra, không tải lại ảnh và không xóa lịch sử
+    if (imageUrl === lastSelfGeneratedUrlRef.current) {
+      return;
+    }
 
     const img = new Image();
     img.crossOrigin = 'anonymous';
@@ -270,10 +280,14 @@ const PixelCanvas = forwardRef(function PixelCanvas(
    * Xử lý khi nhấn chuột (Pointer Down)
    */
   const handlePointerDown = (e) => {
-    if (activeTool === 'pan' || e.button !== 0) {
+    if (activeTool === 'pan' || e.button === 1) {
+      e.stopPropagation();
+      isPanningRef.current = true;
       if (onPanStart) onPanStart(e);
       return;
     }
+
+    if (e.button !== 0) return;
 
     const { x, y } = getPixelCoords(e);
     if (x < 0 || y < 0) return;
@@ -306,7 +320,11 @@ const PixelCanvas = forwardRef(function PixelCanvas(
       isPointerDownRef.current = true;
       lastPixelRef.current = { x, y };
       applyBrushAt(x, y);
-      e.currentTarget.setPointerCapture(e.pointerId);
+      try {
+        e.currentTarget.setPointerCapture(e.pointerId);
+      } catch {
+        // Bỏ qua
+      }
     }
   };
 
@@ -314,7 +332,8 @@ const PixelCanvas = forwardRef(function PixelCanvas(
    * Xử lý khi di chuyển chuột (Pointer Move) để vẽ nét liền
    */
   const handlePointerMove = (e) => {
-    if (activeTool === 'pan') {
+    if (isPanningRef.current || activeTool === 'pan') {
+      e.stopPropagation();
       if (onPanMove) onPanMove(e);
       return;
     }
@@ -331,13 +350,22 @@ const PixelCanvas = forwardRef(function PixelCanvas(
    * Xử lý khi nhả chuột (Pointer Up)
    */
   const handlePointerUp = (e) => {
-    if (activeTool === 'pan') {
+    if (isPanningRef.current || activeTool === 'pan') {
+      e.stopPropagation();
+      isPanningRef.current = false;
       if (onPanEnd) onPanEnd(e);
       return;
     }
 
     if (isPointerDownRef.current) {
       isPointerDownRef.current = false;
+      try {
+        if (e.currentTarget?.hasPointerCapture?.(e.pointerId)) {
+          e.currentTarget.releasePointerCapture(e.pointerId);
+        }
+      } catch {
+        // Bỏ qua
+      }
       pushHistorySnapshot();
     }
   };
@@ -357,7 +385,11 @@ const PixelCanvas = forwardRef(function PixelCanvas(
         notifyHistoryChange();
         if (onImageModified) {
           canvas.toBlob((blob) => {
-            if (blob) onImageModified(blob, URL.createObjectURL(blob));
+            if (blob) {
+              const url = URL.createObjectURL(blob);
+              lastSelfGeneratedUrlRef.current = url;
+              onImageModified(blob, url);
+            }
           }, 'image/png');
         }
       }
@@ -373,7 +405,11 @@ const PixelCanvas = forwardRef(function PixelCanvas(
         notifyHistoryChange();
         if (onImageModified) {
           canvas.toBlob((blob) => {
-            if (blob) onImageModified(blob, URL.createObjectURL(blob));
+            if (blob) {
+              const url = URL.createObjectURL(blob);
+              lastSelfGeneratedUrlRef.current = url;
+              onImageModified(blob, url);
+            }
           }, 'image/png');
         }
       }

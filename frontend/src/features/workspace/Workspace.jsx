@@ -11,6 +11,9 @@ import { useEffect, useRef, useState } from 'react';
 import {
   Download,
   FolderOpen,
+  FolderPlus,
+  Check,
+  X,
   Grid2X2,
   Image as ImageIcon,
   LoaderCircle,
@@ -39,12 +42,12 @@ import DrawingToolbar from './components/DrawingToolbar';
 import PixelCanvas from './components/PixelCanvas';
 // Khung thẻ gập mở Accordion cho các công cụ thiết lập.
 import CollapsibleCard from './components/CollapsibleCard';
-// Các yêu cầu xử lý và lưu ảnh của bàn làm việc.
+// Các yêu cầu xử lý và phân tích ảnh của bàn làm việc.
 import {
   processImage,
-  saveProcessedSprite,
-  saveRawSprite,
   analyzeSpriteColors,
+  saveSlicedPackToVault,
+  batchResizeSheetFrames,
 } from './workspaceApi';
 
 // ========================================================
@@ -69,9 +72,15 @@ const MAX_FRAMES = 256;
  * @param {Object} [props.currentProject] Dự án hiện tại đang mở.
  * @param {File|null} [props.incomingFile] Tệp ảnh được chuyển tiếp từ màn hình Tạo ảnh AI hoặc Studio.
  * @param {string[]|null} [props.incomingPalette] Bảng màu trích xuất chuyển tiếp từ màn hình Phân tích.
+ * @param {Object|null} [props.incomingSheetData] Dữ liệu trọn bộ frame cắt rời và thông số lưới nạp từ CSDL MySQL.
  * @returns {React.ReactElement} Giao diện bàn làm việc chuẩn hóa sprite.
  */
-export default function Workspace({ currentProject, incomingFile = null, incomingPalette = null }) {
+export default function Workspace({
+  currentProject,
+  incomingFile = null,
+  incomingPalette = null,
+  incomingSheetData = null
+}) {
   // Chế độ làm việc: 'single' (Ảnh đơn) | 'sheet' (Sprite Sheet hoạt họa)
   const [mode, setMode] = useState('single');
   // Dữ liệu ảnh nguồn ban đầu
@@ -96,8 +105,16 @@ export default function Workspace({ currentProject, incomingFile = null, incomin
     anchor: true,
     result: true,
     sheetSlice: true,
+    sheetBatchResize: true,
     sheetExport: true,
   });
+  // Kích thước mục tiêu cho thao tác Ép độ phân giải frame hàng loạt (Batch Resize)
+  const [batchResizeTarget, setBatchResizeTarget] = useState({ width: 64, height: 64 });
+  const [batchKeepRatio, setBatchKeepRatio] = useState(true);
+  const [batchResizing, setBatchResizing] = useState(false);
+  const [batchResizeMsg, setBatchResizeMsg] = useState('');
+  // Kích thước thực tế của frame sau khi đã ép thành công (dùng để lưu vào CSDL và xuất ZIP)
+  const [batchResizedSize, setBatchResizedSize] = useState(null);
   // Số hàng và số cột khi cắt Sprite Sheet
   const [rows, setRows] = useState(3);
   const [columns, setColumns] = useState(5);
@@ -132,10 +149,18 @@ export default function Workspace({ currentProject, incomingFile = null, incomin
   // Bộ đệm lưu tạm ảnh đã chuẩn hóa nếu người dùng bấm áp dụng trước khi lưu raw xong
   const pendingProcessedBlobRef = useRef(null);
 
+  // Quản lý Modal lưu bộ Frame cắt rời vào Thư mục Kho tài nguyên
+  const [showSavePackModal, setShowSavePackModal] = useState(false);
+  const [packFolderName, setPackFolderName] = useState('');
+  const [savingPack, setSavingPack] = useState(false);
+  const [savePackStatus, setSavePackStatus] = useState({ success: false, message: '' });
+
   // Tham chiếu DOM đến vùng xem và tọa độ kéo chuột
   const viewport = useRef(null);
   const drag = useRef(null);
   const uploadVersion = useRef(0);
+  // Tọa độ dịch chuyển tự do của bàn vẽ khi rê chuột (Pan Offset)
+  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
 
   // Danh sách các mã màu HEX của bảng màu sprite
   const [paletteColors, setPaletteColors] = useState([]);
@@ -183,13 +208,16 @@ export default function Workspace({ currentProject, incomingFile = null, incomin
     gridCount <= MAX_FRAMES &&
     cellWidth >= 1 &&
     cellHeight >= 1;
-  const fitZoom = preview
+  const previewWidth = preview?.width || cellWidth || dimensions?.width || 64;
+  const previewHeight = preview?.height || cellHeight || dimensions?.height || 64;
+  const fitZoom = (preview && previewWidth > 0 && previewHeight > 0 && viewportSize.width > 32 && viewportSize.height > 32)
     ? Math.max(
         0.01,
-        Math.min((viewportSize.width - 32) / preview.width, (viewportSize.height - 32) / preview.height, 16)
+        Math.min((viewportSize.width - 32) / previewWidth, (viewportSize.height - 32) / previewHeight, 16)
       )
     : 1;
-  const activeZoom = zoom ?? fitZoom;
+  const safeFitZoom = Number.isFinite(fitZoom) ? fitZoom : 1;
+  const activeZoom = Number.isFinite(zoom) ? zoom : safeFitZoom;
   const nameStem = source?.file.name.replace(/\.[^.]+$/, '') || 'sprite';
 
   // Lắng nghe thay đổi kích thước khung nhìn để tính toán zoom vừa vặn
@@ -286,6 +314,46 @@ export default function Workspace({ currentProject, incomingFile = null, incomin
   }
 
   /**
+   * Thêm một mã màu mới vào danh sách bảng màu sprite hiện tại.
+   *
+   * @param {string} colorToAppend Mã màu HEX cần thêm (ví dụ '#ff0055').
+   * @returns {void}
+   */
+  function handleAddPaletteColor(colorToAppend) {
+    if (!colorToAppend || typeof colorToAppend !== 'string') return;
+    const cleanHex = colorToAppend.trim();
+    if (!/^#[0-9A-Fa-f]{3,8}$/.test(cleanHex)) return;
+
+    let fullHex = cleanHex.toLowerCase();
+    if (fullHex.length === 4) {
+      fullHex = `#${fullHex[1]}${fullHex[1]}${fullHex[2]}${fullHex[2]}${fullHex[3]}${fullHex[3]}`;
+    }
+
+    setPaletteColors((prev) => [...prev, fullHex]);
+    setActiveColor(fullHex);
+  }
+
+  /**
+   * Xóa một ô màu khỏi bảng màu theo vị trí chỉ số (index).
+   *
+   * @param {number} indexToRemove Vị trí chỉ số màu cần xóa trong mảng màu.
+   * @returns {void}
+   */
+  function handleDeletePaletteColor(indexToRemove) {
+    if (paletteColors.length <= 1) return;
+    if (indexToRemove < 0 || indexToRemove >= paletteColors.length) return;
+
+    const nextColors = paletteColors.filter((_, idx) => idx !== indexToRemove);
+    setPaletteColors(nextColors);
+
+    // Tự động chuyển màu active sang ô lân cận để không bị mất dấu
+    const nextIndex = Math.min(indexToRemove, nextColors.length - 1);
+    if (nextIndex >= 0 && nextColors[nextIndex]) {
+      setActiveColor(nextColors[nextIndex]);
+    }
+  }
+
+  /**
    * Đồng bộ dữ liệu khi người dùng vẽ hoặc chỉnh sửa trực tiếp trên canvas
    *
    * @param {Blob} blob Dữ liệu nhị phân ảnh mới.
@@ -346,6 +414,7 @@ export default function Workspace({ currentProject, incomingFile = null, incomin
     setFrameIndex(null);
     setPlaying(false);
     setZoom(null);
+    setPanOffset({ x: 0, y: 0 });
     setError('');
     setShowResult(true);
 
@@ -359,23 +428,10 @@ export default function Workspace({ currentProject, incomingFile = null, incomin
       fetchPalette(file);
     }
 
-    // Đặt lại mã định danh CSDL và bộ đệm hàng đợi
+    // Đặt lại mã định danh CSDL và bộ đệm hàng đợi (Không tự động lưu vào CSDL khi chưa có yêu cầu từ người dùng)
     spriteDbIdRef.current = null;
     pendingProcessedBlobRef.current = null;
     setSpriteDbId(null);
-
-    // Tự động lưu ảnh nguồn vào CSDL MySQL.
-    if (currentProject?.id) {
-      saveRawSprite(file, currentProject.id, fallbackName, (savedId) => {
-        setSpriteDbId(savedId);
-        spriteDbIdRef.current = savedId;
-        // Nếu ảnh đã được xử lý xong trong khi đang chờ lưu raw, lưu ảnh xử lý ngay lập tức
-        if (pendingProcessedBlobRef.current) {
-          saveProcessedSprite(pendingProcessedBlobRef.current, currentProject.id, savedId);
-          pendingProcessedBlobRef.current = null;
-        }
-      });
-    }
 
     image.onload = () => {
       if (version !== uploadVersion.current) return;
@@ -408,7 +464,7 @@ export default function Workspace({ currentProject, incomingFile = null, incomin
     });
   }
 
-  // Nạp lại ảnh và bảng màu khi có tệp chuyển đến từ Studio hoặc Tạo ảnh AI.
+  // Nạp lại ảnh, bảng màu và bộ frame khi có tệp chuyển đến từ Studio, Tạo ảnh AI hoặc Kho tài nguyên CSDL.
   useEffect(() => {
     if (!incomingFile) return;
     loadSourceImage(
@@ -419,7 +475,23 @@ export default function Workspace({ currentProject, incomingFile = null, incomin
       },
       incomingPalette
     );
-  }, [incomingFile, incomingPalette]);
+
+    // Nếu có dữ liệu trọn bộ frame cắt rời từ CSDL MySQL (lấy dữ liệu thực từ cột frame_image_data)
+    if (incomingSheetData && incomingSheetData.frames && incomingSheetData.frames.length > 0) {
+      setMode('sheet');
+      setRows(incomingSheetData.rows || 3);
+      setColumns(incomingSheetData.columns || 5);
+      setAutoAnchor(Boolean(incomingSheetData.autoAnchor));
+      setFps(incomingSheetData.fps || 6);
+      setSheet({
+        rows: incomingSheetData.rows || 3,
+        columns: incomingSheetData.columns || 5,
+        frames: incomingSheetData.frames,
+      });
+      setFrameIndex(null); // Mặc định hiển thị toàn bộ Sheet gốc và thanh Timeline 15 frame ở đáy
+      setOpenSections((prev) => ({ ...prev, sheetSlice: true, sheetExport: true }));
+    }
+  }, [incomingFile, incomingPalette, incomingSheetData]);
 
   /**
    * Bật/tắt trạng thái đóng mở của một khung Accordion
@@ -461,6 +533,67 @@ export default function Workspace({ currentProject, incomingFile = null, incomin
   }
 
   /**
+   * Thay đổi kích thước mục tiêu cho thao tác Ép độ phân giải frame hàng loạt (Batch Resize).
+   *
+   * @param {'width'|'height'} axis Trục kích thước thay đổi.
+   * @param {string|number} value Giá trị pixel nhập vào.
+   * @returns {void}
+   */
+  function changeBatchResizeTarget(axis, value) {
+    const num = Math.max(1, Number(value) || 1);
+    const next = { ...batchResizeTarget, [axis]: num };
+    const curW = cellWidth || 64;
+    const curH = cellHeight || 64;
+    if (batchKeepRatio && curW > 0 && curH > 0 && Number(value) > 0) {
+      const other = axis === 'width' ? 'height' : 'width';
+      const ratio = axis === 'width' ? (curH / curW) : (curW / curH);
+      next[other] = Math.max(1, Math.round(Number(value) * ratio));
+    }
+    setBatchResizeTarget(next);
+  }
+
+  /**
+   * Thực thi ép toàn bộ các khung hình trong Sprite Sheet về độ phân giải yêu cầu.
+   */
+  async function executeBatchResize() {
+    if (!source?.file || !sheet || batchResizing) return;
+    setBatchResizing(true);
+    setBatchResizeMsg('');
+    setError('');
+    try {
+      const res = await batchResizeSheetFrames({
+        file: source.file,
+        rows: sheet.rows,
+        columns: sheet.columns,
+        targetWidth: batchResizeTarget.width,
+        targetHeight: batchResizeTarget.height,
+        autoAnchor: autoAnchor,
+      });
+
+      if (res?.frames && res.frames.length > 0) {
+        setSheet({
+          rows: sheet.rows,
+          columns: sheet.columns,
+          frames: res.frames.map((f, idx) => ({
+            ...f,
+            index: idx + 1,
+            url: `data:image/png;base64,${f.png}`,
+            width: res.target_width,
+            height: res.target_height,
+          })),
+        });
+        setBatchResizedSize({ width: res.target_width, height: res.target_height });
+        setBatchResizeMsg(`Đã ép thành công ${res.frame_count} frame về kích thước ${res.target_width}×${res.target_height} px!`);
+        setTimeout(() => setBatchResizeMsg(''), 4000);
+      }
+    } catch (err) {
+      setError(err.message || 'Lỗi khi ép độ phân giải toàn bộ frame.');
+    } finally {
+      setBatchResizing(false);
+    }
+  }
+
+  /**
    * Thực thi lệnh xử lý ảnh đơn (Thu nhỏ ảnh hoặc Chuẩn hóa điểm neo)
    *
    * @param {'resize'|'normalize'} cmd Lệnh cần thực thi.
@@ -493,15 +626,7 @@ export default function Workspace({ currentProject, incomingFile = null, incomin
       });
       setShowResult(true);
 
-      // Lưu ảnh đã chuẩn hóa vào MySQL
-      if (currentProject?.id) {
-        const activeDbId = spriteDbIdRef.current || spriteDbId;
-        if (activeDbId) {
-          saveProcessedSprite(blob, currentProject.id, activeDbId);
-        } else {
-          pendingProcessedBlobRef.current = blob;
-        }
-      }
+      // Kết quả được lưu tạm trên RAM/Canvas để xem trước và tải về, không tự ý ghi vào CSDL MySQL
       setZoom(null);
     } catch (failure) {
       setError(failure.message);
@@ -537,6 +662,7 @@ export default function Workspace({ currentProject, incomingFile = null, incomin
           url: `data:image/png;base64,${png}`,
         })),
       });
+      setBatchResizedSize(null);
       setFrameIndex(0);
       setZoom(null);
     } catch (failure) {
@@ -547,23 +673,30 @@ export default function Workspace({ currentProject, incomingFile = null, incomin
   }
 
   /**
-   * Xuất toàn bộ các frame đã cắt thành file ZIP
+   * Xuất toàn bộ các frame đã cắt thành file ZIP.
+   * Tự động áp dụng kích thước đã ép (Nearest Neighbor) nếu người dùng đã thực hiện ép hàng loạt.
    */
   async function exportSheet() {
     if (!sheet || busy) return;
     setBusy('Đang tạo ZIP…');
     setError('');
     try {
-      const response = await processImage(source.file, 'slice-sheet', {
+      const extraFields = {
         rows: sheet.rows,
         columns: sheet.columns,
         output: 'zip',
         auto_anchor: autoAnchor,
-      });
+      };
+      if (batchResizedSize?.width && batchResizedSize?.height) {
+        extraFields.target_width = batchResizedSize.width;
+        extraFields.target_height = batchResizedSize.height;
+      }
+      const response = await processImage(source.file, 'slice-sheet', extraFields);
       const url = URL.createObjectURL(await response.blob());
       const link = document.createElement('a');
       link.href = url;
-      link.download = `${nameStem}-frames.zip`;
+      const sizeTag = batchResizedSize ? `_${batchResizedSize.width}x${batchResizedSize.height}` : '';
+      link.download = `${nameStem}-frames${sizeTag}.zip`;
       link.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (failure) {
@@ -574,12 +707,54 @@ export default function Workspace({ currentProject, incomingFile = null, incomin
   }
 
   /**
+   * Lưu trọn gói Sprite Sheet và toàn bộ các frame cắt rời vào một Thư mục trong Kho tài nguyên MySQL.
+   * Hỗ trợ lưu bộ frame đã ép kích thước (Nearest Neighbor) nếu người dùng đã thực hiện ép hàng loạt.
+   */
+  async function handleConfirmSavePack() {
+    if (!currentProject?.id) {
+      setSavePackStatus({ success: false, message: 'Vui lòng chọn hoặc mở một dự án trước khi lưu.' });
+      return;
+    }
+    if (!source?.file || !sheet) return;
+
+    setSavingPack(true);
+    setSavePackStatus({ success: false, message: '' });
+
+    try {
+      const res = await saveSlicedPackToVault({
+        file: source.file,
+        projectId: currentProject.id,
+        folderName: packFolderName.trim() || 'Mặc định',
+        rows: sheet.rows,
+        columns: sheet.columns,
+        autoAnchor: autoAnchor,
+        fps: fps || 6,
+        targetWidth: batchResizedSize?.width || null,
+        targetHeight: batchResizedSize?.height || null,
+      });
+
+      setSavePackStatus({
+        success: true,
+        message: `Đã lưu thành công ${res.frame_count} frame (${batchResizedSize ? 'đã ép ' + batchResizedSize.width + '×' + batchResizedSize.height + ' px' : 'kích thước gốc'}) vào thư mục "${res.folder_name}"!`
+      });
+      setTimeout(() => {
+        setShowSavePackModal(false);
+      }, 1600);
+    } catch (err) {
+      setSavePackStatus({ success: false, message: err.message || 'Lỗi khi lưu bộ frame.' });
+    } finally {
+      setSavingPack(false);
+    }
+  }
+
+  /**
    * Chọn xem một frame cụ thể trong danh sách
    */
   function selectFrame(index) {
     setPlaying(false);
     setFrameIndex(index);
     setZoom(null);
+    setPanOffset({ x: 0, y: 0 });
   }
 
   /**
@@ -598,36 +773,71 @@ export default function Workspace({ currentProject, incomingFile = null, incomin
   function changeGrid(setValue, value) {
     setValue(value);
     setSheet(null);
+    setBatchResizedSize(null);
     selectFrame(null);
     setError('');
   }
 
   /**
-   * Bắt đầu kéo trượt (Pan) trên canvas
+   * Bắt đầu kéo trượt (Pan) trên canvas hoặc khung nhìn
+   *
+   * @param {React.PointerEvent} event Sự kiện con trỏ chuột.
+   * @returns {void}
    */
   function startPan(event) {
-    if (event.button !== 0 || !preview) return;
-    const node = event.currentTarget;
-    drag.current = { x: event.clientX + node.scrollLeft, y: event.clientY + node.scrollTop };
-    node.setPointerCapture(event.pointerId);
-    node.classList.add('is-panning');
+    if ((activeTool !== 'pan' && event.button !== 1) || !preview) return;
+    if (event.button !== 0 && event.button !== 1) return;
+
+    drag.current = {
+      startX: event.clientX,
+      startY: event.clientY,
+      originX: panOffset.x,
+      originY: panOffset.y,
+    };
+    try {
+      event.target.setPointerCapture(event.pointerId);
+    } catch {
+      // Bỏ qua nếu target không hỗ trợ capture
+    }
+    if (viewport.current) {
+      viewport.current.classList.add('is-panning');
+    }
   }
 
   /**
-   * Di chuyển trượt (Pan)
+   * Di chuyển trượt (Pan) theo tọa độ kéo chuột
+   *
+   * @param {React.PointerEvent} event Sự kiện con trỏ chuột.
+   * @returns {void}
    */
   function movePan(event) {
     if (!drag.current) return;
-    event.currentTarget.scrollLeft = drag.current.x - event.clientX;
-    event.currentTarget.scrollTop = drag.current.y - event.clientY;
+    const dx = event.clientX - drag.current.startX;
+    const dy = event.clientY - drag.current.startY;
+    setPanOffset({
+      x: Math.round(drag.current.originX + dx),
+      y: Math.round(drag.current.originY + dy),
+    });
   }
 
   /**
-   * Kết thúc kéo trượt
+   * Kết thúc kéo trượt (Pan)
+   *
+   * @param {React.PointerEvent} [event] Sự kiện con trỏ chuột.
+   * @returns {void}
    */
   function stopPan(event) {
     drag.current = null;
-    event.currentTarget.classList.remove('is-panning');
+    if (viewport.current) {
+      viewport.current.classList.remove('is-panning');
+    }
+    try {
+      if (event?.target?.hasPointerCapture?.(event.pointerId)) {
+        event.target.releasePointerCapture(event.pointerId);
+      }
+    } catch {
+      // Bỏ qua
+    }
   }
 
   return (
@@ -701,7 +911,10 @@ export default function Workspace({ currentProject, incomingFile = null, incomin
               type="button"
               className="atelier-ws-zoom-btn"
               disabled={!preview}
-              onClick={() => setZoom(null)}
+              onClick={() => {
+                setZoom(null);
+                setPanOffset({ x: 0, y: 0 });
+              }}
               title="Khôi phục kích thước vừa khung nhìn"
             >
               Vừa khung
@@ -716,7 +929,7 @@ export default function Workspace({ currentProject, incomingFile = null, incomin
               <Minus size={14} />
             </button>
             <span className="atelier-ws-zoom-readout">
-              {preview ? `${Math.round(activeZoom * 100)}%` : '—'}
+              {preview && Number.isFinite(activeZoom) ? `${Math.round(activeZoom * 100)}%` : '100%'}
             </span>
             <button
               type="button"
@@ -740,6 +953,8 @@ export default function Workspace({ currentProject, incomingFile = null, incomin
           paletteColors={paletteColors}
           activeColor={activeColor}
           onSelectActiveColor={setActiveColor}
+          onAddColor={handleAddPaletteColor}
+          onDeleteColor={handleDeletePaletteColor}
           isLoading={isPaletteLoading || Boolean(busy)}
           onRescanPalette={() =>
             (result?.file || source?.file) && fetchPalette(result?.file || source?.file)
@@ -752,10 +967,10 @@ export default function Workspace({ currentProject, incomingFile = null, incomin
             className="atelier-ws-viewport"
             ref={viewport}
             aria-label="Bàn vẽ canvas sprite"
-            onPointerDown={activeTool === 'pan' ? startPan : undefined}
-            onPointerMove={activeTool === 'pan' ? movePan : undefined}
-            onPointerUp={activeTool === 'pan' ? stopPan : undefined}
-            onLostPointerCapture={activeTool === 'pan' ? stopPan : undefined}
+            onPointerDown={startPan}
+            onPointerMove={movePan}
+            onPointerUp={stopPan}
+            onLostPointerCapture={stopPan}
           >
             {preview ? (
               sheetMode && frameIndex === null ? (
@@ -764,6 +979,7 @@ export default function Workspace({ currentProject, incomingFile = null, incomin
                   style={{
                     width: preview.width * activeZoom,
                     height: preview.height * activeZoom,
+                    transform: `translate(${panOffset.x}px, ${panOffset.y}px)`,
                   }}
                 >
                   <img
@@ -791,21 +1007,32 @@ export default function Workspace({ currentProject, incomingFile = null, incomin
                   )}
                 </div>
               ) : (
-                <PixelCanvas
-                  ref={pixelCanvasRef}
-                  imageUrl={preview.url}
-                  zoom={activeZoom}
-                  activeTool={activeTool}
-                  activeColor={activeColor}
-                  brushSize={brushSize}
-                  showPixelGrid={showPixelGrid}
-                  onColorPicked={setActiveColor}
-                  onImageModified={handleCanvasModified}
-                  onHistoryChange={setHistoryState}
-                  onPanStart={startPan}
-                  onPanMove={movePan}
-                  onPanEnd={stopPan}
-                />
+                <div
+                  className="atelier-ws-canvas-container"
+                  style={{
+                    margin: 'auto',
+                    transform: `translate(${panOffset.x}px, ${panOffset.y}px)`,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <PixelCanvas
+                    ref={pixelCanvasRef}
+                    imageUrl={preview.url}
+                    zoom={activeZoom}
+                    activeTool={activeTool}
+                    activeColor={activeColor}
+                    brushSize={brushSize}
+                    showPixelGrid={showPixelGrid}
+                    onColorPicked={setActiveColor}
+                    onImageModified={handleCanvasModified}
+                    onHistoryChange={setHistoryState}
+                    onPanStart={startPan}
+                    onPanMove={movePan}
+                    onPanEnd={stopPan}
+                  />
+                </div>
               )
             ) : (
               <div className="atelier-ws-empty">
@@ -970,6 +1197,119 @@ export default function Workspace({ currentProject, incomingFile = null, incomin
                   </button>
                 </CollapsibleCard>
 
+                {/* Khung: Ép độ phân giải frame hàng loạt (Batch Resize) */}
+                {sheet && (
+                  <CollapsibleCard
+                    title="Ép độ phân giải frame (Batch Resize)"
+                    icon={Scaling}
+                    isOpen={openSections.sheetBatchResize}
+                    onToggle={() => toggleSection('sheetBatchResize')}
+                  >
+                    <div className="atelier-inspector-info-card" style={{ padding: '6px 10px', margin: '0 0 6px 0' }}>
+                      <p style={{ fontSize: '0.74rem', color: '#c084fc', margin: 0 }}>
+                        Kích thước ô gốc: <strong>{cellWidth} × {cellHeight} px</strong>
+                      </p>
+                    </div>
+
+                    <div className="atelier-inspector-grid-inputs">
+                      <div className="atelier-inspector-field">
+                        <label className="atelier-inspector-label">Chiều rộng (px)</label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="2048"
+                          value={batchResizeTarget.width}
+                          onChange={(e) => changeBatchResizeTarget('width', e.target.value)}
+                          disabled={batchResizing}
+                          className="atelier-inspector-input"
+                        />
+                      </div>
+                      <div className="atelier-inspector-field">
+                        <label className="atelier-inspector-label">Chiều cao (px)</label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="2048"
+                          value={batchResizeTarget.height}
+                          onChange={(e) => changeBatchResizeTarget('height', e.target.value)}
+                          disabled={batchResizing}
+                          className="atelier-inspector-input"
+                        />
+                      </div>
+                    </div>
+
+                    <label className="atelier-inspector-checkbox" style={{ margin: '4px 0' }}>
+                      <input
+                        type="checkbox"
+                        checked={batchKeepRatio}
+                        onChange={(e) => setBatchKeepRatio(e.target.checked)}
+                        disabled={batchResizing}
+                      />
+                      <span>Khóa tỷ lệ khung hình</span>
+                    </label>
+
+                    {/* Các nút chọn nhanh kích thước thông dụng - Căn 5 cột gọn gàng */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '4px', margin: '2px 0 6px 0' }}>
+                      {[16, 32, 48, 64, 128].map((size) => (
+                        <button
+                          key={size}
+                          type="button"
+                          className="atelier-btn-secondary-action"
+                          style={{
+                            width: '100%',
+                            padding: '5px 2px',
+                            fontSize: '0.68rem',
+                            justifyContent: 'center',
+                            textAlign: 'center',
+                          }}
+                          onClick={() => {
+                            if (batchKeepRatio && cellWidth > 0 && cellHeight > 0) {
+                              const ratio = cellHeight / cellWidth;
+                              setBatchResizeTarget({ width: size, height: Math.max(1, Math.round(size * ratio)) });
+                            } else {
+                              setBatchResizeTarget({ width: size, height: size });
+                            }
+                          }}
+                          disabled={batchResizing}
+                        >
+                          {size}×{size}
+                        </button>
+                      ))}
+                    </div>
+
+                    <button
+                      className="atelier-btn-primary-action"
+                      type="button"
+                      disabled={!source?.file || !sheet || batchResizing}
+                      onClick={executeBatchResize}
+                      style={{
+                        background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
+                        borderColor: '#34d399',
+                        boxShadow: '0 0 15px rgba(16, 185, 129, 0.25)',
+                        marginTop: '2px',
+                      }}
+                    >
+                      {batchResizing ? (
+                        <>
+                          <LoaderCircle size={15} className="atelier-ws-spinner-icon" />
+                          <span>Đang ép kích thước…</span>
+                        </>
+                      ) : (
+                        <>
+                          <Scaling size={15} />
+                          <span>Ép toàn bộ {sheet?.frames?.length || (rows * columns)} frame</span>
+                        </>
+                      )}
+                    </button>
+
+                    {batchResizeMsg && (
+                      <p style={{ fontSize: '0.75rem', color: '#34d399', marginTop: '6px', textAlign: 'center' }}>
+                        {batchResizeMsg}
+                      </p>
+                    )}
+                  </CollapsibleCard>
+                )}
+
                 {/* Khung 2: Xuất tài nguyên (Export & Download) */}
                 {sheet && (
                   <CollapsibleCard
@@ -979,6 +1319,28 @@ export default function Workspace({ currentProject, incomingFile = null, incomin
                     onToggle={() => toggleSection('sheetExport')}
                   >
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      {/* Nút lưu trọn gói vào Thư mục Kho tài nguyên */}
+                      <button
+                        className="atelier-btn-primary-action"
+                        type="button"
+                        onClick={() => {
+                          const base = (source?.file?.name || 'SpriteSheet').replace(/\.[^/.]+$/, '');
+                          const sizeTag = batchResizedSize ? `_${batchResizedSize.width}x${batchResizedSize.height}` : '';
+                          setPackFolderName(`${base}_${sheet.rows}x${sheet.columns}${sizeTag}`);
+                          setSavePackStatus({ success: false, message: '' });
+                          setShowSavePackModal(true);
+                        }}
+                        style={{
+                          background: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)',
+                          borderColor: '#c084fc',
+                          boxShadow: '0 0 15px rgba(168, 85, 247, 0.35)',
+                          marginBottom: '4px'
+                        }}
+                      >
+                        <FolderPlus size={15} />
+                        <span>Lưu bộ Frame vào Thư mục</span>
+                      </button>
+
                       <button
                         className="atelier-btn-secondary-action"
                         type="button"
@@ -1196,6 +1558,7 @@ export default function Workspace({ currentProject, incomingFile = null, incomin
                           onClick={() => {
                             setShowResult(false);
                             setZoom(null);
+                            setPanOffset({ x: 0, y: 0 });
                           }}
                         >
                           Ảnh gốc
@@ -1207,6 +1570,7 @@ export default function Workspace({ currentProject, incomingFile = null, incomin
                           onClick={() => {
                             setShowResult(true);
                             setZoom(null);
+                            setPanOffset({ x: 0, y: 0 });
                           }}
                         >
                           Kết quả
@@ -1246,6 +1610,207 @@ export default function Workspace({ currentProject, incomingFile = null, incomin
           onFpsChange={setFps}
           onSelectFrame={selectFrame}
         />
+      )}
+
+      {/* ================================================================ */}
+      {/* 4. MODAL LƯU BỘ FRAME & SHEET VÀO THƯ MỤC KHO TÀI NGUYÊN        */}
+      {/* ================================================================ */}
+      {showSavePackModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(5, 3, 13, 0.78)',
+            backdropFilter: 'blur(6px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '16px'
+          }}
+          onClick={() => setShowSavePackModal(false)}
+        >
+          <div
+            style={{
+              width: '100%',
+              maxWidth: '460px',
+              backgroundColor: '#120d24',
+              border: '1px solid #7c3aed',
+              boxShadow: '0 16px 40px rgba(0, 0, 0, 0.6), 0 0 24px rgba(124, 58, 237, 0.25)',
+              borderRadius: '14px',
+              overflow: 'hidden',
+              display: 'flex',
+              flexDirection: 'column'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Tiêu đề Modal */}
+            <div
+              style={{
+                padding: '14px 18px',
+                borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                background: 'linear-gradient(90deg, rgba(124, 58, 237, 0.15) 0%, transparent 100%)'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <FolderPlus size={18} color="#c084fc" />
+                <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 600, color: '#f3e8ff' }}>
+                  Lưu bộ Frame vào Thư mục Kho
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowSavePackModal(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#94a3b8',
+                  cursor: 'pointer',
+                  padding: '4px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  borderRadius: '4px'
+                }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Nội dung Modal */}
+            <div style={{ padding: '18px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div>
+                <label
+                  style={{
+                    display: 'block',
+                    fontSize: '0.8rem',
+                    fontWeight: 600,
+                    color: '#cbd5e1',
+                    marginBottom: '6px'
+                  }}
+                >
+                  Tên Thư mục / Bộ hoạt họa nhân vật:
+                </label>
+                <input
+                  type="text"
+                  value={packFolderName}
+                  onChange={(e) => setPackFolderName(e.target.value)}
+                  placeholder="Ví dụ: Pháp sư tím_3x5"
+                  style={{
+                    width: '100%',
+                    boxSizing: 'border-box',
+                    padding: '9px 12px',
+                    backgroundColor: '#1b1433',
+                    border: '1px solid rgba(192, 132, 252, 0.35)',
+                    borderRadius: '8px',
+                    color: '#fff',
+                    fontSize: '0.875rem',
+                    outline: 'none'
+                  }}
+                  autoFocus
+                />
+              </div>
+
+              {/* Tóm tắt nội dung gói lưu */}
+              <div
+                style={{
+                  backgroundColor: 'rgba(255, 255, 255, 0.03)',
+                  border: '1px solid rgba(255, 255, 255, 0.06)',
+                  borderRadius: '10px',
+                  padding: '12px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px',
+                  fontSize: '0.8rem',
+                  color: '#94a3b8'
+                }}
+              >
+                <div style={{ fontWeight: 600, color: '#e2e8f0', marginBottom: '2px' }}>
+                  📦 Nội dung gói tài nguyên sẽ lưu:
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                  <div>• <strong>Sheet gốc:</strong> {source?.dimensions?.width || 0}×{source?.dimensions?.height || 0}px</div>
+                  <div>• <strong>Số frame:</strong> {sheet?.frames?.length || (sheet?.rows * sheet?.columns)} frame</div>
+                  <div>• <strong>Lưới cắt:</strong> {sheet?.rows} hàng × {sheet?.columns} cột</div>
+                  <div>• <strong>Tốc độ:</strong> {fps} FPS</div>
+                  <div style={{ gridColumn: 'span 2', color: batchResizedSize ? '#34d399' : '#c084fc', marginTop: '2px' }}>
+                    • <strong>Kích thước từng frame:</strong> {batchResizedSize ? `${batchResizedSize.width} × ${batchResizedSize.height} px (Đã ép độ phân giải)` : `${cellWidth} × ${cellHeight} px (Gốc)`}
+                  </div>
+                </div>
+              </div>
+
+              {/* Thông báo trạng thái */}
+              {savePackStatus.message && (
+                <div
+                  style={{
+                    padding: '10px 14px',
+                    borderRadius: '8px',
+                    fontSize: '0.8rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    backgroundColor: savePackStatus.success ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                    border: `1px solid ${savePackStatus.success ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)'}`,
+                    color: savePackStatus.success ? '#6ee7b7' : '#fca5a5'
+                  }}
+                >
+                  {savePackStatus.success ? <Check size={16} /> : <AlertCircle size={16} />}
+                  <span>{savePackStatus.message}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Chân Modal */}
+            <div
+              style={{
+                padding: '12px 18px',
+                borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: '10px',
+                backgroundColor: 'rgba(0, 0, 0, 0.2)'
+              }}
+            >
+              <button
+                type="button"
+                className="atelier-btn-secondary-action"
+                onClick={() => setShowSavePackModal(false)}
+                disabled={savingPack}
+                style={{ padding: '7px 14px', margin: 0 }}
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                className="atelier-btn-primary-action"
+                onClick={handleConfirmSavePack}
+                disabled={savingPack || !packFolderName.trim()}
+                style={{
+                  padding: '7px 18px',
+                  margin: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  background: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)'
+                }}
+              >
+                {savingPack ? (
+                  <>
+                    <LoaderCircle size={14} className="atelier-ws-spinner-icon" />
+                    <span>Đang lưu vào kho…</span>
+                  </>
+                ) : (
+                  <>
+                    <Check size={14} />
+                    <span>Xác nhận Lưu vào Kho</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

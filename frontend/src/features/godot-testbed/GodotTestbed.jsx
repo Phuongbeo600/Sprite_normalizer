@@ -26,7 +26,8 @@ import {
   ArrowLeft,
   ArrowRight,
   Pencil,
-  RefreshCw
+  RefreshCw,
+  Archive
 } from 'lucide-react';
 
 // ========================================================
@@ -38,6 +39,8 @@ import { SLOT_DEFINITIONS_3_ROWS } from './slotDefinitions';
 import { createDemoSpriteSheet, stitchSlotsToSheet, extractSlotsFromSheet } from './spriteSheets';
 // Hàm dựng cửa sổ ghép ảnh và canvas xem trước.
 import { renderSlotTemplateDialog } from './renderSlotTemplateDialog';
+// Hộp thoại chọn Sprite Sheet hoặc Bộ Frame từ Kho tài nguyên MySQL.
+import VaultAssetPickerModal from './VaultAssetPickerModal';
 
 // ========================================================
 // 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
@@ -109,6 +112,10 @@ export default function GodotTestbed({
   const [exporting, setExporting] = useState(false);
   const [exportSuccess, setExportSuccess] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+
+  // Trạng thái Modal chọn Sprite Sheet / Frame từ Kho tài nguyên MySQL
+  const [showVaultPickerModal, setShowVaultPickerModal] = useState(false);
+  const [vaultPickerTargetCharIdx, setVaultPickerTargetCharIdx] = useState(null);
 
   // Tham chiếu Canvas và Game Loop
   const canvasRef = useRef(null);
@@ -497,14 +504,6 @@ export default function GodotTestbed({
             }
           })
           .catch((err) => console.error('Lỗi khi lưu nhân vật từ Sheet vào MySQL:', err));
-
-        // 2. Đồng thời lưu tệp ảnh gốc sprite sheet vào kho ảnh dự án (project_sprites)
-        const rawForm = new FormData();
-        rawForm.append('file', file);
-        rawForm.append('project_id', currentProject.id);
-        rawForm.append('name', file.name || newChar.name);
-        fetch('/api/sprites/save-raw', { method: 'POST', body: rawForm })
-          .catch((err) => console.error('Lỗi khi lưu sprite sheet vào project_sprites:', err));
       }
 
       const updated = [...characters, newChar];
@@ -980,6 +979,137 @@ export default function GodotTestbed({
       setErrorMsg('Không đọc được tệp ảnh thay thế.');
     };
     img.src = url;
+  };
+
+  // Xử lý nạp Sprite Sheet / Bộ frame từ Kho tài nguyên MySQL
+  const handleSelectVaultAsset = (assetData) => {
+    if (!assetData || !assetData.sheetUrl) return;
+
+    const img = new Image();
+    img.onload = () => {
+      const defRows = assetData.rows || 3;
+      const defCols = assetData.columns || 5;
+      const cWidth = assetData.targetWidth || Math.floor(img.naturalWidth / defCols);
+      const cHeight = assetData.targetHeight || Math.floor(img.naturalHeight / defRows);
+      const charName = (assetData.sprite?.folder_name || assetData.sprite?.name || 'Hero')
+        .replace(/\.[^/.]+$/, '')
+        .replace(/[-_]/g, ' ');
+
+      // Chuẩn bị slotsData nếu tài nguyên có danh sách frame con
+      const slotsObj = {};
+      if (assetData.frames && assetData.frames.length > 0) {
+        SLOT_DEFINITIONS_3_ROWS.forEach((slotDef, i) => {
+          const f = assetData.frames[i];
+          if (f) {
+            const fImg = new Image();
+            fImg.src = f.image_url;
+            slotsObj[slotDef.id] = {
+              img: fImg,
+              url: f.image_url,
+              name: f.frame_name || `${slotDef.id}.png`,
+            };
+          }
+        });
+      }
+
+      if (vaultPickerTargetCharIdx !== null && characters[vaultPickerTargetCharIdx]) {
+        // TRƯỜNG HỢP 1: THAY THẾ KHUNG CHO NHÂN VẬT ĐANG CHỌN
+        setCharacters((prev) =>
+          prev.map((c, idx) => {
+            if (idx !== vaultPickerTargetCharIdx) return c;
+            const updated = {
+              ...c,
+              sheetImage: img,
+              sheetUrl: assetData.sheetUrl,
+              sheetFileName: assetData.sprite?.name || `${charName}_sheet.png`,
+              rows: defRows,
+              columns: defCols,
+              cellWidth: cWidth > 0 ? cWidth : 32,
+              cellHeight: cHeight > 0 ? cHeight : 48,
+              slotsData: Object.keys(slotsObj).length > 0 ? slotsObj : c.slotsData,
+            };
+
+            // Đồng bộ cập nhật lên MySQL nếu nhân vật đã có dbId
+            if (currentProject?.id && updated.dbId) {
+              fetch(`/api/testbed/characters/${updated.dbId}?project_id=${currentProject.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  name: updated.name,
+                  scale: updated.scale || 1.0,
+                  fps: updated.fps || 8,
+                  move_speed: updated.moveSpeed || 140,
+                }),
+              }).catch(() => {});
+            }
+            return updated;
+          })
+        );
+      } else {
+        // TRƯỜNG HỢP 2: TẠO NHÂN VẬT MỚI TỪ KHO
+        const newId = `char_vault_${Date.now()}`;
+        const newChar = {
+          id: newId,
+          name: charName.charAt(0).toUpperCase() + charName.slice(1),
+          icon: '✨',
+          sheetImage: img,
+          sheetUrl: assetData.sheetUrl,
+          sheetFileName: assetData.sprite?.name || `${charName}_sheet.png`,
+          rows: defRows,
+          columns: defCols,
+          fps: assetData.metadata?.fps || 8,
+          moveSpeed: 130,
+          cellWidth: cWidth > 0 ? cWidth : 32,
+          cellHeight: cHeight > 0 ? cHeight : 48,
+          scale: 1.0,
+          isCustom: true,
+          slotsData: slotsObj,
+          slotMode: '3_rows',
+        };
+
+        const newX = 160 + characters.length * 90;
+        rosterStateRef.current.push({
+          x: Math.min(1150, newX),
+          y: groundY,
+          direction: 'down',
+          facingLeft: false,
+          animTime: 0,
+          animFrameIdx: 0,
+          isMoving: false,
+        });
+
+        setCharacters((prev) => [...prev, newChar]);
+        setActiveCharIdx(characters.length);
+
+        // Tự động lưu nhân vật mới vào MySQL (testbed_characters)
+        if (currentProject?.id) {
+          fetch('/api/testbed/characters', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              project_id: currentProject.id,
+              name: newChar.name,
+              scale: newChar.scale,
+              fps: newChar.fps,
+              move_speed: newChar.moveSpeed,
+              pos_x: Math.min(1150, newX),
+              pos_y: groundY,
+            }),
+          })
+            .then((res) => (res.ok ? res.json() : null))
+            .then((data) => {
+              if (data && data.character_id) {
+                setCharacters((prev) =>
+                  prev.map((c) => (c.id === newId ? { ...c, dbId: data.character_id } : c))
+                );
+              }
+            })
+            .catch(() => {});
+        }
+      }
+      setErrorMsg('');
+    };
+    img.src = assetData.sheetUrl;
   };
 
   const handleSwapCharacterOrder = (idx, direction) => {
@@ -1675,6 +1805,21 @@ export default function GodotTestbed({
                     <div className="atelier-godot-dropdown-item-desc">Chọn từng ô: idle, walk_0..3 theo nhãn</div>
                   </div>
                 </div>
+
+                <div
+                  className="atelier-godot-dropdown-item"
+                  onClick={() => {
+                    setAddMenuOpen(false);
+                    setVaultPickerTargetCharIdx(null);
+                    setShowVaultPickerModal(true);
+                  }}
+                >
+                  <Archive size={18} color="#c084fc" />
+                  <div>
+                    <div className="atelier-godot-dropdown-item-title">3. Nhập từ Kho tài nguyên</div>
+                    <div className="atelier-godot-dropdown-item-desc">Chọn Sprite Sheet hoặc Bộ Frame trong CSDL</div>
+                  </div>
+                </div>
               </div>
             )}
           </div>
@@ -1912,6 +2057,19 @@ export default function GodotTestbed({
                     <RefreshCw size={13} color="#c084fc" /> Sửa / Thay đổi khung ảnh Sprite…
                   </button>
 
+                  <button
+                    type="button"
+                    className="atelier-godot-btn-sub"
+                    onClick={() => {
+                      setVaultPickerTargetCharIdx(activeCharIdx);
+                      setShowVaultPickerModal(true);
+                    }}
+                    style={{ background: 'rgba(147, 51, 234, 0.18)', borderColor: 'rgba(168, 85, 247, 0.35)', color: '#c084fc' }}
+                    title="Nạp khung ảnh từ Kho tài nguyên / Thư mục CSDL vào nhân vật này"
+                  >
+                    <Archive size={13} color="#c084fc" /> Nạp từ Kho…
+                  </button>
+
                   <label
                     className="atelier-godot-btn-sub"
                     title="Nạp đè bằng một file ảnh Sprite Sheet khác nếu bạn có sẵn file gộp"
@@ -2144,6 +2302,17 @@ export default function GodotTestbed({
         },
         onClearAllSlots: () => setSlotsData({})
       })}
+
+      {/* ========================================================
+          5. MODAL CHỌN SPRITE SHEET HOẶC BỘ FRAME TỪ KHO MYSQL
+         ======================================================== */}
+      <VaultAssetPickerModal
+        isOpen={showVaultPickerModal}
+        onClose={() => setShowVaultPickerModal(false)}
+        projectId={currentProject?.id}
+        targetChar={vaultPickerTargetCharIdx !== null ? characters[vaultPickerTargetCharIdx] : null}
+        onSelectAsset={handleSelectVaultAsset}
+      />
     </div>
   );
 }
