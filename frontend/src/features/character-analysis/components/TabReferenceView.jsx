@@ -75,6 +75,7 @@ export default function TabReferenceView({
   analysisError,
   colorError,
   onOpenPrompt,
+  onTransferToWorkspace,
   manualRegions,
   onManualReport,
 }) {
@@ -84,6 +85,24 @@ export default function TabReferenceView({
   const swatches = palette?.dominant_colors?.slice(0, 12) || [];
   const ready = manualCount > 0 || measurements.length > 0 || palette?.total_colors > 0;
   const busy = Boolean(localAction);
+
+  /**
+   * Chuyển tệp ảnh và toàn bộ bảng màu đã phân tích sang Bàn vẽ Studio
+   */
+  const handleSendToWorkspace = () => {
+    if (!reference?.file || !onTransferToWorkspace) return;
+    const rawList =
+      pixelReport?.palette?.libresprite_palette ||
+      palette?.libresprite_palette ||
+      pixelReport?.palette?.colors?.map((c) => (typeof c === 'string' ? c : c?.hex)) ||
+      palette?.dominant_colors?.map((c) => (typeof c === 'string' ? c : c?.hex_code)) ||
+      [];
+    const extractedPalette = (Array.isArray(rawList) ? rawList : [])
+      .map((c) => (typeof c === 'string' ? c : c?.hex_code || c?.hex || ''))
+      .filter((c) => typeof c === 'string' && c.startsWith('#'));
+
+    onTransferToWorkspace(reference.file, extractedPalette.length > 0 ? extractedPalette : null);
+  };
 
   // Mở trình chỉnh sửa khoanh vùng lát cắt thủ công
   if (reference && editingMeasurements) {
@@ -266,25 +285,39 @@ export default function TabReferenceView({
               <Palette size={16} />
               <span>Bảng màu &amp; Phong cách Pixel Art</span>
             </h4>
-            <button // nút phân tích màu
-              className="atelier-btn-primary-action"
-              style={{ width: 'auto', padding: '6px 14px', fontSize: '0.78rem', margin: 0 }}
-              type="button"
-              disabled={!reference || busy} // Chưa nạp ảnh, nút mờ đi
-              onClick={() => onMeasure('colors')}
-            >
-              {localAction === 'colors' ? (
-                <>
-                  <LoaderCircle size={14} className="atelier-ws-spinner-icon" />
-                  <span>Đang phân tích màu…</span>
-                </>
-              ) : (
-                <>
-                  <Palette size={14} />
-                  <span>Phân tích màu sắc</span>
-                </>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              {onTransferToWorkspace && reference?.file && (
+                <button
+                  className="atelier-btn-secondary-action"
+                  style={{ width: 'auto', padding: '6px 12px', fontSize: '0.78rem', margin: 0 }}
+                  type="button"
+                  title="Chuyển ảnh và toàn bộ bảng màu sang Bàn vẽ Studio để chỉnh sửa"
+                  onClick={handleSendToWorkspace}
+                >
+                  <ArrowRight size={13} />
+                  <span>Mở trong Bàn vẽ Studio</span>
+                </button>
               )}
-            </button>
+              <button // nút phân tích màu
+                className="atelier-btn-primary-action"
+                style={{ width: 'auto', padding: '6px 14px', fontSize: '0.78rem', margin: 0 }}
+                type="button"
+                disabled={!reference || busy} // Chưa nạp ảnh, nút mờ đi
+                onClick={() => onMeasure('colors')}
+              >
+                {localAction === 'colors' ? (
+                  <>
+                    <LoaderCircle size={14} className="atelier-ws-spinner-icon" />
+                    <span>Đang phân tích màu…</span>
+                  </>
+                ) : (
+                  <>
+                    <Palette size={14} />
+                    <span>Phân tích màu sắc</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
 
           {colorError && <p className="atelier-ws-error" role="alert">{colorError}</p>}

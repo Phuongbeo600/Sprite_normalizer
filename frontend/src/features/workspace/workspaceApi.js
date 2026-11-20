@@ -82,3 +82,26 @@ export function saveProcessedSprite(blob, projectId, spriteId) {
   fetch(`/api/sprites/${spriteId}/save-processed`, { method: 'POST', body: form })
     .catch((err) => console.error('Lỗi khi lưu ảnh tối ưu vào MySQL:', err));
 }
+
+/**
+ * Phân tích và lấy toàn bộ bảng màu gốc của ảnh sprite qua backend.
+ *
+ * @param {File|Blob} file Tệp ảnh sprite cần phân tích màu.
+ * @param {AbortSignal} [signal] Tín hiệu hủy yêu cầu mạng.
+ * @returns {Promise<Object>} Báo cáo trắc lượng màu sắc gồm danh sách bảng màu chi tiết.
+ */
+export async function analyzeSpriteColors(file, signal) {
+  const body = new FormData();
+  body.append('file', file);
+
+  const response = await fetch('/api/sprites/analyze-colors', { method: 'POST', body, signal });
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null);
+    throw new Error(
+      typeof payload?.detail === 'string'
+        ? payload.detail
+        : 'Không thể phân tích bảng màu của ảnh sprite.'
+    );
+  }
+  return response.json();
+}

@@ -192,25 +192,30 @@
 }
 
 /* ============================================================================
-   4. THÂN BÀN LÀM VIỆC (TWO-COLUMN STUDIO WORKSPACE BODY)
+   4. THÂN BÀN LÀM VIỆC (STUDIO WORKSPACE BODY: FLEX ROW)
    ============================================================================ */
 .atelier-ws-body {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 290px;
-  gap: 16px;
+  display: flex;
+  flex-direction: row;
   align-items: stretch;
+  gap: 12px;
+  width: 100%;
+  min-height: 600px;
+  position: relative;
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 1100px) {
   .atelier-ws-body {
-    grid-template-columns: minmax(0, 1fr);
+    flex-wrap: wrap;
   }
 }
 
 /* ============================================================================
-   5. CỘT TRÁI: VÙNG CANVAS & TRẠNG THÁI (STAGE & CANVAS VIEWPORT)
+   5. KHU VỰC TRUNG TÂM: VÙNG CANVAS & TRẠNG THÁI (STAGE & CANVAS VIEWPORT)
    ============================================================================ */
 .atelier-ws-stage {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   background: rgba(15, 10, 28, 0.85);
@@ -219,13 +224,14 @@
   border: 1px solid var(--atl-border-amethyst, rgba(168, 85, 247, 0.18));
   border-radius: 14px;
   overflow: hidden;
-  min-width: 0;
 }
 
 .atelier-ws-viewport {
+  flex: 1;
   display: flex;
   width: 100%;
-  height: clamp(380px, 60vh, 850px);
+  min-height: 480px;
+  height: clamp(480px, 68vh, 900px);
   overflow: auto;
   position: relative;
   /* Bàn vẽ caro đồ họa cao cấp chống mỏi mắt */
@@ -366,6 +372,10 @@
    6. CỘT PHẢI: BẢNG THÔNG SỐ & TÙY CHỌN (INSPECTOR PANEL)
    ============================================================================ */
 .atelier-ws-inspector {
+  width: 280px;
+  min-width: 260px;
+  max-width: 300px;
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -376,6 +386,8 @@
   border: 1px solid var(--atl-border-amethyst, rgba(168, 85, 247, 0.18));
   border-radius: 14px;
   box-sizing: border-box;
+  max-height: calc(100vh - 160px);
+  overflow-y: auto;
 }
 
 .atelier-inspector-section-title {
@@ -722,4 +734,504 @@
   align-items: center;
   gap: 8px;
 }
+
+/* ============================================================================
+   9. BẢNG MÀU PALETTE DOCK (CHUẨN PHONG CÁCH PIXEL ART STUDIO)
+   ============================================================================ */
+.atelier-palette-dock {
+  width: 230px;
+  min-width: 210px;
+  max-width: 250px;
+  background: rgba(18, 13, 34, 0.92);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--atl-border-amethyst, rgba(168, 85, 247, 0.22));
+  border-radius: 14px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  max-height: calc(100vh - 160px);
+  overflow-y: auto;
+}
+
+.atelier-palette-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(168, 85, 247, 0.15);
+}
+
+.atelier-palette-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.atelier-palette-icon {
+  color: #c084fc;
+}
+
+.atelier-palette-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: #ffffff;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.atelier-palette-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.atelier-palette-badge {
+  font-size: 0.68rem;
+  font-weight: 600;
+  background: rgba(168, 85, 247, 0.18);
+  border: 1px solid rgba(168, 85, 247, 0.35);
+  color: #d8b4fe;
+  padding: 2px 7px;
+  border-radius: 99px;
+}
+
+.atelier-palette-btn-icon {
+  background: transparent;
+  border: 1px solid rgba(168, 85, 247, 0.25);
+  border-radius: 6px;
+  color: #c084fc;
+  cursor: pointer;
+  padding: 3px 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.atelier-palette-btn-icon:hover:not(:disabled) {
+  background: rgba(168, 85, 247, 0.25);
+  color: #ffffff;
+}
+
+.atelier-palette-btn-icon:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Lưới ô màu (Swatches Grid) */
+.atelier-palette-swatches-scroll {
+  max-height: 230px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.atelier-palette-swatches-scroll::-webkit-scrollbar {
+  width: 5px;
+}
+
+.atelier-palette-swatches-scroll::-webkit-scrollbar-thumb {
+  background: rgba(168, 85, 247, 0.35);
+  border-radius: 4px;
+}
+
+.atelier-palette-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 4px;
+}
+
+.atelier-swatch-cell {
+  aspect-ratio: 1;
+  border-radius: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  cursor: pointer;
+  position: relative;
+  transition: transform 0.1s ease, border-color 0.1s ease;
+  padding: 0;
+}
+
+.atelier-swatch-cell:hover {
+  transform: scale(1.15);
+  border-color: #ffffff;
+  z-index: 2;
+  box-shadow: 0 0 6px rgba(192, 132, 252, 0.6);
+}
+
+.atelier-swatch-cell.selected {
+  outline: 2px solid #ffffff;
+  outline-offset: 1px;
+  z-index: 3;
+}
+
+.atelier-swatch-dot {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 0 2px rgba(0, 0, 0, 0.8);
+}
+
+.atelier-palette-empty {
+  padding: 18px 8px;
+  text-align: center;
+  font-size: 0.74rem;
+  color: rgba(255, 255, 255, 0.45);
+  line-height: 1.4;
+}
+
+/* Khung điều khiển màu Foreground (Active Color) */
+.atelier-palette-active-card {
+  background: rgba(26, 18, 48, 0.6);
+  border: 1px solid rgba(168, 85, 247, 0.18);
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+
+.atelier-palette-active-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.atelier-active-swatch-box {
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.atelier-hidden-color-input {
+  opacity: 0;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+}
+
+.atelier-active-details {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+}
+
+.atelier-active-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.atelier-active-hex-input {
+  background: rgba(15, 10, 30, 0.8);
+  border: 1px solid rgba(168, 85, 247, 0.28);
+  border-radius: 5px;
+  color: #ffffff;
+  font-size: 0.74rem;
+  font-family: monospace;
+  font-weight: 700;
+  padding: 3px 6px;
+  width: 100%;
+}
+
+.atelier-active-hex-input:focus {
+  outline: none;
+  border-color: #c084fc;
+}
+
+.atelier-btn-copy-hex {
+  background: transparent;
+  border: none;
+  color: #c084fc;
+  cursor: pointer;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+}
+
+.atelier-active-index-pill {
+  font-size: 0.66rem;
+  color: #a855f7;
+  font-family: monospace;
+  font-weight: 600;
+}
+
+/* ============================================================================
+   10. THANH CÔNG CỤ VẼ DỌC (VERTICAL DRAWING TOOLBAR)
+   ============================================================================ */
+.atelier-drawing-toolbar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 6px;
+  background: rgba(18, 13, 34, 0.92);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(168, 85, 247, 0.22);
+  border-radius: 12px;
+  width: 48px;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  margin-bottom: 0;
+  align-self: flex-start;
+}
+
+.atelier-tool-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.atelier-tool-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 6px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: #cbd5e1;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.atelier-tool-btn:hover:not(:disabled) {
+  background: rgba(168, 85, 247, 0.2);
+  color: #ffffff;
+  border-color: rgba(168, 85, 247, 0.3);
+}
+
+.atelier-tool-btn.is-active {
+  background: rgba(147, 51, 234, 0.35);
+  border-color: #c084fc;
+  color: #ffffff;
+  box-shadow: 0 0 8px rgba(168, 85, 247, 0.4);
+}
+
+.atelier-tool-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.atelier-tool-divider {
+  width: 24px;
+  height: 1px;
+  background: rgba(168, 85, 247, 0.2);
+  margin: 4px 0;
+}
+
+.atelier-brush-size-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.atelier-brush-btn {
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 3px 2px;
+  border-radius: 4px;
+  background: transparent;
+  border: 1px solid rgba(168, 85, 247, 0.18);
+  color: #cbd5e1;
+  cursor: pointer;
+  transition: all 0.12s ease;
+  width: 34px;
+  text-align: center;
+}
+
+.atelier-brush-btn.is-active {
+  background: #a855f7;
+  color: #ffffff;
+  border-color: #c084fc;
+}
+
+.atelier-brush-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.atelier-history-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ============================================================================
+   11. BÀN VẼ PIXEL CANVAS (INTERACTIVE PIXEL CANVAS & CURSORS)
+   ============================================================================ */
+.atelier-pixel-canvas-wrapper {
+  position: relative;
+  display: inline-block;
+  image-rendering: pixelated;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+
+.atelier-main-pixel-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  image-rendering: pixelated;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+}
+
+.atelier-grid-overlay-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  image-rendering: pixelated;
+}
+
+/* Con trỏ chuột theo từng công cụ */
+.cursor-pencil {
+  cursor: crosshair;
+}
+
+.cursor-bucket {
+  cursor: cell;
+}
+
+.cursor-eyedropper {
+  cursor: copy;
+}
+
+.cursor-eraser {
+  cursor: not-allowed;
+}
+
+.cursor-pan {
+  cursor: grab;
+}
+
+.cursor-pan:active {
+  cursor: grabbing;
+}
+
+/* Hiệu ứng xoay tròn biểu tượng đang tải */
+.atelier-spin {
+  animation: atelierSpin 1s linear infinite;
+}
+
+@keyframes atelierSpin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ============================================================================
+   12. KHUNG THẺ GẬP MỞ ACCORDION (COLLAPSIBLE CARDS)
+   ============================================================================ */
+.atelier-collapsible-card {
+  background: rgba(22, 16, 42, 0.7);
+  border: 1px solid rgba(168, 85, 247, 0.2);
+  border-radius: 10px;
+  overflow: hidden;
+  transition: all 0.18s ease;
+}
+
+.atelier-collapsible-card:hover {
+  border-color: rgba(168, 85, 247, 0.35);
+}
+
+.atelier-collapsible-card.is-open {
+  background: rgba(26, 18, 48, 0.85);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+}
+
+.atelier-collapsible-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s ease;
+  text-align: left;
+}
+
+.atelier-collapsible-header:hover {
+  background: rgba(168, 85, 247, 0.12);
+}
+
+.atelier-collapsible-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.atelier-collapsible-icon {
+  color: #c084fc;
+  flex-shrink: 0;
+}
+
+.atelier-collapsible-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #e2e8f0;
+}
+
+.atelier-collapsible-chevron {
+  color: #a855f7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.atelier-collapsible-chevron.is-open {
+  transform: rotate(180deg);
+}
+
+.atelier-collapsible-body {
+  padding: 12px;
+  border-top: 1px solid rgba(168, 85, 247, 0.15);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  animation: atelierFadeIn 0.15s ease;
+}
+
+@keyframes atelierFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+
 
