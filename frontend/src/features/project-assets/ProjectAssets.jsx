@@ -65,6 +65,7 @@ export default function ProjectSavedPresets({
   onLoadPresetToStudio,
   onLoadSpriteToWorkspace,
   onDeployCharactersToGodot,
+  onTransferToGodot,
   onSelectTab,
   isActive = false
 }) {
@@ -225,6 +226,27 @@ export default function ProjectSavedPresets({
       onLoadSpriteToWorkspace(file, null, sheetPayload);
     } catch (err) {
       alert('Lỗi nạp ảnh vào Workspace: ' + err.message);
+    }
+  };
+
+  /**
+   * Tải ảnh sprite từ backend và chuyển thẳng vào phòng Thử nghiệm Godot.
+   * @param {Object} sprite Bản ghi sprite
+   */
+  const handleOpenInGodot = async (sprite) => {
+    if (!onTransferToGodot) {
+      if (onSelectTab) onSelectTab('godot_testbed');
+      return;
+    }
+    try {
+      const url = spriteImageUrl(currentProject.id, sprite.id, sprite.has_processed);
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('Không thể tải tệp ảnh từ máy chủ.');
+      const blob = await res.blob();
+      const file = new File([blob], sprite.name || 'character_sheet.png', { type: 'image/png' });
+      onTransferToGodot(file);
+    } catch (err) {
+      alert('Lỗi nạp ảnh vào Godot Testbed: ' + err.message);
     }
   };
 
@@ -731,6 +753,17 @@ export default function ProjectSavedPresets({
                           <button
                             type="button"
                             className="atelier-assets-btn-sub"
+                            onClick={() => handleOpenInGodot(s)}
+                            title="Đưa nhân vật này vào phòng Thử nghiệm Godot"
+                            style={{ background: 'rgba(147, 51, 234, 0.18)', borderColor: 'rgba(192, 132, 252, 0.35)', color: '#c084fc' }}
+                          >
+                            <Gamepad2 size={12} />
+                            <span>Thử Godot</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            className="atelier-assets-btn-sub"
                             onClick={() => handleDownloadSprite(s, s.has_processed)}
                             title="Tải ảnh PNG về máy"
                           >
@@ -851,6 +884,15 @@ export default function ProjectSavedPresets({
                           title="Mở vào Workspace"
                         >
                           <Wrench size={12} />
+                        </button>
+                        <button
+                          type="button"
+                          className="atelier-assets-btn-sub"
+                          onClick={() => handleOpenInGodot(s)}
+                          style={{ padding: '4px 6px', color: '#c084fc' }}
+                          title="Thử trong Godot Testbed"
+                        >
+                          <Gamepad2 size={12} />
                         </button>
                         <button
                           type="button"
@@ -1231,6 +1273,7 @@ export default function ProjectSavedPresets({
         handleDownloadSprite,
         onLoadSpriteToWorkspace,
         handleOpenInWorkspace,
+        handleOpenInGodot,
         onClose: () => setSelectedSprite(null)
       })}
 

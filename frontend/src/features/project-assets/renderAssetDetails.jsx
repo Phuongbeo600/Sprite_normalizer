@@ -277,6 +277,7 @@ export function renderSpriteDetail({
   handleDownloadSprite,
   onLoadSpriteToWorkspace,
   handleOpenInWorkspace,
+  handleOpenInGodot,
   onClose
 }) {
   return (
@@ -406,6 +407,21 @@ export function renderSpriteDetail({
               >
                 <Wrench size={14} />
                 <span>Mở vào Workspace</span>
+              </button>
+            )}
+
+            {handleOpenInGodot && (
+              <button
+                type="button"
+                className="atelier-assets-btn-sub"
+                onClick={() => {
+                  handleOpenInGodot(selectedSprite);
+                  onClose();
+                }}
+                style={{ background: 'rgba(147, 51, 234, 0.25)', borderColor: 'rgba(192, 132, 252, 0.4)', color: '#c084fc' }}
+              >
+                <Gamepad2 size={14} />
+                <span>Thử trong Godot</span>
               </button>
             )}
           </div>

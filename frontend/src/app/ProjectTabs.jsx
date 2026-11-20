@@ -103,6 +103,7 @@ export default function ProjectTabs({
             onLoadPresetToStudio={onLoadPresetToStudio}
             onLoadSpriteToWorkspace={onTransferToWorkspace}
             onDeployCharactersToGodot={onDeployCharactersToGodot}
+            onTransferToGodot={onTransferToGodot}
             onSelectTab={onSelectTab}
             isActive={activeTab === 'saved_presets'}
           />
