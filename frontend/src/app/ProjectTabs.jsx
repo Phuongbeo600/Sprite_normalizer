@@ -35,6 +35,7 @@ export default function ProjectTabs({
   imageGenPrompt,
   imageGenNegativePrompt,
   transferredImageForWorkspace,
+  transferredPaletteForWorkspace,
   transferredImageForGodot,
   selectedGodotCharIds,
   onCloseProject,
@@ -66,6 +67,7 @@ export default function ProjectTabs({
             loadedPresetData={loadedPresetData}
             isActive={activeTab === 'analysis'}
             onSendPromptToImageGen={onSendPromptToImageGen}
+            onTransferToWorkspace={onTransferToWorkspace}
             isAiEnabled={isAiEnabled}
           />
         </div>
@@ -88,6 +90,7 @@ export default function ProjectTabs({
           <Workspace
             currentProject={currentProject}
             incomingFile={transferredImageForWorkspace}
+            incomingPalette={transferredPaletteForWorkspace}
           />
         </div>
 

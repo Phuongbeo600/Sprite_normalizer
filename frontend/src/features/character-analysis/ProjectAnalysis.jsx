@@ -71,6 +71,7 @@ export default function ProjectAnalysis({
   loadedPresetData,
   isActive = true,
   onSendPromptToImageGen = null,
+  onTransferToWorkspace = null,
   isAiEnabled = true,
 }) {
   // ========================================================
@@ -495,6 +496,7 @@ export default function ProjectAnalysis({
           analysisError={analysisError}
           colorError={colorError}
           onOpenPrompt={() => setWorkspaceMode('prompt_studio')}
+          onTransferToWorkspace={onTransferToWorkspace}
         />
       )}
 

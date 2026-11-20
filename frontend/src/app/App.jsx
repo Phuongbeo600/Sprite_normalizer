@@ -91,8 +91,10 @@ export default function App() {
   // Dữ liệu prompt & negative prompt chuyển từ Studio sang Tạo ảnh AI
   const [imageGenPrompt, setImageGenPrompt] = useState('');
   const [imageGenNegativePrompt, setImageGenNegativePrompt] = useState('');
-  // Tệp ảnh được chuyển tiếp từ Tạo ảnh AI sang Workspace hoặc Godot
+  // Tệp ảnh được chuyển tiếp từ Tạo ảnh AI hoặc Studio sang Workspace hoặc Godot
   const [transferredImageForWorkspace, setTransferredImageForWorkspace] = useState(null);
+  // Dữ liệu bảng màu đầy đủ đã phân tích chuyển tiếp sang Workspace để tái sử dụng ngay
+  const [transferredPaletteForWorkspace, setTransferredPaletteForWorkspace] = useState(null);
   const [transferredImageForGodot, setTransferredImageForGodot] = useState(null);
   // Danh sách ID nhân vật được tích chọn từ Kho tài nguyên để đưa vào Godot Testbed
   const [selectedGodotCharIds, setSelectedGodotCharIds] = useState(null);
@@ -136,12 +138,14 @@ export default function App() {
   };
 
   /**
-   * Chuyển tệp ảnh vừa sinh từ Tạo ảnh AI sang Workspace để cắt viền và chuẩn hóa.
+   * Chuyển tệp ảnh và bảng màu sang Workspace để cắt viền, chuẩn hóa hoặc vẽ pixel art.
    * 
-   * @param {File} imageFile Tệp ảnh sinh ra từ AI.
+   * @param {File} imageFile Tệp ảnh nguồn hoặc ảnh sinh từ AI.
+   * @param {string[]|null} [paletteData=null] Bảng màu trích xuất được từ bước phân tích.
    */
-  const handleTransferToWorkspace = (imageFile) => {
+  const handleTransferToWorkspace = (imageFile, paletteData = null) => {
     setTransferredImageForWorkspace(imageFile);
+    setTransferredPaletteForWorkspace(paletteData);
     setActiveTab('workspace');
   };
 
@@ -303,6 +307,7 @@ export default function App() {
                 imageGenPrompt={imageGenPrompt}
                 imageGenNegativePrompt={imageGenNegativePrompt}
                 transferredImageForWorkspace={transferredImageForWorkspace}
+                transferredPaletteForWorkspace={transferredPaletteForWorkspace}
                 transferredImageForGodot={transferredImageForGodot}
                 selectedGodotCharIds={selectedGodotCharIds}
                 onCloseProject={handleCloseProject}
