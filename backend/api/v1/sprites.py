@@ -105,14 +105,23 @@ def slice_sprite_sheet(
     columns: Annotated[int, Form(ge=1, le=256)],
     output: Annotated[Literal["json", "zip"], Form()] = "json",
     auto_anchor: Annotated[bool, Form()] = False, # tự động căn tâm, neo chân
+    target_width: Annotated[Optional[int], Form(ge=1)] = None,
+    target_height: Annotated[Optional[int], Form(ge=1)] = None,
 ):
-    """Cắt lưới Sprite Sheet thích ứng và trả danh sách PNG hoặc tệp ZIP (Hỗ trợ auto_anchor)."""
+    """Cắt lưới Sprite Sheet thích ứng và trả danh sách PNG hoặc tệp ZIP (Hỗ trợ auto_anchor & ép độ phân giải Nearest Neighbor)."""
     try:
         with Image.open(file.file) as source:
             image = ImageOps.exif_transpose(source)
             if output == "zip":
                 return Response(
-                    SpriteService.sheet_zip(image, rows, columns, auto_anchor=auto_anchor),
+                    SpriteService.sheet_zip(
+                        image,
+                        rows,
+                        columns,
+                        auto_anchor=auto_anchor,
+                        target_width=target_width,
+                        target_height=target_height
+                    ),
                     media_type="application/zip",
                     headers={"Content-Disposition": 'attachment; filename="sprite-frames.zip"'},#Cho phép tải file từ hệ thống xuống
                 )
@@ -120,6 +129,46 @@ def slice_sprite_sheet(
                 {"name": name, "width": width, "height": height, "png": b64encode(png).decode("ascii")}
                 for name, (width, height), png in SpriteService.sheet_frames(image, rows, columns, auto_anchor=auto_anchor)
             ]}
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    except (OSError, Image.DecompressionBombError) as error:
+        raise HTTPException(status_code=400, detail="Không đọc được sprite sheet.") from error
+
+
+@sprites_router.post("/batch-resize-sheet")
+def batch_resize_sheet(
+    file: Annotated[UploadFile, File()],
+    rows: Annotated[int, Form(ge=1, le=256)],
+    columns: Annotated[int, Form(ge=1, le=256)],
+    target_width: Annotated[int, Form(ge=1)],
+    target_height: Annotated[int, Form(ge=1)],
+    auto_anchor: Annotated[bool, Form()] = False,
+):
+    """
+    Cắt lưới Sprite Sheet và ép toàn bộ các khung hình về độ phân giải yêu cầu bằng thuật toán Nearest Neighbor.
+    Bảo toàn 100% độ sắc nét cho đồ họa Pixel Art.
+    """
+    try:
+        with Image.open(file.file) as source:
+            image = ImageOps.exif_transpose(source)
+            from backend.core.processing.sprite_editing import slice_sheet
+            resized_frames = []
+            for idx, frame_img in enumerate(slice_sheet(image, rows, columns, auto_anchor=auto_anchor), start=1):
+                resized = resize_image(frame_img, target_width, target_height)
+                png_bytes = SpriteService.encode_png(resized)
+                resized_frames.append({
+                    "name": f"frame_{idx:03}.png",
+                    "width": target_width,
+                    "height": target_height,
+                    "png": b64encode(png_bytes).decode("ascii")
+                })
+            return {
+                "status": "success",
+                "target_width": target_width,
+                "target_height": target_height,
+                "frame_count": len(resized_frames),
+                "frames": resized_frames
+            }
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
     except (OSError, Image.DecompressionBombError) as error:
@@ -380,19 +429,21 @@ def delete_sprite(
 
 @sprites_router.post("/sprites/save-sliced-pack")
 async def save_sliced_pack(
-    file: UploadFile = File(..., description="Tệp ảnh Sprite Sheet gốc"),
-    project_id: int = Form(..., description="Mã định danh dự án"),
-    folder_name: str = Form("Mặc định", description="Tên thư mục gom nhóm"),
-    rows: int = Form(..., description="Số hàng trong lưới"),
-    columns: int = Form(..., description="Số cột trong lưới"),
-    auto_anchor: bool = Form(False, description="Tự động căn tâm và neo chân"),
-    fps: int = Form(6, description="Tốc độ khung hình hoạt họa"),
+    file: Annotated[UploadFile, File(description="Tệp ảnh Sprite Sheet gốc")],
+    project_id: Annotated[int, Form(description="Mã định danh dự án")],
+    rows: Annotated[int, Form(description="Số hàng trong lưới")],
+    columns: Annotated[int, Form(description="Số cột trong lưới")],
+    folder_name: Annotated[str, Form(description="Tên thư mục gom nhóm")] = "Mặc định",
+    auto_anchor: Annotated[bool, Form(description="Tự động căn tâm và neo chân")] = False,
+    fps: Annotated[int, Form(description="Tốc độ khung hình hoạt họa")] = 6,
+    target_width: Annotated[Optional[int], Form(description="Chiều rộng mục tiêu cho từng frame (nếu ép kích thước)")] = None,
+    target_height: Annotated[Optional[int], Form(description="Chiều cao mục tiêu cho từng frame (nếu ép kích thước)")] = None,
     db: Session = Depends(get_db)
 ):
     """
     Lưu trọn gói bộ Sprite Sheet và toàn bộ các khung hình đã cắt rời vào CSDL MySQL:
-    - Bảng 'project_sprites': Lưu ảnh Sheet gốc, băm SHA-256 chống trùng và gán folder_name.
-    - Bảng 'sprite_frames': Bóc tách từng ô frame và lưu nguyên tử trong cùng một phiên.
+    - Bảng 'project_sprites': Lưu ảnh Sheet gốc hoặc Sheet đã ghép từ các frame đã ép kích thước, băm SHA-256 chống trùng và gán folder_name.
+    - Bảng 'sprite_frames': Bóc tách từng ô frame (đã ép kích thước nếu có) và lưu nguyên tử trong cùng một phiên.
     """
     try:
         raw_bytes = await file.read()
@@ -402,23 +453,58 @@ async def save_sliced_pack(
         image = Image.open(io.BytesIO(raw_bytes))
         image = ImageOps.exif_transpose(image)
 
+        is_batch_resized = bool(target_width and target_height and target_width > 0 and target_height > 0)
+
         frames_list = []
+        resized_pil_frames = []
+
         for idx, (frame_name, frame_size, png_bytes) in enumerate(
             SpriteService.sheet_frames(image, rows=rows, columns=columns, auto_anchor=auto_anchor),
             start=1
         ):
+            if is_batch_resized:
+                frame_img = Image.open(io.BytesIO(png_bytes))
+                resized = resize_image(frame_img, width=target_width, height=target_height)
+                resized_pil_frames.append(resized)
+                buf = io.BytesIO()
+                resized.save(buf, format="PNG")
+                final_png_bytes = buf.getvalue()
+                final_size = [target_width, target_height]
+            else:
+                final_png_bytes = png_bytes
+                final_size = list(frame_size)
+
             frames_list.append({
                 "index": idx,
                 "name": frame_name,
-                "bytes": png_bytes,
-                "size": list(frame_size),
+                "bytes": final_png_bytes,
+                "size": final_size,
                 "metadata": {
-                    "width": frame_size[0],
-                    "height": frame_size[1],
+                    "width": final_size[0],
+                    "height": final_size[1],
                     "row": (idx - 1) // columns + 1,
                     "col": (idx - 1) % columns + 1
                 }
             })
+
+        # Nếu có ép kích thước: Tự động ghép 15 frame nhỏ thành một tấm Sprite Sheet mới hoàn chỉnh
+        if is_batch_resized and resized_pil_frames:
+            new_sheet_w = columns * target_width
+            new_sheet_h = rows * target_height
+            new_sheet_img = Image.new("RGBA", (new_sheet_w, new_sheet_h), (0, 0, 0, 0))
+
+            for f_idx, rf_img in enumerate(resized_pil_frames):
+                col_i = f_idx % columns
+                row_i = f_idx // columns
+                new_sheet_img.paste(rf_img, (col_i * target_width, row_i * target_height))
+
+            s_buf = io.BytesIO()
+            new_sheet_img.save(s_buf, format="PNG")
+            final_sheet_bytes = s_buf.getvalue()
+            name_stem = sheet_name.rsplit(".", 1)[0]
+            sheet_name = f"{name_stem}_{target_width}x{target_height}.png"
+        else:
+            final_sheet_bytes = raw_bytes
 
         metadata = {
             "rows": rows,
@@ -427,6 +513,9 @@ async def save_sliced_pack(
             "fps": fps,
             "original_width": image.width,
             "original_height": image.height,
+            "frame_width": target_width if is_batch_resized else (image.width // columns),
+            "frame_height": target_height if is_batch_resized else (image.height // rows),
+            "is_batch_resized": is_batch_resized,
             "frame_count": len(frames_list),
             "filename": sheet_name
         }
@@ -436,7 +525,7 @@ async def save_sliced_pack(
             project_id=project_id,
             folder_name=folder_name.strip() or "Mặc định",
             sheet_name=sheet_name,
-            sheet_bytes=raw_bytes,
+            sheet_bytes=final_sheet_bytes,
             frames=frames_list,
             metadata=metadata
         )
@@ -447,7 +536,10 @@ async def save_sliced_pack(
             "folder_name": result["folder_name"],
             "sheet_name": result["sheet_name"],
             "frame_count": result["frame_count"],
-            "message": f"Đã lưu thành công bộ {result['frame_count']} frame vào thư mục '{result['folder_name']}'!"
+            "is_batch_resized": is_batch_resized,
+            "frame_width": target_width if is_batch_resized else (image.width // columns),
+            "frame_height": target_height if is_batch_resized else (image.height // rows),
+            "message": f"Đã lưu thành công bộ {result['frame_count']} frame ({'đã ép ' + str(target_width) + '×' + str(target_height) + 'px' if is_batch_resized else 'gốc'}) vào thư mục '{result['folder_name']}'!"
         }
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Lỗi khi lưu bộ frame vào thư mục: {str(exc)}")
@@ -488,3 +580,57 @@ def get_frame_image(
     if not img_bytes:
         raise HTTPException(status_code=404, detail="Không tìm thấy ảnh frame trong MySQL.")
     return Response(content=img_bytes, media_type="image/png")
+
+
+@sprites_router.post("/sprites/batch-resize-sheet")
+async def batch_resize_sheet(
+    file: UploadFile = File(..., description="Tệp ảnh Sprite Sheet gốc"),
+    rows: int = Form(..., description="Số hàng trong lưới"),
+    columns: int = Form(..., description="Số cột trong lưới"),
+    target_width: int = Form(..., description="Chiều rộng mục tiêu cho từng frame"),
+    target_height: int = Form(..., description="Chiều cao mục tiêu cho từng frame"),
+    auto_anchor: bool = Form(False, description="Tự động căn tâm và neo chân"),
+):
+    """
+    Ép kích thước hàng loạt toàn bộ các frame trong Sprite Sheet:
+    1. Cắt Sprite Sheet thành danh sách các ô frame.
+    2. Sử dụng thuật toán Nearest Neighbor (resize_sprite) ép từng frame về (target_width x target_height) mà không làm vỡ nét pixel art.
+    3. Mã hóa Base64 trả về cho frontend cập nhật tức thì trên Timeline và Canvas.
+    """
+    if target_width < 1 or target_height < 1:
+        raise HTTPException(status_code=400, detail="Chiều rộng và chiều cao mục tiêu phải >= 1 pixel.")
+
+    try:
+        raw_bytes = await file.read()
+        image = Image.open(io.BytesIO(raw_bytes))
+        image = ImageOps.exif_transpose(image)
+
+        frames_result = []
+        for frame_name, _original_size, png_bytes in SpriteService.sheet_frames(
+            image, rows=rows, columns=columns, auto_anchor=auto_anchor
+        ):
+            frame_img = Image.open(io.BytesIO(png_bytes))
+            resized_frame = resize_image(frame_img, width=target_width, height=target_height)
+
+            out_buf = io.BytesIO()
+            resized_frame.save(out_buf, format="PNG")
+            b64_str = b64encode(out_buf.getvalue()).decode("utf-8")
+
+            frames_result.append({
+                "name": frame_name,
+                "size": [target_width, target_height],
+                "png": b64_str
+            })
+
+        return {
+            "status": "success",
+            "rows": rows,
+            "columns": columns,
+            "target_width": target_width,
+            "target_height": target_height,
+            "frame_count": len(frames_result),
+            "frames": frames_result
+        }
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Lỗi khi ép kích thước frame hàng loạt: {str(exc)}")
+

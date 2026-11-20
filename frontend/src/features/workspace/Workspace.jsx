@@ -47,6 +47,7 @@ import {
   processImage,
   analyzeSpriteColors,
   saveSlicedPackToVault,
+  batchResizeSheetFrames,
 } from './workspaceApi';
 
 // ========================================================
@@ -104,8 +105,16 @@ export default function Workspace({
     anchor: true,
     result: true,
     sheetSlice: true,
+    sheetBatchResize: true,
     sheetExport: true,
   });
+  // Kích thước mục tiêu cho thao tác Ép độ phân giải frame hàng loạt (Batch Resize)
+  const [batchResizeTarget, setBatchResizeTarget] = useState({ width: 64, height: 64 });
+  const [batchKeepRatio, setBatchKeepRatio] = useState(true);
+  const [batchResizing, setBatchResizing] = useState(false);
+  const [batchResizeMsg, setBatchResizeMsg] = useState('');
+  // Kích thước thực tế của frame sau khi đã ép thành công (dùng để lưu vào CSDL và xuất ZIP)
+  const [batchResizedSize, setBatchResizedSize] = useState(null);
   // Số hàng và số cột khi cắt Sprite Sheet
   const [rows, setRows] = useState(3);
   const [columns, setColumns] = useState(5);
@@ -199,13 +208,16 @@ export default function Workspace({
     gridCount <= MAX_FRAMES &&
     cellWidth >= 1 &&
     cellHeight >= 1;
-  const fitZoom = preview
+  const previewWidth = preview?.width || cellWidth || dimensions?.width || 64;
+  const previewHeight = preview?.height || cellHeight || dimensions?.height || 64;
+  const fitZoom = (preview && previewWidth > 0 && previewHeight > 0 && viewportSize.width > 32 && viewportSize.height > 32)
     ? Math.max(
         0.01,
-        Math.min((viewportSize.width - 32) / preview.width, (viewportSize.height - 32) / preview.height, 16)
+        Math.min((viewportSize.width - 32) / previewWidth, (viewportSize.height - 32) / previewHeight, 16)
       )
     : 1;
-  const activeZoom = zoom ?? fitZoom;
+  const safeFitZoom = Number.isFinite(fitZoom) ? fitZoom : 1;
+  const activeZoom = Number.isFinite(zoom) ? zoom : safeFitZoom;
   const nameStem = source?.file.name.replace(/\.[^.]+$/, '') || 'sprite';
 
   // Lắng nghe thay đổi kích thước khung nhìn để tính toán zoom vừa vặn
@@ -521,6 +533,67 @@ export default function Workspace({
   }
 
   /**
+   * Thay đổi kích thước mục tiêu cho thao tác Ép độ phân giải frame hàng loạt (Batch Resize).
+   *
+   * @param {'width'|'height'} axis Trục kích thước thay đổi.
+   * @param {string|number} value Giá trị pixel nhập vào.
+   * @returns {void}
+   */
+  function changeBatchResizeTarget(axis, value) {
+    const num = Math.max(1, Number(value) || 1);
+    const next = { ...batchResizeTarget, [axis]: num };
+    const curW = cellWidth || 64;
+    const curH = cellHeight || 64;
+    if (batchKeepRatio && curW > 0 && curH > 0 && Number(value) > 0) {
+      const other = axis === 'width' ? 'height' : 'width';
+      const ratio = axis === 'width' ? (curH / curW) : (curW / curH);
+      next[other] = Math.max(1, Math.round(Number(value) * ratio));
+    }
+    setBatchResizeTarget(next);
+  }
+
+  /**
+   * Thực thi ép toàn bộ các khung hình trong Sprite Sheet về độ phân giải yêu cầu.
+   */
+  async function executeBatchResize() {
+    if (!source?.file || !sheet || batchResizing) return;
+    setBatchResizing(true);
+    setBatchResizeMsg('');
+    setError('');
+    try {
+      const res = await batchResizeSheetFrames({
+        file: source.file,
+        rows: sheet.rows,
+        columns: sheet.columns,
+        targetWidth: batchResizeTarget.width,
+        targetHeight: batchResizeTarget.height,
+        autoAnchor: autoAnchor,
+      });
+
+      if (res?.frames && res.frames.length > 0) {
+        setSheet({
+          rows: sheet.rows,
+          columns: sheet.columns,
+          frames: res.frames.map((f, idx) => ({
+            ...f,
+            index: idx + 1,
+            url: `data:image/png;base64,${f.png}`,
+            width: res.target_width,
+            height: res.target_height,
+          })),
+        });
+        setBatchResizedSize({ width: res.target_width, height: res.target_height });
+        setBatchResizeMsg(`Đã ép thành công ${res.frame_count} frame về kích thước ${res.target_width}×${res.target_height} px!`);
+        setTimeout(() => setBatchResizeMsg(''), 4000);
+      }
+    } catch (err) {
+      setError(err.message || 'Lỗi khi ép độ phân giải toàn bộ frame.');
+    } finally {
+      setBatchResizing(false);
+    }
+  }
+
+  /**
    * Thực thi lệnh xử lý ảnh đơn (Thu nhỏ ảnh hoặc Chuẩn hóa điểm neo)
    *
    * @param {'resize'|'normalize'} cmd Lệnh cần thực thi.
@@ -589,6 +662,7 @@ export default function Workspace({
           url: `data:image/png;base64,${png}`,
         })),
       });
+      setBatchResizedSize(null);
       setFrameIndex(0);
       setZoom(null);
     } catch (failure) {
@@ -599,23 +673,30 @@ export default function Workspace({
   }
 
   /**
-   * Xuất toàn bộ các frame đã cắt thành file ZIP
+   * Xuất toàn bộ các frame đã cắt thành file ZIP.
+   * Tự động áp dụng kích thước đã ép (Nearest Neighbor) nếu người dùng đã thực hiện ép hàng loạt.
    */
   async function exportSheet() {
     if (!sheet || busy) return;
     setBusy('Đang tạo ZIP…');
     setError('');
     try {
-      const response = await processImage(source.file, 'slice-sheet', {
+      const extraFields = {
         rows: sheet.rows,
         columns: sheet.columns,
         output: 'zip',
         auto_anchor: autoAnchor,
-      });
+      };
+      if (batchResizedSize?.width && batchResizedSize?.height) {
+        extraFields.target_width = batchResizedSize.width;
+        extraFields.target_height = batchResizedSize.height;
+      }
+      const response = await processImage(source.file, 'slice-sheet', extraFields);
       const url = URL.createObjectURL(await response.blob());
       const link = document.createElement('a');
       link.href = url;
-      link.download = `${nameStem}-frames.zip`;
+      const sizeTag = batchResizedSize ? `_${batchResizedSize.width}x${batchResizedSize.height}` : '';
+      link.download = `${nameStem}-frames${sizeTag}.zip`;
       link.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (failure) {
@@ -627,6 +708,7 @@ export default function Workspace({
 
   /**
    * Lưu trọn gói Sprite Sheet và toàn bộ các frame cắt rời vào một Thư mục trong Kho tài nguyên MySQL.
+   * Hỗ trợ lưu bộ frame đã ép kích thước (Nearest Neighbor) nếu người dùng đã thực hiện ép hàng loạt.
    */
   async function handleConfirmSavePack() {
     if (!currentProject?.id) {
@@ -647,11 +729,13 @@ export default function Workspace({
         columns: sheet.columns,
         autoAnchor: autoAnchor,
         fps: fps || 6,
+        targetWidth: batchResizedSize?.width || null,
+        targetHeight: batchResizedSize?.height || null,
       });
 
       setSavePackStatus({
         success: true,
-        message: `Đã lưu thành công ${res.frame_count} frame vào thư mục "${res.folder_name}"!`
+        message: `Đã lưu thành công ${res.frame_count} frame (${batchResizedSize ? 'đã ép ' + batchResizedSize.width + '×' + batchResizedSize.height + ' px' : 'kích thước gốc'}) vào thư mục "${res.folder_name}"!`
       });
       setTimeout(() => {
         setShowSavePackModal(false);
@@ -689,6 +773,7 @@ export default function Workspace({
   function changeGrid(setValue, value) {
     setValue(value);
     setSheet(null);
+    setBatchResizedSize(null);
     selectFrame(null);
     setError('');
   }
@@ -844,7 +929,7 @@ export default function Workspace({
               <Minus size={14} />
             </button>
             <span className="atelier-ws-zoom-readout">
-              {preview ? `${Math.round(activeZoom * 100)}%` : '—'}
+              {preview && Number.isFinite(activeZoom) ? `${Math.round(activeZoom * 100)}%` : '100%'}
             </span>
             <button
               type="button"
@@ -1112,6 +1197,119 @@ export default function Workspace({
                   </button>
                 </CollapsibleCard>
 
+                {/* Khung: Ép độ phân giải frame hàng loạt (Batch Resize) */}
+                {sheet && (
+                  <CollapsibleCard
+                    title="Ép độ phân giải frame (Batch Resize)"
+                    icon={Scaling}
+                    isOpen={openSections.sheetBatchResize}
+                    onToggle={() => toggleSection('sheetBatchResize')}
+                  >
+                    <div className="atelier-inspector-info-card" style={{ padding: '6px 10px', margin: '0 0 6px 0' }}>
+                      <p style={{ fontSize: '0.74rem', color: '#c084fc', margin: 0 }}>
+                        Kích thước ô gốc: <strong>{cellWidth} × {cellHeight} px</strong>
+                      </p>
+                    </div>
+
+                    <div className="atelier-inspector-grid-inputs">
+                      <div className="atelier-inspector-field">
+                        <label className="atelier-inspector-label">Chiều rộng (px)</label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="2048"
+                          value={batchResizeTarget.width}
+                          onChange={(e) => changeBatchResizeTarget('width', e.target.value)}
+                          disabled={batchResizing}
+                          className="atelier-inspector-input"
+                        />
+                      </div>
+                      <div className="atelier-inspector-field">
+                        <label className="atelier-inspector-label">Chiều cao (px)</label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="2048"
+                          value={batchResizeTarget.height}
+                          onChange={(e) => changeBatchResizeTarget('height', e.target.value)}
+                          disabled={batchResizing}
+                          className="atelier-inspector-input"
+                        />
+                      </div>
+                    </div>
+
+                    <label className="atelier-inspector-checkbox" style={{ margin: '4px 0' }}>
+                      <input
+                        type="checkbox"
+                        checked={batchKeepRatio}
+                        onChange={(e) => setBatchKeepRatio(e.target.checked)}
+                        disabled={batchResizing}
+                      />
+                      <span>Khóa tỷ lệ khung hình</span>
+                    </label>
+
+                    {/* Các nút chọn nhanh kích thước thông dụng - Căn 5 cột gọn gàng */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '4px', margin: '2px 0 6px 0' }}>
+                      {[16, 32, 48, 64, 128].map((size) => (
+                        <button
+                          key={size}
+                          type="button"
+                          className="atelier-btn-secondary-action"
+                          style={{
+                            width: '100%',
+                            padding: '5px 2px',
+                            fontSize: '0.68rem',
+                            justifyContent: 'center',
+                            textAlign: 'center',
+                          }}
+                          onClick={() => {
+                            if (batchKeepRatio && cellWidth > 0 && cellHeight > 0) {
+                              const ratio = cellHeight / cellWidth;
+                              setBatchResizeTarget({ width: size, height: Math.max(1, Math.round(size * ratio)) });
+                            } else {
+                              setBatchResizeTarget({ width: size, height: size });
+                            }
+                          }}
+                          disabled={batchResizing}
+                        >
+                          {size}×{size}
+                        </button>
+                      ))}
+                    </div>
+
+                    <button
+                      className="atelier-btn-primary-action"
+                      type="button"
+                      disabled={!source?.file || !sheet || batchResizing}
+                      onClick={executeBatchResize}
+                      style={{
+                        background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
+                        borderColor: '#34d399',
+                        boxShadow: '0 0 15px rgba(16, 185, 129, 0.25)',
+                        marginTop: '2px',
+                      }}
+                    >
+                      {batchResizing ? (
+                        <>
+                          <LoaderCircle size={15} className="atelier-ws-spinner-icon" />
+                          <span>Đang ép kích thước…</span>
+                        </>
+                      ) : (
+                        <>
+                          <Scaling size={15} />
+                          <span>Ép toàn bộ {sheet?.frames?.length || (rows * columns)} frame</span>
+                        </>
+                      )}
+                    </button>
+
+                    {batchResizeMsg && (
+                      <p style={{ fontSize: '0.75rem', color: '#34d399', marginTop: '6px', textAlign: 'center' }}>
+                        {batchResizeMsg}
+                      </p>
+                    )}
+                  </CollapsibleCard>
+                )}
+
                 {/* Khung 2: Xuất tài nguyên (Export & Download) */}
                 {sheet && (
                   <CollapsibleCard
@@ -1127,7 +1325,8 @@ export default function Workspace({
                         type="button"
                         onClick={() => {
                           const base = (source?.file?.name || 'SpriteSheet').replace(/\.[^/.]+$/, '');
-                          setPackFolderName(`${base}_${sheet.rows}x${sheet.columns}`);
+                          const sizeTag = batchResizedSize ? `_${batchResizedSize.width}x${batchResizedSize.height}` : '';
+                          setPackFolderName(`${base}_${sheet.rows}x${sheet.columns}${sizeTag}`);
                           setSavePackStatus({ success: false, message: '' });
                           setShowSavePackModal(true);
                         }}
@@ -1536,6 +1735,9 @@ export default function Workspace({
                   <div>• <strong>Số frame:</strong> {sheet?.frames?.length || (sheet?.rows * sheet?.columns)} frame</div>
                   <div>• <strong>Lưới cắt:</strong> {sheet?.rows} hàng × {sheet?.columns} cột</div>
                   <div>• <strong>Tốc độ:</strong> {fps} FPS</div>
+                  <div style={{ gridColumn: 'span 2', color: batchResizedSize ? '#34d399' : '#c084fc', marginTop: '2px' }}>
+                    • <strong>Kích thước từng frame:</strong> {batchResizedSize ? `${batchResizedSize.width} × ${batchResizedSize.height} px (Đã ép độ phân giải)` : `${cellWidth} × ${cellHeight} px (Gốc)`}
+                  </div>
                 </div>
               </div>
 

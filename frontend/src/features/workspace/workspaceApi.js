@@ -108,6 +108,7 @@ export async function analyzeSpriteColors(file, signal) {
 
 /**
  * Lưu trọn gói Sprite Sheet và toàn bộ các frame cắt rời vào một Thư mục trong CSDL MySQL.
+ * Hỗ trợ lưu bộ frame đã ép kích thước (Nearest Neighbor) nếu có truyền targetWidth và targetHeight.
  *
  * @param {Object} params Tham số cấu hình gói lưu.
  * @param {File|Blob} params.file Tệp ảnh Sprite Sheet gốc.
@@ -117,9 +118,21 @@ export async function analyzeSpriteColors(file, signal) {
  * @param {number} params.columns Số cột trong lưới cắt.
  * @param {boolean} [params.autoAnchor=false] Căn tâm và neo chân.
  * @param {number} [params.fps=6] Tốc độ khung hình.
+ * @param {number|null} [params.targetWidth] Chiều rộng mục tiêu từng frame đã ép.
+ * @param {number|null} [params.targetHeight] Chiều cao mục tiêu từng frame đã ép.
  * @returns {Promise<Object>} Phản hồi từ máy chủ.
  */
-export async function saveSlicedPackToVault({ file, projectId, folderName, rows, columns, autoAnchor = false, fps = 6 }) {
+export async function saveSlicedPackToVault({
+  file,
+  projectId,
+  folderName,
+  rows,
+  columns,
+  autoAnchor = false,
+  fps = 6,
+  targetWidth = null,
+  targetHeight = null
+}) {
   const body = new FormData();
   body.append('file', file);
   body.append('project_id', String(projectId));
@@ -128,6 +141,10 @@ export async function saveSlicedPackToVault({ file, projectId, folderName, rows,
   body.append('columns', String(columns));
   body.append('auto_anchor', String(Boolean(autoAnchor)));
   body.append('fps', String(fps));
+  if (targetWidth && targetHeight) {
+    body.append('target_width', String(targetWidth));
+    body.append('target_height', String(targetHeight));
+  }
 
   const response = await fetch('/api/sprites/save-sliced-pack', {
     method: 'POST',
@@ -137,6 +154,40 @@ export async function saveSlicedPackToVault({ file, projectId, folderName, rows,
   if (!response.ok) {
     const err = await response.json().catch(() => null);
     throw new Error(err?.detail || 'Không thể lưu bộ frame vào thư mục.');
+  }
+
+  return response.json();
+}
+
+/**
+ * Ép toàn bộ các frame trong Sprite Sheet về độ phân giải yêu cầu (Nearest Neighbor).
+ *
+ * @param {Object} params Tham số cấu hình ép hàng loạt.
+ * @param {File|Blob} params.file Tệp ảnh Sprite Sheet gốc.
+ * @param {number} params.rows Số hàng trong lưới cắt.
+ * @param {number} params.columns Số cột trong lưới cắt.
+ * @param {number} params.targetWidth Chiều rộng đích (pixel).
+ * @param {number} params.targetHeight Chiều cao đích (pixel).
+ * @param {boolean} [params.autoAnchor=false] Căn tâm và neo chân.
+ * @returns {Promise<Object>} Danh sách frame mới đã ép độ phân giải.
+ */
+export async function batchResizeSheetFrames({ file, rows, columns, targetWidth, targetHeight, autoAnchor = false }) {
+  const body = new FormData();
+  body.append('file', file);
+  body.append('rows', String(rows));
+  body.append('columns', String(columns));
+  body.append('target_width', String(targetWidth));
+  body.append('target_height', String(targetHeight));
+  body.append('auto_anchor', String(Boolean(autoAnchor)));
+
+  const response = await fetch('/api/sprites/batch-resize-sheet', {
+    method: 'POST',
+    body
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => null);
+    throw new Error(err?.detail || 'Không thể ép độ phân giải các frame.');
   }
 
   return response.json();

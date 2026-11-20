@@ -43,7 +43,8 @@ from backend.api.v1.sprites import (
     save_raw_sprite,
     save_sliced_pack,
     get_sprite_frames,
-    get_frame_image
+    get_frame_image,
+    batch_resize_sheet
 )
 from backend.repositories.sprite_repository import SpriteRepository
 from backend.api.v1.auth import get_user_service
@@ -229,6 +230,133 @@ class TestSpriteRouterRefactoringC53(unittest.TestCase):
             self.assertEqual(result["folder_name"], "Phap_Su_Tim")
             self.assertEqual(result["frame_count"], 4)
             self.assertIn("Phap_Su_Tim", result["message"])
+
+    def test_batch_resize_sheet_api(self):
+        """Kiểm tra API batch_resize_sheet ép đồng loạt các frame con về độ phân giải chỉ định."""
+        from base64 import b64decode
+
+        # Tạo ảnh sprite sheet kích thước 32x32 với 2x2 = 4 frame
+        img = Image.new("RGBA", (32, 32), color="blue")
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        buf.seek(0)
+
+        upload_file = UploadFile(buf, filename="sheet_test_2x2.png")
+
+        # Gọi API ép đồng loạt về 8x8
+        result = asyncio.run(batch_resize_sheet(
+            file=upload_file,
+            rows=2,
+            columns=2,
+            target_width=8,
+            target_height=8,
+            auto_anchor=False
+        ))
+
+        self.assertEqual(result["status"], "success")
+        self.assertEqual(result["rows"], 2)
+        self.assertEqual(result["columns"], 2)
+        self.assertEqual(result["target_width"], 8)
+        self.assertEqual(result["target_height"], 8)
+        self.assertEqual(result["frame_count"], 4)
+        self.assertEqual(len(result["frames"]), 4)
+
+        # Kiểm tra từng frame con sau khi ép
+        for frame in result["frames"]:
+            self.assertEqual(frame["size"], [8, 8])
+            self.assertTrue(len(frame["png"]) > 0)
+            # Giải mã base64 và kiểm tra kích thước thực tế bằng Pillow
+            decoded_bytes = b64decode(frame["png"])
+            f_img = Image.open(io.BytesIO(decoded_bytes))
+            self.assertEqual(f_img.size, (8, 8))
+
+    def test_save_sliced_pack_with_batch_resize(self):
+        """Kiểm tra API save_sliced_pack ép đồng loạt frame con và tự ghép Sheet mới khi lưu vào CSDL."""
+        from unittest.mock import patch
+
+        img = Image.new("RGBA", (32, 32), color="purple")
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        buf.seek(0)
+
+        upload_file = UploadFile(buf, filename="mage_3x3.png")
+        mock_db = MagicMock()
+
+        with patch("backend.api.v1.sprites.sprite_repo.save_sliced_pack") as mock_save_pack:
+            mock_save_pack.return_value = {
+                "sprite_id": 99,
+                "folder_name": "Phap_Su_Mini",
+                "sheet_name": "mage_3x3_8x8.png",
+                "frame_count": 4,
+                "is_duplicate_sheet": False
+            }
+
+            result = asyncio.run(save_sliced_pack(
+                file=upload_file,
+                project_id=1,
+                folder_name="Phap_Su_Mini",
+                rows=2,
+                columns=2,
+                auto_anchor=False,
+                fps=6,
+                target_width=8,
+                target_height=8,
+                db=mock_db
+            ))
+
+            self.assertEqual(result["status"], "success")
+            self.assertEqual(result["sprite_id"], 99)
+            self.assertTrue(result["is_batch_resized"])
+            self.assertEqual(result["frame_width"], 8)
+            self.assertEqual(result["frame_height"], 8)
+            self.assertIn("đã ép 8×8px", result["message"])
+
+            # Rà soát dữ liệu truyền vào repository
+            called_args = mock_save_pack.call_args[1]
+            saved_frames = called_args["frames"]
+            self.assertEqual(len(saved_frames), 4)
+            for f in saved_frames:
+                self.assertEqual(f["size"], [8, 8])
+                # Đảm bảo byte ảnh frame thực tế có kích thước 8x8
+                f_img = Image.open(io.BytesIO(f["bytes"]))
+                self.assertEqual(f_img.size, (8, 8))
+
+            # Đảm bảo tấm sheet ghép mới có kích thước 2*8 = 16 x 2*8 = 16
+            saved_sheet_img = Image.open(io.BytesIO(called_args["sheet_bytes"]))
+            self.assertEqual(saved_sheet_img.size, (16, 16))
+
+    def test_slice_sheet_zip_with_batch_resize(self):
+        """Kiểm tra API slice_sprite_sheet xuất tệp ZIP chứa các frame đã ép kích thước."""
+        from zipfile import ZipFile
+
+        img = Image.new("RGBA", (32, 32), color="red")
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        buf.seek(0)
+
+        upload_file = UploadFile(buf, filename="hero_sheet.png")
+
+        response = slice_sprite_sheet(
+            file=upload_file,
+            rows=2,
+            columns=2,
+            output="zip",
+            auto_anchor=False,
+            target_width=10,
+            target_height=12
+        )
+
+        self.assertEqual(response.media_type, "application/zip")
+        zip_buf = io.BytesIO(response.body)
+        with ZipFile(zip_buf, "r") as archive:
+            file_names = archive.namelist()
+            self.assertEqual(len(file_names), 4)
+            for name in file_names:
+                frame_data = archive.read(name)
+                f_img = Image.open(io.BytesIO(frame_data))
+                self.assertEqual(f_img.size, (10, 12))
+
+
 
 
 if __name__ == "__main__":
