@@ -38,6 +38,7 @@ import { PixelCastleWatermark, PixelRune } from '../../../shared/ui/PixelArtIcon
 // promptDefaults: Hằng số Negative Prompt và các hàm biên dịch prompt
 import {
   DEFAULT_NEGATIVE_PROMPT,
+  buildNegativePrompt,
   createDefaultFrameActionsFromProfile,
   compileLivePrompt
 } from '../promptCompiler';
@@ -165,11 +166,50 @@ export default function TabConstraintsPromptView({
 
   const promptProfile = useMemo(() => {
     const headCount = measuredGeometry?.heads_tall;
+    const anatomicalHeight = measuredGeometry?.anatomical_height || measuredGeometry?.visible_height || measuredGeometry?.character_height_px;
+    const headH = measuredGeometry?.head_height ?? measuredGeometry?.head_height_px ?? measuredGeometry?.head_h;
+    const headW = measuredGeometry?.head_width ?? measuredGeometry?.head_width_px ?? measuredGeometry?.head_w;
+    const bodyH = measuredGeometry?.body_height ?? measuredGeometry?.body_height_px ?? measuredGeometry?.body_h;
+    const headToBodyW = measuredGeometry?.head_to_body_width_ratio;
+    const styleCat = measuredGeometry?.style_category;
+
+    const anatomyBase = fullProfile?.anatomy || fullProfile?.global_analysis?.anatomy || {};
+
     return {
-      anatomy: keepsScale && headCount > 0 ? { head_to_body_ratio: `1:${headCount}` } : {},
+      anatomy: keepsScale ? {
+        ...anatomyBase,
+        head_to_body_ratio: headCount > 0 ? `1:${headCount}` : (anatomyBase.head_to_body_ratio || '1:4.0'),
+        anatomical_height: anatomicalHeight || anatomyBase.anatomical_height || 48,
+        heads_tall: headCount || (anatomyBase.head_to_body_ratio ? parseFloat(anatomyBase.head_to_body_ratio.split(':')[1]) : null),
+        head_height: headH || anatomyBase.head_height,
+        head_width: headW || anatomyBase.head_width,
+        body_height: bodyH || anatomyBase.body_height,
+        head_to_body_width_ratio: headToBodyW || anatomyBase.head_to_body_width_ratio,
+        style_category: styleCat || anatomyBase.style_category,
+      } : anatomyBase,
       pixel_style: keepsStyle ? pixelStyle || {} : {},
+      metrics: keepsScale && measuredGeometry ? measuredGeometry : undefined,
     };
-  }, [measuredGeometry, keepsScale, pixelStyle, keepsStyle]);
+  }, [measuredGeometry, keepsScale, fullProfile, pixelStyle, keepsStyle]);
+
+  const currentHeadsTall = useMemo(() => {
+    if (measuredGeometry?.heads_tall) return Number(measuredGeometry.heads_tall);
+    const ratioStr = fullProfile?.anatomy?.head_to_body_ratio || fullProfile?.global_analysis?.anatomy?.head_to_body_ratio;
+    if (typeof ratioStr === 'string' && ratioStr.includes(':')) {
+      const parsed = parseFloat(ratioStr.split(':')[1]);
+      if (!isNaN(parsed)) return parsed;
+    }
+    return null;
+  }, [measuredGeometry, fullProfile]);
+
+  const liveNegativePrompt = useMemo(() => {
+    return buildNegativePrompt(
+      keepsScale ? currentHeadsTall : null,
+      fullProfile,
+      keepsScale,
+      keepsStyle
+    );
+  }, [keepsScale, currentHeadsTall, fullProfile, keepsStyle]);
 
   const appliedReference = [
     hasPalette && (keepsStyle || keepsPalette) && `tối đa ${palette.total_colors} màu`,
@@ -497,7 +537,7 @@ export default function TabConstraintsPromptView({
             title="Negative Prompt (Khử nhiễu, chống biến dạng lưới & bảo tồn pixel)"
             icon={<ShieldAlert size={15} color="#f87171" />}
             titleColor="#f87171"
-            text={DEFAULT_NEGATIVE_PROMPT}
+            text={liveNegativePrompt}
             rows={3}
           />
 
@@ -519,7 +559,7 @@ export default function TabConstraintsPromptView({
                   <button
                     type="button"
                     className="atelier-btn-amber-send"
-                    onClick={() => onSendPromptToImageGen(livePositivePrompt, DEFAULT_NEGATIVE_PROMPT)}
+                    onClick={() => onSendPromptToImageGen(livePositivePrompt, liveNegativePrompt)}
                     title="Gửi câu Prompt kèm trọn bộ Lệnh cấm sang mục Tạo ảnh AI để sinh ảnh trực tiếp"
                   >
                     <Sparkles size={14} color="#facc15" />
@@ -540,7 +580,7 @@ export default function TabConstraintsPromptView({
                     target_direction: targetDir,
                     frame_actions_data: frameActions,
                     positive_prompt: livePositivePrompt,
-                    negative_prompt: DEFAULT_NEGATIVE_PROMPT
+                    negative_prompt: liveNegativePrompt
                   })}
                 >
                   <Bookmark size={14} className={savingPreset ? 'spin' : ''} />

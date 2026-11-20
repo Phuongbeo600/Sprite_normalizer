@@ -256,10 +256,14 @@ async def generate_prompt_from_profile(request: GeneratePromptFromProfileRequest
             request.project_id, request.api_key, request.provider, request.base_url
         )
 
+        prof_data = dict(request.profile_data or {})
+        if request.metrics and "metrics" not in prof_data:
+            prof_data["metrics"] = request.metrics
+
         # Sử dụng PromptBuilderService để biên dịch ma trận 15 frame hoạt họa
         compiled = PromptBuilderService.compile_sprite_sheet_prompt(
             character_concept=concept,
-            profile_data=request.profile_data,
+            profile_data=prof_data,
             frame_actions=request.frame_actions,
             outfit_and_colors=request.outfit_and_colors,
             weapons_and_props=request.weapons_and_props,

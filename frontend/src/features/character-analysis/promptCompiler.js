@@ -32,6 +32,65 @@ export const DEFAULT_NEGATIVE_PROMPT = (
 );
 
 /**
+ * Sinh câu Negative Prompt động dựa trên đặc tả của nhân vật mẫu (Reference-Aware).
+ * Tự động cấm các yếu tố phá vỡ tính nhất quán với mẫu:
+ * - Cấm lệch phong cách viền (nếu mẫu viền đen thì cấm lineless; nếu mẫu lineless thì cấm viền đen dày).
+ * - Cấm đổ bóng mịn / 3D / airbrush / gradient / bóng gối bông pillow shading.
+ * - Cấm ngược nguồn sáng so với mẫu (ví dụ: cấm bottom lighting, harsh backlighting).
+ * - Cấm lệch tỷ lệ giải phẫu (dáng chuẩn thì cấm Chibi/đầu to; dáng Chibi thì cấm chân dài).
+ * 
+ * @param {number|null} headsTall Số đầu giải phẫu của nhân vật.
+ * @param {Object|null} profile Toàn bộ hồ sơ phân tích của nhân vật mẫu.
+ * @param {boolean} keepsScale Có bật công tắc kế thừa vóc dáng hay không.
+ * @param {boolean} keepsStyle Có bật công tắc kế thừa nét vẽ và đổ bóng hay không.
+ * @returns {string} Chuỗi Negative Prompt đã được tối ưu hóa.
+ */
+export function buildNegativePrompt(headsTall, profile = null, keepsScale = true, keepsStyle = true) {
+  const tokens = [DEFAULT_NEGATIVE_PROMPT];
+
+  const palette = profile?.palette_metrics || profile?.global_analysis?.palette_metrics;
+  const pixelStyle = profile?.pixel_style || profile?.global_analysis?.pixel_style;
+
+  // 1. Cấm lệch Nét vẽ, Viền và Đổ bóng của Mẫu (khi bật keepsStyle)
+  if (keepsStyle) {
+    tokens.push("smooth color gradients, soft airbrush shading, modern 3D lighting, pillow shading, subpixel blur");
+
+    const outline = (
+      palette?.outline_style_detected ||
+      pixelStyle?.outline_style ||
+      ""
+    ).toLowerCase();
+
+    if (outline.includes("black") || outline.includes("dark") || outline.includes("crisp")) {
+      tokens.push("lineless, borderless, faint outline, broken outline, colored outer contour");
+    } else if (outline.includes("lineless") || outline.includes("sel-out") || outline.includes("selective") || outline.includes("none")) {
+      tokens.push("heavy black outline, thick cartoon contour, dark ink lines");
+    }
+
+    const lighting = (pixelStyle?.lighting_direction || "").toLowerCase();
+    if (lighting.includes("top") || lighting.includes("left") || lighting.includes("right") || lighting.includes("overhead")) {
+      tokens.push("bottom lighting, underlighting, harsh rim light, backlighting, multiple conflicting light sources");
+    }
+  }
+
+  // 2. Cấm lệch Tỷ lệ giải phẫu số đầu (khi bật keepsScale)
+  if (keepsScale && typeof headsTall === 'number' && !isNaN(headsTall)) {
+    if (headsTall >= 3.5) {
+      tokens.push(
+        "chibi, super-deformed, SD style, oversized head, bobblehead, giant bulky helmet, " +
+        "exaggerated head size, 2-heads tall, 3-heads tall, cute stout body, dwarfish proportions, big head"
+      );
+    } else if (headsTall < 3.0) {
+      tokens.push(
+        "realistic human anatomy, tall slender model, elongated legs, tiny head, 5-heads tall, 8-heads tall"
+      );
+    }
+  }
+
+  return tokens.join(", ");
+}
+
+/**
  * Khởi tạo ma trận 15 frame hoạt họa mặc định từ dữ liệu phân tích 7 Schemas.
  * 
  * @param {Object} profile Toàn bộ hồ sơ nhân vật (fullProfile).
@@ -158,11 +217,24 @@ export function createDefaultFrameActionsFromProfile(profile) {
 export function compileLivePrompt(actions, charConcept, outfit, props, profile, customMasterColorPrompt, referenceSizeNotes, referenceStylePrompt) {
   const anatomy = profile?.anatomy || profile?.global_analysis?.anatomy || {};
   const pixelStyle = profile?.pixel_style || profile?.global_analysis?.pixel_style || {};
-  const height = anatomy.anatomical_height || 48;
-  const headRatio = anatomy.head_to_body_ratio || '1:4.0';
+  const metrics = profile?.metrics || profile?.automatic_geometry || {};
+
+  const height = anatomy.anatomical_height || metrics.anatomical_height || metrics.visible_height || 48;
+  const headRatio = anatomy.head_to_body_ratio || (metrics.heads_tall ? `1:${metrics.heads_tall}` : '1:4.0');
   const era = pixelStyle.art_style || pixelStyle.pixel_art_era || '16-bit SNES';
   const shading = pixelStyle.shading_style || '2-tone cell shading';
   const lighting = pixelStyle.lighting_direction || 'consistent top-left lighting';
+
+  const headH = anatomy.head_height ?? metrics.head_height ?? metrics.head_height_px ?? metrics.head_h;
+  const headW = anatomy.head_width ?? metrics.head_width ?? metrics.head_width_px ?? metrics.head_w;
+  const bodyH = anatomy.body_height ?? metrics.body_height ?? metrics.body_height_px ?? metrics.body_h;
+  const headToBodyW = anatomy.head_to_body_width_ratio ?? metrics.head_to_body_width_ratio;
+
+  let headsTall = anatomy.heads_tall ?? metrics.heads_tall;
+  if (headsTall == null && typeof headRatio === 'string' && headRatio.includes(':')) {
+    const parsed = parseFloat(headRatio.split(':')[1]);
+    if (!isNaN(parsed)) headsTall = parsed;
+  }
 
   const conceptStr = charConcept?.trim() || 'game character';
   const outfitStr = outfit?.trim() ? `, wearing ${outfit.trim()}` : '';
@@ -181,10 +253,38 @@ export function compileLivePrompt(actions, charConcept, outfit, props, profile, 
     promptParts.push(colorSpec);
   }
 
-  // TẦNG 1: IDENTITY & STYLE MATRIX
+  // TẦNG 1: IDENTITY & STYLE MATRIX (Tích hợp số đo pixel phần đầu và phong cách giải phẫu)
+  let anatomyConstraint = `Strict anatomy constraints: exactly ${height} pixels character height, strict ${headRatio} head-to-body proportion.`;
+  if (headH && headW) {
+    let pixelDim = `Strict anatomical pixel dimensions: head bounding box is strictly ${headH}px tall by ${headW}px wide (head ratio ${headRatio}).`;
+    if (bodyH) {
+      pixelDim += ` Torso and legs: ${bodyH}px tall.`;
+    }
+    if (headToBodyW) {
+      pixelDim += ` Head-to-body width ratio: ${headToBodyW}.`;
+    }
+    anatomyConstraint += `\n${pixelDim}`;
+  }
+
+  let styleSemanticGuidance = '';
+  if (headsTall != null && !isNaN(headsTall)) {
+    if (headsTall >= 3.6) {
+      styleSemanticGuidance =
+        '\nAnatomy style: mature semi-realistic human proportions, slender heroic silhouette, small compact head proportion. ' +
+        'Any helmet, hood, or headwear must be compact and tightly fitted to the skull contours, strictly avoiding oversized helmet bulk or cartoonish bobblehead scale.';
+    } else if (headsTall < 3.0) {
+      styleSemanticGuidance =
+        '\nAnatomy style: stylized cute chibi proportions, compact stout body, expressive oversized head.';
+    } else {
+      styleSemanticGuidance =
+        '\nAnatomy style: balanced semi-chibi stylized proportions.';
+    }
+  }
+
   promptParts.push(
     `Masterpiece authentic ${era} pixel art sprite sheet of a ${conceptStr}${outfitStr}${propsStr}.\n` +
-    `Strict anatomy constraints: exactly ${height} pixels character height, strict ${headRatio} head-to-body proportion.\n` +
+    `${anatomyConstraint}` +
+    `${styleSemanticGuidance}\n` +
     `Rendering specifications: ${shading}, ${lighting}, transparent background, isolated on pure solid transparent background (PNG alpha channel), clean cut-out sprite sheet without background elements or floor shadows.`
   );
   if (referenceStylePrompt?.trim()) promptParts.push(`REFERENCE STYLE GUIDANCE:\n${referenceStylePrompt.trim()}`);

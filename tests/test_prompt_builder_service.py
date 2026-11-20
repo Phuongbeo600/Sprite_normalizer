@@ -142,6 +142,66 @@ class TestPromptBuilderService(unittest.TestCase):
         self.assertNotIn("Selective Outline (Selout)", prompt)
         self.assertNotIn("AI colored outline", prompt)
 
+    def test_head_metrics_and_dynamic_negative_prompt(self):
+        """Kiểm tra số đo pixel đầu và dynamic negative prompt chống chibi."""
+        profile_hero = {
+            "metrics": {
+                "anatomical_height": 128,
+                "head_height": 28,
+                "head_width": 24,
+                "body_height": 100,
+                "heads_tall": 4.5,
+                "head_to_body_width_ratio": 0.65,
+            },
+            "pixel_style": {
+                "pixel_art_era": "16-bit SNES",
+                "shading_style": "2-tone cell shading",
+                "lighting_direction": "top-left",
+            }
+        }
+        res = PromptBuilderService.compile_sprite_sheet_prompt("Knight Hero", profile_hero)
+        pos = res["positive_prompt"]
+        neg = res["negative_prompt"]
+
+        # Kiểm tra số đo pixel đầu xuất hiện trong positive prompt
+        self.assertIn("128 pixels character height", pos)
+        self.assertIn("28px tall by 24px wide", pos)
+        self.assertIn("Torso and legs: 100px tall", pos)
+        self.assertIn("mature semi-realistic human proportions", pos)
+        self.assertIn("compact and tightly fitted", pos)
+
+        # Kiểm tra dynamic negative prompt có từ cấm chibi
+        self.assertIn("chibi", neg)
+        self.assertIn("bobblehead", neg)
+        self.assertIn("oversized head", neg)
+        self.assertIn("giant bulky helmet", neg)
+
+        # Kiểm tra dynamic negative prompt cấm lệch nét vẽ và đổ bóng của mẫu
+        self.assertIn("smooth color gradients", neg)
+        self.assertIn("pillow shading", neg)
+        self.assertIn("bottom lighting", neg)
+
+        # Kiểm tra với nhân vật chibi (heads_tall = 2.4) và mẫu viền sel-out
+        profile_chibi = {
+            "metrics": {
+                "anatomical_height": 48,
+                "head_height": 20,
+                "head_width": 22,
+                "heads_tall": 2.4,
+            },
+            "palette_metrics": {
+                "outline_style_detected": "Selective Outline (Sel-out)"
+            }
+        }
+        res_chibi = PromptBuilderService.compile_sprite_sheet_prompt("Cute Hero", profile_chibi)
+        pos_chibi = res_chibi["positive_prompt"]
+        neg_chibi = res_chibi["negative_prompt"]
+
+        self.assertIn("stylized cute chibi proportions", pos_chibi)
+        self.assertNotIn("bobblehead", neg_chibi)
+        self.assertIn("realistic human anatomy", neg_chibi)
+        self.assertIn("heavy black outline", neg_chibi)
+
 
 if __name__ == "__main__":
     unittest.main()
