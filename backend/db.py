@@ -34,19 +34,39 @@ from backend.db_schema import (
 env_path = Path(__file__).resolve().parent.parent / ".env"
 load_dotenv(dotenv_path=env_path)
 
-# Tạo địa chỉ URL kết nối CSDL MySQL với mã hóa utf8mb4 hỗ trợ tiếng Việt đầy đủ
-database_url = URL.create(
-    drivername="mysql+pymysql",
-    username=os.getenv("SPRITE_DB_USER", "sprite_app"),#Lấy ten tài khoản từ env, nếu không có mặc định để sprite_app
-    password=os.getenv("SPRITE_DB_PASSWORD", ""),
-    host=os.getenv("SPRITE_DB_HOST", "127.0.0.1"),
-    port=int(os.getenv("SPRITE_DB_PORT", "3306")),
-    database=os.getenv("SPRITE_DB_NAME", "sprite_normalizer"),
-    query={"charset": "utf8mb4"},# Dùng bảng mã tiếng việt
-)
+# Hỗ trợ tự động các biến môi trường của Railway (MYSQL_URL, DATABASE_URL hoặc MYSQLHOST, MYSQLUSER...)
+raw_db_url = os.getenv("MYSQL_URL") or os.getenv("DATABASE_URL")
 
-engine = create_engine(database_url, pool_pre_ping=True)# Tạo engine kết nối CSDL với code python, pool_pre_ping là nếu không dùng Myspl sẽ tự động đóng
-SessionLocal = sessionmaker(bind=engine)# Đối tượng , phiển dùng riêng cho từng chức năng
+if raw_db_url:
+    # Chuẩn hóa tiền tố giao thức cho SQLAlchemy pymysql (mysql:// -> mysql+pymysql://)
+    if raw_db_url.startswith("mysql://"):
+        raw_db_url = raw_db_url.replace("mysql://", "mysql+pymysql://", 1)
+    # Bảo đảm charset utf8mb4 hỗ trợ tiếng Việt
+    if "charset=" not in raw_db_url:
+        sep = "&" if "?" in raw_db_url else "?"
+        raw_db_url = f"{raw_db_url}{sep}charset=utf8mb4"
+    database_url = raw_db_url
+else:
+    # Tra cứu các biến môi trường chuẩn của dự án hoặc biến môi trường riêng lẻ của Railway
+    db_user = os.getenv("SPRITE_DB_USER") or os.getenv("MYSQLUSER") or "sprite_app" #Lấy ten tài khoản từ env, nếu không có mặc định để sprite_app
+    db_password = os.getenv("SPRITE_DB_PASSWORD") or os.getenv("MYSQLPASSWORD") or ""
+    db_host = os.getenv("SPRITE_DB_HOST") or os.getenv("MYSQLHOST") or "127.0.0.1"
+    db_port = int(os.getenv("SPRITE_DB_PORT") or os.getenv("MYSQLPORT") or 3306)
+    db_name = os.getenv("SPRITE_DB_NAME") or os.getenv("MYSQLDATABASE") or "sprite_normalizer"
+
+    # Tạo địa chỉ URL kết nối CSDL MySQL với mã hóa utf8mb4 hỗ trợ tiếng Việt đầy đủ
+    database_url = URL.create(
+        drivername="mysql+pymysql",
+        username=db_user,
+        password=db_password,
+        host=db_host,
+        port=db_port,
+        database=db_name,
+        query={"charset": "utf8mb4"}, # Dùng bảng mã tiếng việt
+    )
+
+engine = create_engine(database_url, pool_pre_ping=True, pool_recycle=280) # Tạo engine kết nối CSDL với code python, pool_pre_ping là nếu không dùng Myspl sẽ tự động đóng
+SessionLocal = sessionmaker(bind=engine) # Đối tượng , phiển dùng riêng cho từng chức năng
 
 
 
