@@ -4,6 +4,6 @@
   "description": "Sprite Normalizer (Fullstack FastAPI + React)",
   "scripts": {
     "dev": "python run.py",
-    "start": "python run.py"
+    "start": "uvicorn backend.main:app --host 0.0.0.0 --port ${PORT:-8000}"
   }
 }
