@@ -15,6 +15,7 @@ export function useAuthSession() {
     try {
       const saved = localStorage.getItem('sprite_current_user');
       if (saved) return JSON.parse(saved);
+      if (import.meta.env?.PROD) return null;
 
       // Nếu trước đó người dùng chủ động bấm Đăng xuất thì giữ ở màn hình đăng nhập
       const isLoggedOut = localStorage.getItem('sprite_logged_out');

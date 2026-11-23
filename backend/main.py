@@ -10,6 +10,7 @@ Tại sao tồn tại: Thiết lập cấu hình ứng dụng web, kích hoạt 
 # ========================================================
 # asynccontextmanager: Trình quản lý ngữ cảnh bất đồng bộ hỗ trợ vòng đời ứng dụng FastAPI (Lifespan)
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 # ========================================================
 # 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
@@ -18,6 +19,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 # CORSMiddleware: Cấu hình cho phép kết nối chéo nguồn giữa React và FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 # ========================================================
 # 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (API Routers & CSDL)
@@ -65,7 +67,7 @@ app.add_middleware(
 app.include_router(api_router)
 
 
-@app.get("/", tags=["Root"])
+@app.get("/health", tags=["Root"])
 async def root():
     """Điểm kết nối kiểm tra gốc của máy chủ."""
     return {
@@ -73,6 +75,14 @@ async def root():
         "docs": "/docs",
         "version": "2.0.0"
     }
+
+
+# Phục vụ bản dựng React sau các tuyến API khi chạy trong container.
+frontend_dist = Path(__file__).resolve().parent.parent / "frontend" / "dist"
+if (frontend_dist / "index.html").is_file():
+    app.mount("/", StaticFiles(directory=frontend_dist, html=True), name="frontend")
+else:
+    app.add_api_route("/", root, methods=["GET"], include_in_schema=False)
 
 
 if __name__ == "__main__":

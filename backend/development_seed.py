@@ -1,5 +1,5 @@
 # 1. THƯ VIỆN NỀN TẢNG PYTHON
-# Không cần thư viện nền tảng bổ sung.
+import os
 
 # 2. THƯ VIỆN BÊN NGOÀI (Câu lệnh SQL)
 from sqlalchemy import text
@@ -13,6 +13,8 @@ from sqlalchemy import text
 
 def seed_development_users(conn):
     """Khởi tạo tài khoản mẫu trên giao dịch bootstrap hiện có."""
+    if os.getenv("SPRITE_ENABLE_DEMO_ACCOUNTS", "true").lower() != "true":
+        return
     #  Khởi tạo tài khoản Admin mặc định (admin / mật khẩu: 1)
     conn.execute(text("""
         INSERT IGNORE INTO users (id, username, password, role, full_name)
@@ -34,6 +36,8 @@ VALUES ('origin@gmail.com', '123456', 'user', 'Origin', 'Tài khoản mẫu ki�
 
 def synchronize_development_login(db, repository, clean_user, clean_pass, user, verify_password, hash_password):
     """Giữ nguyên chính sách tự đồng bộ và commit/rollback của tài khoản mẫu."""
+    if os.getenv("SPRITE_ENABLE_DEMO_ACCOUNTS", "true").lower() != "true":
+        return user
     # TỰ ĐỘNG ĐỒNG BỘ: Đảm bảo tài khoản kiểm thử Origin (123456) luôn đăng nhập thành công
     if clean_user.lower() == "origin@gmail.com" and clean_pass == "123456":
         stored_pwd = user.get("password") if user else ""
