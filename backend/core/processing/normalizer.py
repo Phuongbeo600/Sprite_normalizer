@@ -52,11 +52,16 @@ class SpriteNormalizer:
         self.target_height = target_height
         self.anchor = anchor
 
-    def get_bounding_box(self, image: Image.Image) -> Optional[Tuple[int, int, int, int]]:
+    def get_bounding_box(
+        self,
+        image: Image.Image,
+        alpha_threshold: int = 20
+    ) -> Optional[Tuple[int, int, int, int]]:
         """
-        Tìm hộp bao (Bounding Box) nhỏ nhất của sprite, loại trừ các pixel trong suốt (Alpha = 0).
+        Tìm hộp bao (Bounding Box) nhỏ nhất của sprite, loại trừ các pixel trong suốt hoặc rác tàng hình (Alpha <= alpha_threshold).
 
         @param {Image.Image} image Ảnh sprite gốc.
+        @param {int} alpha_threshold Ngưỡng độ mờ tối thiểu để tính là pixel có nội dung (mặc định 20 để lọc rác tàng hình).
         @returns {Optional[Tuple[int, int, int, int]]} Tọa độ (xmin, ymin, xmax, ymax) hoặc None nếu ảnh rỗng.
         """
         if image.mode != "RGBA":
@@ -64,7 +69,7 @@ class SpriteNormalizer:
         
         np_img = np.array(image)
         alpha = np_img[:, :, 3]
-        non_empty = np.where(alpha > 0)
+        non_empty = np.where(alpha > alpha_threshold)
         
         if len(non_empty[0]) == 0 or len(non_empty[1]) == 0:
             return None
@@ -73,14 +78,15 @@ class SpriteNormalizer:
         xmin, xmax = int(np.min(non_empty[1])), int(np.max(non_empty[1]))
         return (xmin, ymin, xmax + 1, ymax + 1)
 
-    def trim(self, image: Image.Image) -> Image.Image:
+    def trim(self, image: Image.Image, alpha_threshold: int = 20) -> Image.Image:
         """
-        Cắt bỏ phần trong suốt thừa bao quanh sprite để lấy vùng nhân vật thực tế.
+        Cắt bỏ phần trong suốt thừa bao quanh sprite để lấy vùng nhân vật thực tế (lọc sạch hạt bụi tàng hình).
 
         @param {Image.Image} image Ảnh sprite gốc.
+        @param {int} alpha_threshold Ngưỡng lọc kênh alpha (mặc định 20).
         @returns {Image.Image} Ảnh đã được cắt sát viền.
         """
-        bbox = self.get_bounding_box(image)
+        bbox = self.get_bounding_box(image, alpha_threshold=alpha_threshold)
         if bbox:
             return image.crop(bbox)
         return image
@@ -90,7 +96,8 @@ class SpriteNormalizer:
         frame: Image.Image,
         target_size: Optional[Tuple[int, int]] = None,
         anchor: Optional[str] = None,
-        ground_y: Optional[int] = None
+        ground_y: Optional[int] = None,
+        alpha_threshold: int = 20
     ) -> Image.Image:
         """
         Chuẩn hóa kích thước 1 frame sprite theo target_size và điểm neo (anchor).
@@ -100,12 +107,13 @@ class SpriteNormalizer:
         @param {Optional[Tuple[int, int]]} target_size Kích thước canvas mục tiêu (width, height).
         @param {Optional[str]} anchor Điểm neo ("bottom_center", "center", "top_left").
         @param {Optional[int]} ground_y Tọa độ Y chân tiếp đất trên ảnh gốc (nếu có từ AI).
+        @param {int} alpha_threshold Ngưỡng lọc kênh alpha (mặc định 20).
         @returns {Image.Image} Ảnh canvas mới đã căn chỉnh chuẩn xác.
         """
         tw, th = target_size or (self.target_width, self.target_height)
         cur_anchor = anchor or self.anchor
 
-        bbox = self.get_bounding_box(frame)
+        bbox = self.get_bounding_box(frame, alpha_threshold=alpha_threshold)
         if not bbox:
             return Image.new("RGBA", (tw, th), (0, 0, 0, 0))
 

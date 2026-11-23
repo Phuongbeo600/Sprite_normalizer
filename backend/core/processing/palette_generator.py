@@ -1,12 +1,3 @@
-"""
-Module: backend.core.processing.palette_generator
-Mục đích: Thuật toán Octree Color Quantization chuyển đổi 100% trung thực từ mã nguồn C++ của LibreSprite/Aseprite.
-Tham chiếu mã nguồn gốc LibreSprite:
-  - src/doc/octree.h & src/doc/octree.cpp (Cấu trúc Octree & OctreeNode)
-  - src/app/commands/cmd_color_quantization.cpp (Lệnh "Create Palette from Current Sprite")
-  - PR #338 (commit 9c3805f): Trọng số độ sáng Luma chuẩn ITU-R Rec. 709 (0.2126R + 0.7152G + 0.0722B)
-Giấy phép gốc: GNU General Public License v2.0 (GPL-2.0)
-"""
 
 # ========================================================
 # 1. THƯ VIỆN NỀN TẢNG PYTHON
@@ -19,6 +10,12 @@ from typing import List, Tuple, Dict, Any, Optional, Set
 # ========================================================
 import numpy as np
 from PIL import Image
+
+# 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Thống kê màu)
+from backend.core.metrics.metric_primitives import color_noise_statistics
+
+# 4. ĐỊNH DẠNG GIAO DIỆN / CẤU HÌNH
+# Ngưỡng cấu hình thuật toán tạo bảng màu.
 
 # ========================================================
 # HẰNG SỐ CHUẨN LIBRESPRITE
@@ -209,8 +206,6 @@ def create_palette_from_sprite(
     with_alpha: bool = True
 ) -> Dict[str, Any]:
     """
-    Hàm giao diện cấp cao tương đương 100% nút 'Create Palette from Current Sprite' của LibreSprite.
-
     @param image: Ảnh Pillow (bất kỳ chế độ màu nào).
     @param max_colors: Số lượng màu tối đa cần trích xuất (mặc định 256, hoặc 16/32/64).
     @param with_alpha: Có tính toán kênh trong suốt hay không.
@@ -234,19 +229,13 @@ def create_palette_from_sprite(
 
     raw_unique_count = len(quantizer.raw_unique_colors)
     final_count = len(palette)
-    ai_intermediate_count = max(0, raw_unique_count - final_count)
-
     # Tiêu chí cảnh báo nhiễu màu AI:
     # Nếu số màu quét thô vượt trội (>25% và chênh lệch >= 4 màu) so với số màu thực tế
-    has_ai_noise = (raw_unique_count > final_count * 1.25) and (ai_intermediate_count >= 4)
+    noise_stats = color_noise_statistics(raw_unique_count, final_count)
 
     return {
         "palette": palette,
         "hex_list": [entry["hex"] for entry in palette],
-        "raw_colors_count": raw_unique_count,
-        "clean_colors_count": final_count,
-        "ai_intermediate_colors": ai_intermediate_count,
-        "has_ai_noise_warning": has_ai_noise,
+        **noise_stats,
         "max_colors_budget": max_colors,
-        "noise_ratio": round(ai_intermediate_count / max(raw_unique_count, 1), 3)
     }

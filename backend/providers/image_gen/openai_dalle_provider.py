@@ -38,7 +38,7 @@ class OpenAiDalleProvider(BaseImageGenProvider):
     """
 
     # Model mặc định cho tác vụ tạo ảnh của OpenAI
-    DEFAULT_MODEL = "dall-e-3"
+    DEFAULT_MODEL = "gpt-image-1.5"
     DEFAULT_BASE_URL = "https://api.openai.com/v1"
 
     def generate_images(
@@ -70,9 +70,9 @@ class OpenAiDalleProvider(BaseImageGenProvider):
 
         # Ánh xạ kích thước ảnh chuẩn của OpenAI DALL-E 3
         if aspect_ratio in ("3:4", "9:16"):
-            dalle_size = "1024x1792"
+            dalle_size = "1024x1536"
         elif aspect_ratio in ("4:3", "16:9"):
-            dalle_size = "1792x1024"
+            dalle_size = "1536x1024"
         else:
             dalle_size = "1024x1024"
 
@@ -86,8 +86,7 @@ class OpenAiDalleProvider(BaseImageGenProvider):
             "model": self.DEFAULT_MODEL,
             "prompt": final_openai_prompt,
             "n": 1,
-            "size": dalle_size,
-            "response_format": "b64_json"
+            "size": dalle_size
         }
 
         try:

@@ -23,6 +23,8 @@ from backend.core.processing.normalizer import SpriteNormalizer
 from backend.core.metrics.palette_analyzer import HeuristicPaletteAnalyzer
 # analyze_sprite: Phân tích màu, lưới và viền bằng thuật toán Python.
 from backend.core.metrics.pixel_art_metrics import analyze_sprite
+# color_noise_statistics: Giữ thống kê màu nhất quán với thuật toán tạo palette.
+from backend.core.metrics.metric_primitives import color_noise_statistics
 # slice_sheet: Cắt từng ô, giữ kích thước và phần trong suốt của ô gốc.
 # resize_sprite: Thu nhỏ hoặc ép kích thước từng ô theo thuật toán Nearest Neighbor
 from backend.core.processing.sprite_editing import slice_sheet, resize_sprite
@@ -44,10 +46,38 @@ class SpriteService:
         return buffer.getvalue()
 
     @classmethod
-    def sheet_frames(cls, image: Image.Image, rows: int, columns: int, auto_anchor: bool = False):
-        """Trả tên, kích thước và PNG cho mỗi ô của sheet."""
-        for index, frame in enumerate(slice_sheet(image, rows, columns, auto_anchor=auto_anchor), start=1):
+    def sheet_frames(
+        cls,
+        image: Image.Image,
+        rows: int,
+        columns: int,
+        auto_anchor: bool = False,
+        trim_outer_padding: bool = True,
+        x_cuts: list[int] | None = None,
+        y_cuts: list[int] | None = None,
+    ):
+        """Trả tên, kích thước và PNG cho mỗi ô của sheet (hỗ trợ tự gọt lề trống)."""
+        for index, frame in enumerate(slice_sheet(
+            image, rows, columns, auto_anchor=auto_anchor,
+            trim_outer_padding=trim_outer_padding, x_cuts=x_cuts, y_cuts=y_cuts,
+        ), start=1):
             yield f"frame_{index:03}.png", frame.size, cls.encode_png(frame)
+
+    @classmethod
+    def resized_sheet_frames(cls, image, rows, columns, target_width, target_height,
+                             auto_anchor=False, trim_outer_padding=True, x_cuts=None, y_cuts=None):
+        """Cắt và ép các ô, trả tên, kích thước và PNG để từng API tự định dạng kết quả.
+
+        @param image Ảnh sheet đã được bên gọi áp dụng hướng EXIF.
+        @returns Bộ lặp tên frame, kích thước đích và dữ liệu PNG.
+        """
+        for name, _size, png in cls.sheet_frames(
+            image, rows, columns, auto_anchor=auto_anchor,
+            trim_outer_padding=trim_outer_padding, x_cuts=x_cuts, y_cuts=y_cuts,
+        ):
+            with Image.open(io.BytesIO(png)) as frame:
+                resized = resize_sprite(frame, target_width, target_height)
+                yield name, resized.size, cls.encode_png(resized)
 
     @classmethod
     def sheet_zip(
@@ -58,11 +88,17 @@ class SpriteService:
         auto_anchor: bool = False,
         target_width: Optional[int] = None,
         target_height: Optional[int] = None,
+        trim_outer_padding: bool = True,
+        x_cuts: list[int] | None = None,
+        y_cuts: list[int] | None = None,
     ) -> bytes:
-        """Đóng gói các PNG theo đúng thứ tự hiển thị (Hỗ trợ ép kích thước Nearest Neighbor nếu có target_width/height)."""
+        """Đóng gói các PNG theo đúng thứ tự hiển thị (Hỗ trợ ép kích thước Nearest Neighbor và gọt lề trống)."""
         buffer = io.BytesIO()
         with ZipFile(buffer, "w") as archive:
-            for name, (w, h), png in cls.sheet_frames(image, rows, columns, auto_anchor=auto_anchor):
+            for name, (w, h), png in cls.sheet_frames(
+                image, rows, columns, auto_anchor=auto_anchor,
+                trim_outer_padding=trim_outer_padding, x_cuts=x_cuts, y_cuts=y_cuts,
+            ):
                 if target_width and target_height and (target_width != w or target_height != h):
                     frame_img = Image.open(io.BytesIO(png))
                     resized = resize_sprite(frame_img, width=target_width, height=target_height)
@@ -88,8 +124,9 @@ class SpriteService:
 
         raw_count = libresprite_res["raw_colors_count"]
         clean_count = metrics.total_colors
-        ai_noise = max(0, raw_count - clean_count)
-        has_warning = (raw_count > clean_count * 1.25) and (ai_noise >= 4)
+        noise_stats = color_noise_statistics(raw_count, clean_count)
+        ai_noise = noise_stats["ai_intermediate_colors"]
+        has_warning = noise_stats["has_ai_noise_warning"]
 
         metrics_dict["raw_colors_count"] = raw_count
         metrics_dict["ai_intermediate_colors"] = ai_noise

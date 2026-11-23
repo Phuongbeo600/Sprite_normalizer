@@ -51,6 +51,62 @@ export function renderSlotTemplateDialog({
   onClearAllSlots
 }) {
   /**
+   * Dựng các nút dịch, đổi và xóa hàng theo cùng một hợp đồng thao tác.
+   * @param {'down'|'side'|'up'} direction Hướng của hàng đang chỉnh sửa.
+   * @returns {React.ReactElement} Cụm công cụ giữ nguyên thứ tự và kiểu hiển thị.
+   */
+  const renderRowTools = (direction) => {
+    const rows = {
+      down: {number: 1, description: 'Nhìn xuống', label: 'Hàng Xuống', borderColor: 'rgba(56, 189, 248, 0.35)', color: '#38bdf8'},
+      side: {number: 2, description: 'Đi ngang', label: 'Hàng Ngang', borderColor: 'rgba(16, 185, 129, 0.35)', color: '#10b981'},
+      up: {number: 3, description: 'Sau lưng', label: 'Hàng Sau Lưng', borderColor: 'rgba(245, 158, 11, 0.35)', color: '#f59e0b'}
+    };
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <button
+          type="button"
+          title="Dịch vòng các ô sang trái 1 bước (nếu đặt nhầm lệch thứ tự)"
+          onClick={() => handleShiftRow(direction, -1)}
+          className="atelier-godot-row-action-btn"
+        >
+          ← Dịch
+        </button>
+        <button
+          type="button"
+          title="Dịch vòng các ô sang phải 1 bước"
+          onClick={() => handleShiftRow(direction, 1)}
+          className="atelier-godot-row-action-btn"
+        >
+          Dịch →
+        </button>
+        {slotMode === '3_rows' && Object.entries(rows)
+          .filter(([target]) => target !== direction)
+          .map(([target, row]) => (
+            <button
+              key={target}
+              type="button"
+              title={`Hoán đổi toàn bộ 5 ô Hàng ${rows[direction].number} với Hàng ${row.number} (${row.description})`}
+              onClick={() => handleSwapRows(direction, target)}
+              className="atelier-godot-row-action-btn"
+              style={{ borderColor: row.borderColor, color: row.color }}
+            >
+              {`⇄ Đổi với ${row.label}`}
+            </button>
+          ))}
+        <button
+          type="button"
+          title="Xóa hết ảnh hàng này"
+          onClick={() => handleClearRow(direction)}
+          className="atelier-godot-row-action-btn"
+          style={{ borderColor: 'rgba(239, 68, 68, 0.35)', color: '#f87171' }}
+        >
+          <Trash2 size={11} style={{ verticalAlign: 'middle' }} /> Xóa hàng
+        </button>
+      </div>
+    );
+  };
+
+  /**
    * Hiển thị các ô ảnh có thể chọn, kéo thả hoặc xóa trong một hàng của mẫu.
    * @param {'down'|'side'|'up'} direction Hướng của hàng.
    * @param {string} labelColor Màu nhãn của ô có ảnh.
@@ -283,57 +339,7 @@ export function renderSlotTemplateDialog({
               </div>
 
               {/* Cụm công cụ sửa nhanh hàng 1 */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <button
-                  type="button"
-                  title="Dịch vòng các ô sang trái 1 bước (nếu đặt nhầm lệch thứ tự)"
-                  onClick={() => handleShiftRow('down', -1)}
-                  className="atelier-godot-row-action-btn"
-                >
-                  ← Dịch
-                </button>
-                <button
-                  type="button"
-                  title="Dịch vòng các ô sang phải 1 bước"
-                  onClick={() => handleShiftRow('down', 1)}
-                  className="atelier-godot-row-action-btn"
-                >
-                  Dịch →
-                </button>
-
-                {slotMode === '3_rows' && (
-                  <>
-                    <button
-                      type="button"
-                      title="Hoán đổi toàn bộ 5 ô Hàng 1 với Hàng 2 (Đi ngang)"
-                      onClick={() => handleSwapRows('down', 'side')}
-                      className="atelier-godot-row-action-btn"
-                      style={{ borderColor: 'rgba(16, 185, 129, 0.35)', color: '#10b981' }}
-                    >
-                      ⇄ Đổi với Hàng Ngang
-                    </button>
-                    <button
-                      type="button"
-                      title="Hoán đổi toàn bộ 5 ô Hàng 1 với Hàng 3 (Sau lưng)"
-                      onClick={() => handleSwapRows('down', 'up')}
-                      className="atelier-godot-row-action-btn"
-                      style={{ borderColor: 'rgba(245, 158, 11, 0.35)', color: '#f59e0b' }}
-                    >
-                      ⇄ Đổi với Hàng Sau Lưng
-                    </button>
-                  </>
-                )}
-
-                <button
-                  type="button"
-                  title="Xóa hết ảnh hàng này"
-                  onClick={() => handleClearRow('down')}
-                  className="atelier-godot-row-action-btn"
-                  style={{ borderColor: 'rgba(239, 68, 68, 0.35)', color: '#f87171' }}
-                >
-                  <Trash2 size={11} style={{ verticalAlign: 'middle' }} /> Xóa hàng
-                </button>
-              </div>
+              {renderRowTools('down')}
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '10px' }}>
@@ -355,53 +361,7 @@ export function renderSlotTemplateDialog({
                 </div>
 
                 {/* Cụm công cụ sửa nhanh hàng 2 */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <button
-                    type="button"
-                    title="Dịch vòng các ô sang trái 1 bước (nếu đặt nhầm lệch thứ tự)"
-                    onClick={() => handleShiftRow('side', -1)}
-                    className="atelier-godot-row-action-btn"
-                  >
-                    ← Dịch
-                  </button>
-                  <button
-                    type="button"
-                    title="Dịch vòng các ô sang phải 1 bước"
-                    onClick={() => handleShiftRow('side', 1)}
-                    className="atelier-godot-row-action-btn"
-                  >
-                    Dịch →
-                  </button>
-
-                  <button
-                    type="button"
-                    title="Hoán đổi toàn bộ 5 ô Hàng 2 với Hàng 1 (Nhìn xuống)"
-                    onClick={() => handleSwapRows('side', 'down')}
-                    className="atelier-godot-row-action-btn"
-                    style={{ borderColor: 'rgba(56, 189, 248, 0.35)', color: '#38bdf8' }}
-                  >
-                    ⇄ Đổi với Hàng Xuống
-                  </button>
-                  <button
-                    type="button"
-                    title="Hoán đổi toàn bộ 5 ô Hàng 2 với Hàng 3 (Sau lưng)"
-                    onClick={() => handleSwapRows('side', 'up')}
-                    className="atelier-godot-row-action-btn"
-                    style={{ borderColor: 'rgba(245, 158, 11, 0.35)', color: '#f59e0b' }}
-                  >
-                    ⇄ Đổi với Hàng Sau Lưng
-                  </button>
-
-                  <button
-                    type="button"
-                    title="Xóa hết ảnh hàng này"
-                    onClick={() => handleClearRow('side')}
-                    className="atelier-godot-row-action-btn"
-                    style={{ borderColor: 'rgba(239, 68, 68, 0.35)', color: '#f87171' }}
-                  >
-                    <Trash2 size={11} style={{ verticalAlign: 'middle' }} /> Xóa hàng
-                  </button>
-                </div>
+                {renderRowTools('side')}
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '10px' }}>
@@ -424,53 +384,7 @@ export function renderSlotTemplateDialog({
                 </div>
 
                 {/* Cụm công cụ sửa nhanh hàng 3 */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <button
-                    type="button"
-                    title="Dịch vòng các ô sang trái 1 bước (nếu đặt nhầm lệch thứ tự)"
-                    onClick={() => handleShiftRow('up', -1)}
-                    className="atelier-godot-row-action-btn"
-                  >
-                    ← Dịch
-                  </button>
-                  <button
-                    type="button"
-                    title="Dịch vòng các ô sang phải 1 bước"
-                    onClick={() => handleShiftRow('up', 1)}
-                    className="atelier-godot-row-action-btn"
-                  >
-                    Dịch →
-                  </button>
-
-                  <button
-                    type="button"
-                    title="Hoán đổi toàn bộ 5 ô Hàng 3 với Hàng 1 (Nhìn xuống)"
-                    onClick={() => handleSwapRows('up', 'down')}
-                    className="atelier-godot-row-action-btn"
-                    style={{ borderColor: 'rgba(56, 189, 248, 0.35)', color: '#38bdf8' }}
-                  >
-                    ⇄ Đổi với Hàng Xuống
-                  </button>
-                  <button
-                    type="button"
-                    title="Hoán đổi toàn bộ 5 ô Hàng 3 với Hàng 2 (Đi ngang)"
-                    onClick={() => handleSwapRows('up', 'side')}
-                    className="atelier-godot-row-action-btn"
-                    style={{ borderColor: 'rgba(16, 185, 129, 0.35)', color: '#10b981' }}
-                  >
-                    ⇄ Đổi với Hàng Ngang
-                  </button>
-
-                  <button
-                    type="button"
-                    title="Xóa hết ảnh hàng này"
-                    onClick={() => handleClearRow('up')}
-                    className="atelier-godot-row-action-btn"
-                    style={{ borderColor: 'rgba(239, 68, 68, 0.35)', color: '#f87171' }}
-                  >
-                    <Trash2 size={11} style={{ verticalAlign: 'middle' }} /> Xóa hàng
-                  </button>
-                </div>
+                {renderRowTools('up')}
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '10px' }}>

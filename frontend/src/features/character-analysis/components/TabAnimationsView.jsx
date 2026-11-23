@@ -7,7 +7,7 @@ import React, { useState } from 'react';
 // 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
 // ========================================================
 // lucide-react: Bộ icon minh họa chuyển động, nhịp chân, đánh tay và frame hình
-import { Activity, Play, Repeat, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Activity, Play, AlertTriangle } from "lucide-react";
 
 // ========================================================
 // 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Components & Dữ liệu)

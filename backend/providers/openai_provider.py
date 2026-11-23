@@ -4,7 +4,7 @@
 # json: Phân tích cú pháp dữ liệu JSON từ API phản hồi
 import json
 # typing: Khai báo kiểu dữ liệu
-from typing import Dict, Any, Optional, Tuple, List
+from typing import Dict, Any, Optional, Tuple, List, Generator
 
 # ========================================================
 # 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
@@ -206,3 +206,78 @@ class OpenAiProvider(BaseAiProvider):
                 continue
 
         raise RuntimeError(f"{error_prefix}: {last_error}")
+
+    def stream_chat(
+        self,
+        messages: List[Dict[str, str]],
+        api_key: str,
+        base_url: Optional[str] = None,
+        system_instruction: Optional[str] = None
+    ) -> Generator[str, None, None]:
+        """
+        Gửi hội thoại tới OpenAI (hoặc DeepSeek, Groq, Ollama) và phát luồng (stream) từng token văn bản về theo chuẩn SSE.
+
+        @param {List[Dict[str, str]]} messages Danh sách lịch sử tin nhắn [{'role': 'user'|'assistant', 'content': '...'}].
+        @param {str} api_key Khóa API bảo mật.
+        @param {Optional[str]} base_url Địa chỉ máy chủ (vd: https://api.openai.com/v1, https://api.deepseek.com/v1, http://localhost:11434/v1).
+        @param {Optional[str]} system_instruction Chỉ dẫn định hình phong cách cho AI.
+        @returns {Generator[str, None, None]} Máy phát sinh từng đoạn chữ (token).
+        """
+        clean_key = (api_key or "").strip()
+        if not clean_key:
+            raise ValueError("Chưa cấu hình API Key cho OpenAI/Proxy.")
+
+        clean_base = (base_url or self.DEFAULT_BASE_URL).rstrip("/")
+        url = f"{clean_base}/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {clean_key}",
+            "Content-Type": "application/json"
+        }
+
+        # Chuẩn bị danh sách tin nhắn kèm system prompt nếu có
+        chat_messages = []
+        if system_instruction:
+            chat_messages.append({"role": "system", "content": system_instruction.strip()})
+        for msg in messages:
+            chat_messages.append({
+                "role": msg.get("role", "user"),
+                "content": msg.get("content", "").strip()
+            })
+
+        last_error = ""
+        for model in self._models_for_base(clean_base):
+            payload: Dict[str, Any] = {
+                "model": model,
+                "messages": chat_messages,
+                "stream": True
+            }
+            if model != self.DEFAULT_MODEL:
+                payload["temperature"] = 0.7
+
+            try:
+                resp = requests.post(url, json=payload, headers=headers, stream=True, timeout=30)
+                if resp.status_code == 200:
+                    for line in resp.iter_lines():
+                        if line:
+                            decoded = line.decode("utf-8")
+                            if decoded.startswith("data: "):
+                                data_str = decoded[6:].strip()
+                                if data_str == "[DONE]":
+                                    break
+                                try:
+                                    event_data = json.loads(data_str)
+                                    choices = event_data.get("choices", [])
+                                    if choices:
+                                        delta = choices[0].get("delta", {})
+                                        content_chunk = delta.get("content", "")
+                                        if content_chunk:
+                                            yield content_chunk
+                                except Exception:
+                                    continue
+                    return
+                last_error = f"{model} status {resp.status_code}: {resp.text[:100]}"
+            except Exception as e:
+                last_error = f"{model} error: {str(e)}"
+                continue
+
+        raise RuntimeError(f"Tất cả các model OpenAI/Proxy đều không thể phát luồng phản hồi: {last_error}")

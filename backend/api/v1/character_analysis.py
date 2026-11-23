@@ -161,81 +161,12 @@ async def analyze_character_tab(
         contents = await file.read()
         with Image.open(io.BytesIO(contents)) as source:
             image = source.convert("RGBA")
-        tab_clean = tab_name.lower().strip()
-
-        # Tab 1: Phân tích Toàn cục
-        if tab_clean == "global":
-            result = await run_in_threadpool(
-                CharacterAnalysisService.analyze_tab_global,
-                image=image, api_key=eff_key, provider=eff_prov, base_url=eff_base, include_palette=not vision_only,
-            )
-            return {"status": "success", "tab": "global", "data": result}
-
-        # Tab 2: Phân tích 3 hướng nhìn
-        elif tab_clean == "directions":
-            result = await run_in_threadpool(
-                CharacterAnalysisService.analyze_tab_directions,
-                image=image, api_key=eff_key, provider=eff_prov, base_url=eff_base
-            )
-            return {"status": "success", "tab": "directions", "data": result}
-
-        # Tab 3: Phân tích Hoạt họa
-        elif tab_clean == "animations":
-            result = await run_in_threadpool(
-                CharacterAnalysisService.analyze_tab_animations,
-                image=image, api_key=eff_key, provider=eff_prov, base_url=eff_base
-            )
-            return {"status": "success", "tab": "animations", "data": result}
-
-        # Tab 4: Phân tích Tính nhất quán & Ràng buộc
-        elif tab_clean == "constraints":
-            curr_profile = json.loads(current_profile_json) if current_profile_json else {}
-            g_data = curr_profile.get("global_analysis", {})
-            d_data = curr_profile.get("direction_analysis", {})
-            a_data = curr_profile.get("animation_analysis", {})
-            result = await run_in_threadpool(
-                CharacterAnalysisService.analyze_tab_constraints,
-                global_data=g_data, direction_data=d_data, animation_data=a_data,
-                api_key=eff_key, provider=eff_prov, base_url=eff_base
-            )
-            return {"status": "success", "tab": "constraints", "data": result}
-
-        # Chạy toàn bộ (All tabs tuần tự)
-        elif tab_clean == "all":
-            global_res = await run_in_threadpool(
-                CharacterAnalysisService.analyze_tab_global, image,
-                api_key=eff_key, provider=eff_prov, base_url=eff_base, include_palette=not vision_only,
-            )
-            direction_res = await run_in_threadpool(
-                CharacterAnalysisService.analyze_tab_directions, image,
-                api_key=eff_key, provider=eff_prov, base_url=eff_base,
-            )
-            animation_res = await run_in_threadpool(
-                CharacterAnalysisService.analyze_tab_animations, image,
-                api_key=eff_key, provider=eff_prov, base_url=eff_base,
-            )
-            constraints_res = await run_in_threadpool(
-                CharacterAnalysisService.analyze_tab_constraints,
-                global_data=global_res, direction_data=direction_res, animation_data=animation_res,
-                api_key=eff_key, provider=eff_prov, base_url=eff_base
-            )
-
-            full_ai_analysis = {
-                "global_analysis": global_res,
-                "direction_analysis": direction_res,
-                "animation_analysis": animation_res,
-                "consistency_analysis": constraints_res.get("consistency_analysis", {}),
-                "negative_constraints": constraints_res.get("negative_constraints", {}),
-            }
-            if not vision_only:
-                full_ai_analysis["palette_metrics"] = global_res.get("palette_metrics")
-                full_ai_analysis["pixel_art_report"] = global_res.get("pixel_art_report")
-            # Tự động ánh xạ dữ liệu 7 Schemas sang ma trận 15 frame hoạt họa có chân tay đối nghịch
-            full_ai_analysis["frame_actions_data"] = PromptBuilderService.build_default_frame_actions(full_ai_analysis)
-            return {"status": "success", "tab": "all", "data": full_ai_analysis}
-
-        else:
+        if tab_name.lower().strip() not in {"global", "directions", "animations", "constraints", "all"}:
             raise HTTPException(status_code=400, detail=f"Tab '{tab_name}' không hợp lệ.")
+        return await run_in_threadpool(
+            CharacterAnalysisService.analyze_profile, image, tab_name, eff_key, eff_prov, eff_base,
+            current_profile_json, vision_only,
+        )
 
     except HTTPException:
         raise
@@ -252,7 +183,7 @@ async def generate_prompt_from_profile(request: GeneratePromptFromProfileRequest
     """
     try:
         concept = request.core_concept or request.character_concept or "Pixel Art Character"# lấy ý tưởng người dùng ở ô nhập promt
-        eff_key, eff_prov, eff_base = _resolve_project_api_key(
+        _resolve_project_api_key(
             request.project_id, request.api_key, request.provider, request.base_url
         )
 

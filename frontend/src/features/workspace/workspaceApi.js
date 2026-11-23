@@ -11,7 +11,8 @@
 // ========================================================
 // 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Component và dữ liệu)
 // ========================================================
-// Không có phụ thuộc nội bộ.
+// gridRequestFields: Đồng bộ đường cắt giữa xem trước, ép kích thước và lưu kho.
+import { gridRequestFields } from './sheetGrid';
 
 // ========================================================
 // 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Tệp kiểu giao diện)
@@ -131,7 +132,8 @@ export async function saveSlicedPackToVault({
   autoAnchor = false,
   fps = 6,
   targetWidth = null,
-  targetHeight = null
+  targetHeight = null,
+  cuts = null
 }) {
   const body = new FormData();
   body.append('file', file);
@@ -141,6 +143,7 @@ export async function saveSlicedPackToVault({
   body.append('columns', String(columns));
   body.append('auto_anchor', String(Boolean(autoAnchor)));
   body.append('fps', String(fps));
+  Object.entries(gridRequestFields(cuts)).forEach(([name, value]) => body.append(name, value));
   if (targetWidth && targetHeight) {
     body.append('target_width', String(targetWidth));
     body.append('target_height', String(targetHeight));
@@ -171,13 +174,14 @@ export async function saveSlicedPackToVault({
  * @param {boolean} [params.autoAnchor=false] Căn tâm và neo chân.
  * @returns {Promise<Object>} Danh sách frame mới đã ép độ phân giải.
  */
-export async function batchResizeSheetFrames({ file, rows, columns, targetWidth, targetHeight, autoAnchor = false }) {
+export async function batchResizeSheetFrames({ file, rows, columns, targetWidth, targetHeight, autoAnchor = false, cuts = null }) {
   const body = new FormData();
   body.append('file', file);
   body.append('rows', String(rows));
   body.append('columns', String(columns));
   body.append('target_width', String(targetWidth));
   body.append('target_height', String(targetHeight));
+  Object.entries(gridRequestFields(cuts)).forEach(([name, value]) => body.append(name, value));
   body.append('auto_anchor', String(Boolean(autoAnchor)));
 
   const response = await fetch('/api/sprites/batch-resize-sheet', {

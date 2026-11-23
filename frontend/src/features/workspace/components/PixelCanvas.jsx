@@ -18,28 +18,13 @@ import React, {
 // ========================================================
 // 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Components & Schemas)
 // ========================================================
-// (Không có phụ thuộc nội bộ)
+// Các phép biến đổi pixel và phát ảnh dùng chung giữa vẽ, hoàn tác và làm lại.
+import { hexToRgbaArray, fillConnectedPixels, emitCanvasImage } from '../pixelCanvasImage';
 
 // ========================================================
 // 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
 // ========================================================
 // Kế thừa định dạng từ workspace-atelier.css
-
-/**
- * Chuyển đổi chuỗi mã HEX sang mảng 4 kênh màu RGBA [R, G, B, A] (0-255).
- *
- * @param {string} hex Mã HEX (ví dụ: '#322334', '#ffffff').
- * @returns {number[]} Mảng số nguyên [r, g, b, a].
- */
-function hexToRgbaArray(hex) {
-  let clean = hex.replace('#', '').trim();
-  if (clean.length === 3) {
-    clean = clean.split('').map((c) => c + c).join('');
-  }
-  const num = parseInt(clean, 16);
-  if (isNaN(num)) return [0, 0, 0, 255];
-  return [(num >> 16) & 255, (num >> 8) & 255, num & 255, 255];
-}
 
 /**
  * Bàn vẽ tương tác Pixel Art (Interactive Pixel Canvas) chuẩn phong cách Pixel Art Studio.
@@ -119,15 +104,7 @@ const PixelCanvas = forwardRef(function PixelCanvas(
     notifyHistoryChange();
 
     // Thông báo cho component cha về ảnh đã chỉnh sửa
-    if (onImageModified) {
-      canvas.toBlob((blob) => {
-        if (blob) {
-          const url = URL.createObjectURL(blob);
-          lastSelfGeneratedUrlRef.current = url;
-          onImageModified(blob, url);
-        }
-      }, 'image/png');
-    }
+    emitCanvasImage(canvas, onImageModified, lastSelfGeneratedUrlRef);
   }, [notifyHistoryChange, onImageModified]);
 
   /**
@@ -212,31 +189,7 @@ const PixelCanvas = forwardRef(function PixelCanvas(
     const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const w = canvas.width;
     const h = canvas.height;
-    const data32 = new Uint32Array(imgData.data.buffer);
-
-    const startIndex = startY * w + startX;
-    const targetColor32 = data32[startIndex];
-    const fillColor32 =
-      (fillRgba[3] << 24) | (fillRgba[2] << 16) | (fillRgba[1] << 8) | fillRgba[0];
-
-    if (targetColor32 === fillColor32) return;
-
-    // Hàng đợi tọa độ BFS
-    const queue = [startX, startY];
-    while (queue.length > 0) {
-      const cy = queue.pop();
-      const cx = queue.pop();
-
-      const idx = cy * w + cx;
-      if (data32[idx] !== targetColor32) continue;
-
-      data32[idx] = fillColor32;
-
-      if (cx > 0 && data32[idx - 1] === targetColor32) queue.push(cx - 1, cy);
-      if (cx < w - 1 && data32[idx + 1] === targetColor32) queue.push(cx + 1, cy);
-      if (cy > 0 && data32[idx - w] === targetColor32) queue.push(cx, cy - 1);
-      if (cy < h - 1 && data32[idx + w] === targetColor32) queue.push(cx, cy + 1);
-    }
+    if (!fillConnectedPixels(imgData, w, h, startX, startY, fillRgba)) return;
 
     ctx.putImageData(imgData, 0, 0);
     pushHistorySnapshot();
@@ -371,48 +324,33 @@ const PixelCanvas = forwardRef(function PixelCanvas(
   };
 
   /**
+   * Áp dụng snapshot tại con trỏ lịch sử và phát cùng sự kiện sửa ảnh như thao tác vẽ.
+   * @returns {void}
+   */
+  function restoreHistorySnapshot() {
+    const snapshot = historyRef.current[historyIndexRef.current];
+    const canvas = canvasRef.current;
+    if (canvas && snapshot) {
+      const ctx = canvas.getContext('2d');
+      ctx.putImageData(snapshot, 0, 0);
+      notifyHistoryChange();
+      emitCanvasImage(canvas, onImageModified, lastSelfGeneratedUrlRef);
+    }
+  }
+
+  /**
    * Cung cấp các phương thức điều khiển cho component cha thông qua ref
    */
   useImperativeHandle(ref, () => ({
     undo: () => {
       if (historyIndexRef.current <= 0) return;
       historyIndexRef.current -= 1;
-      const snapshot = historyRef.current[historyIndexRef.current];
-      const canvas = canvasRef.current;
-      if (canvas && snapshot) {
-        const ctx = canvas.getContext('2d');
-        ctx.putImageData(snapshot, 0, 0);
-        notifyHistoryChange();
-        if (onImageModified) {
-          canvas.toBlob((blob) => {
-            if (blob) {
-              const url = URL.createObjectURL(blob);
-              lastSelfGeneratedUrlRef.current = url;
-              onImageModified(blob, url);
-            }
-          }, 'image/png');
-        }
-      }
+      restoreHistorySnapshot();
     },
     redo: () => {
       if (historyIndexRef.current >= historyRef.current.length - 1) return;
       historyIndexRef.current += 1;
-      const snapshot = historyRef.current[historyIndexRef.current];
-      const canvas = canvasRef.current;
-      if (canvas && snapshot) {
-        const ctx = canvas.getContext('2d');
-        ctx.putImageData(snapshot, 0, 0);
-        notifyHistoryChange();
-        if (onImageModified) {
-          canvas.toBlob((blob) => {
-            if (blob) {
-              const url = URL.createObjectURL(blob);
-              lastSelfGeneratedUrlRef.current = url;
-              onImageModified(blob, url);
-            }
-          }, 'image/png');
-        }
-      }
+      restoreHistorySnapshot();
     },
     getBlob: async () => {
       const canvas = canvasRef.current;

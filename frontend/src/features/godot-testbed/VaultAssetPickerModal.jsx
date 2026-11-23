@@ -22,6 +22,8 @@ import {
 // ========================================================
 // 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Components & Schemas)
 // ========================================================
+// Tải tài nguyên và đọc metadata mà không trộn với giao diện.
+import { loadVaultSprites, loadVaultAsset, parseVaultMetadata } from './vaultPickerApi';
 // (Không có phụ thuộc nội bộ)
 
 // ========================================================
@@ -62,11 +64,7 @@ export default function VaultAssetPickerModal({
     if (!isOpen || !projectId) return;
     setLoading(true);
     setError('');
-    fetch(`/api/sprites?project_id=${projectId}`)
-      .then((res) => {
-        if (!res.ok) throw new Error('Không thể tải danh sách tài nguyên từ máy chủ.');
-        return res.json();
-      })
+    loadVaultSprites(projectId)
       .then((data) => {
         setSprites(data.sprites || []);
       })
@@ -99,47 +97,7 @@ export default function VaultAssetPickerModal({
     setLoadingId(sprite.id);
     setError('');
     try {
-      // 1. Tải blob ảnh nhị phân từ MySQL
-      const imgRes = await fetch(`/api/sprites/${sprite.id}/raw?project_id=${projectId}`);
-      if (!imgRes.ok) throw new Error('Không thể tải dữ liệu ảnh nhị phân từ MySQL.');
-      const blob = await imgRes.blob();
-      const sheetUrl = URL.createObjectURL(blob);
-
-      // 2. Tải danh sách 15 frame con nếu có
-      let framesData = [];
-      try {
-        const framesRes = await fetch(`/api/sprites/${sprite.id}/frames`);
-        if (framesRes.ok) {
-          const resJson = await framesRes.json();
-          framesData = resJson.frames || [];
-        }
-      } catch (err) {
-        console.warn('Không thể tải frame con:', err);
-      }
-
-      // 3. Đọc metadata cấu hình lưới
-      let meta = sprite.processing_metadata;
-      if (typeof meta === 'string') {
-        try {
-          meta = JSON.parse(meta);
-        } catch {
-          meta = {};
-        }
-      }
-      meta = meta || {};
-
-      onSelectAsset({
-        sprite,
-        blob,
-        sheetUrl,
-        frames: framesData,
-        metadata: meta,
-        rows: meta.rows || 3,
-        columns: meta.columns || 5,
-        targetWidth: meta.frame_width || null,
-        targetHeight: meta.frame_height || null,
-        isBatchResized: Boolean(meta.is_batch_resized),
-      });
+      onSelectAsset(await loadVaultAsset(sprite, projectId));
 
       onClose();
     } catch (err) {
@@ -365,15 +323,7 @@ export default function VaultAssetPickerModal({
 
           {!loading &&
             filteredSprites.map((s) => {
-              let meta = s.processing_metadata;
-              if (typeof meta === 'string') {
-                try {
-                  meta = JSON.parse(meta);
-                } catch {
-                  meta = {};
-                }
-              }
-              meta = meta || {};
+              const meta = parseVaultMetadata(s.processing_metadata);
 
               const isResized = Boolean(meta.is_batch_resized);
               const frameW = meta.frame_width || (meta.original_width ? Math.floor(meta.original_width / 5) : 32);

@@ -28,6 +28,9 @@ from PIL import Image
 from backend.schemas.character.palette import PaletteMetrics, DominantColorItem
 
 # ========================================================
+# compose_master_color_prompt: Biên dịch văn bản tách khỏi phép đo màu.
+from backend.core.metrics.palette_prompt import compose_master_color_prompt
+
 # 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
 # ========================================================
 # (Không áp dụng cho file backend)
@@ -437,29 +440,5 @@ class HeuristicPaletteAnalyzer:
             return "Medium Contrast (Soft readability)"
         return "Low Contrast"
 
-    def _compose_master_color_prompt(
-        self,
-        total_unique: int,
-        palette_era: str,
-        top_hex_list: List[str],
-        hue_shift_desc: str,
-        outline_style: str,
-        saturation_type: str,
-        contrast_type: str,
-        contrast_val: float,
-        outline_thickness: float = 1,
-    ) -> str:
-        """Biên dịch chuỗi Master Color Prompt hợp chuẩn với Asset tham chiếu."""
-        top_swatches_str = ", ".join(top_hex_list[:8])
-        contour = (
-            f", strictly {outline_thickness:g}-pixel crisp pixel contour without orphan noise."
-            if outline_thickness > 0 else ", preserve crisp silhouette edges without adding an outline."
-        )
-        return (
-            f"MASTER COLOR & GRAPHIC PALETTE SPECIFICATIONS (STRICTLY HARMONIZED WITH REFERENCE ASSET):\n"
-            f"- Color Budget: Strictly indexed {total_unique}-color palette ({palette_era}), primary palette anchors: [{top_swatches_str}].\n"
-            f"- Hue-Shifting Rule: {hue_shift_desc}.\n"
-            f"- Outline Grammar: {outline_style}{contour}\n"
-            f"- Palette Saturation & Contrast: {saturation_type}, {contrast_type} curve ({contrast_val}:1 ratio).\n"
-            f"- Background: Isolated on pure transparent background (PNG alpha channel), zero drop shadows on floor."
-        )
+    # Giữ tên phương thức riêng để bên gọi hiện có tiếp tục hoạt động.
+    _compose_master_color_prompt = staticmethod(compose_master_color_prompt)

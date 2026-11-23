@@ -4,7 +4,7 @@
 # abc: Định nghĩa lớp trừu tượng (Abstract Base Class) và phương thức trừu tượng
 from abc import ABC, abstractmethod
 # typing: Khai báo kiểu dữ liệu cho gợi ý mã nguồn
-from typing import Dict, Any, Optional, Tuple
+from typing import Dict, Any, Optional, Tuple, Generator, List
 # io, base64: Xử lý chuyển đổi ảnh sang Base64 chuẩn gửi lên API AI
 import io
 import base64
@@ -80,6 +80,25 @@ class BaseAiProvider(ABC):
         @returns {Dict[str, Any]} Đối tượng JSON kết quả.
         """
         pass
+
+    def stream_chat(
+        self,
+        messages: List[Dict[str, str]],
+        api_key: str,
+        base_url: Optional[str] = None,
+        system_instruction: Optional[str] = None
+    ) -> Generator[str, None, None]:
+        """
+        Gửi hội thoại tới mô hình AI và phát luồng (stream) từng token văn bản về theo chuẩn SSE.
+        Mặc định ném lỗi NotImplementedError nếu Provider cụ thể chưa hỗ trợ phát luồng.
+
+        @param {List[Dict[str, str]]} messages Danh sách lịch sử hội thoại [{'role': 'user'|'assistant', 'content': '...'}].
+        @param {str} api_key Khóa API bảo mật của nhà cung cấp.
+        @param {Optional[str]} base_url Địa chỉ máy chủ tùy biến (áp dụng cho OpenAI/Proxy/Local Ollama).
+        @param {Optional[str]} system_instruction Chỉ dẫn định hình phong cách cho AI.
+        @returns {Generator[str, None, None]} Máy phát sinh từng đoạn chữ (token).
+        """
+        raise NotImplementedError("Nhà cung cấp AI này chưa hiện thực hóa phương thức stream_chat.")
 
     @staticmethod
     def encode_image_to_base64(image: Image.Image, max_dimension: int = 512) -> str:

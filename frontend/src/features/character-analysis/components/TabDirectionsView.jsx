@@ -7,7 +7,7 @@ import React, { useState } from 'react';
 // 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
 // ========================================================
 // lucide-react: Bộ icon minh họa góc nhìn trước, ngang, sau và độ che khuất
-import { Compass, Eye, EyeOff, Shield, ArrowDown, ArrowRight, ArrowUp } from 'lucide-react';
+import { Compass, Eye, EyeOff, ArrowDown, ArrowRight, ArrowUp } from "lucide-react";
 
 // ========================================================
 // 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Components & Dữ liệu)
