@@ -210,25 +210,6 @@ export default function AuthModal({ onLoginSuccess }) {
     }
   };
 
-  /**
-   * Điền nhanh thông tin tài khoản Admin mẫu
-   */
-  const handleFillAdmin = () => {
-    setUsername('admin');
-    setPassword('1');
-    setErrorMsg('');
-    setGmailError('');
-  };
-
-  /**
-   * Điền nhanh thông tin tài khoản kiểm thử Origin (ID = 2)
-   */
-  const handleFillOrigin = () => {
-    setUsername('origin@gmail.com');
-    setPassword('123456');
-    setErrorMsg('');
-    setGmailError('');
-  };
 
   return (
     <div className="atelier-auth-overlay">
@@ -539,84 +520,7 @@ export default function AuthModal({ onLoginSuccess }) {
           </button>
         </form>
 
-        {/* 5. Gợi Ý Tài Khoản Mẫu (Phục vụ chấm bài / Test nhanh) */}
-        {mode === 'login' && (
-          <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {/* Tài khoản kiểm thử Origin */}
-            <div style={{
-              padding: '8px 12px',
-              borderRadius: '8px',
-              background: 'rgba(16, 185, 129, 0.08)',
-              border: '1px dashed rgba(16, 185, 129, 0.35)',
-              fontSize: '0.75rem',
-              color: 'var(--text-muted)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: '8px'
-            }}>
-              <div>
-                <span style={{ color: '#34d399', fontWeight: 600 }}>Tài khoản kiểm thử (Origin):</span>
-                <div style={{ marginTop: '2px', fontFamily: 'monospace' }}>
-                  User: <strong>origin@gmail.com</strong> | Pass: <strong>123456</strong>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={handleFillOrigin}
-                style={{
-                  background: 'rgba(16, 185, 129, 0.2)',
-                  border: '1px solid rgba(16, 185, 129, 0.4)',
-                  color: '#a7f3d0',
-                  padding: '4px 8px',
-                  borderRadius: '6px',
-                  fontSize: '0.725rem',
-                  cursor: 'pointer',
-                  fontWeight: 600
-                }}
-              >
-                Điền nhanh
-              </button>
-            </div>
 
-            {/* Tài khoản Admin tối cao */}
-            <div style={{
-              padding: '8px 12px',
-              borderRadius: '8px',
-              background: 'rgba(139, 92, 246, 0.08)',
-              border: '1px dashed rgba(168, 85, 247, 0.35)',
-              fontSize: '0.75rem',
-              color: 'var(--text-muted)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: '8px'
-            }}>
-              <div>
-                <span style={{ color: '#c084fc', fontWeight: 600 }}>Tài khoản Quản trị viên (Admin):</span>
-                <div style={{ marginTop: '2px', fontFamily: 'monospace' }}>
-                  User: <strong>admin</strong> | Pass: <strong>1</strong>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={handleFillAdmin}
-                style={{
-                  background: 'rgba(139, 92, 246, 0.2)',
-                  border: '1px solid rgba(139, 92, 246, 0.4)',
-                  color: '#e9d5ff',
-                  padding: '4px 8px',
-                  borderRadius: '6px',
-                  fontSize: '0.725rem',
-                  cursor: 'pointer',
-                  fontWeight: 600
-                }}
-              >
-                Điền nhanh
-              </button>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
