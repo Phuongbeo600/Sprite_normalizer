@@ -39,8 +39,15 @@ import { SLOT_DEFINITIONS_3_ROWS } from './slotDefinitions';
 import { createDemoSpriteSheet, stitchSlotsToSheet, extractSlotsFromSheet } from './spriteSheets';
 // Hàm dựng cửa sổ ghép ảnh và canvas xem trước.
 import { renderSlotTemplateDialog } from './renderSlotTemplateDialog';
+// Mô phỏng, vẽ canvas và phiên chỉnh sửa ô có trách nhiệm độc lập.
+import { advanceTestbedSimulation, createRosterState } from './testbedSimulation';
+import { drawTestbedCanvas } from './testbedCanvas';
+import { useSlotTemplateEditor } from './useSlotTemplateEditor';
 // Hộp thoại chọn Sprite Sheet hoặc Bộ Frame từ Kho tài nguyên MySQL.
 import VaultAssetPickerModal from './VaultAssetPickerModal';
+
+// Giao tiếp API tách khỏi trạng thái và giao diện.
+import { exportGodotArchive, createTestbedCharacter, deleteTestbedCharacter, deleteTestbedMap, loadTestbedCharacters, loadTestbedMap, saveTestbedGroundY, saveTestbedMap, updateTestbedCharacter } from './testbedApi';
 
 // ========================================================
 // 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
@@ -86,21 +93,6 @@ export default function GodotTestbed({
   // ========================================================
   // TRẠNG THÁI MODAL KHUNG Ô CHỌN / CHỈNH SỬA ẢNH (SLOT TEMPLATE)
   // ========================================================
-  const [isSlotModalOpen, setIsSlotModalOpen] = useState(false);
-  // Chỉ mục nhân vật đang chỉnh sửa (nếu null là đang tạo nhân vật mới)
-  const [editingCharIdx, setEditingCharIdx] = useState(null);
-  const [slotMode, setSlotMode] = useState('3_rows');
-  const [slotsData, setSlotsData] = useState({});
-  const [stagedCharName, setStagedCharName] = useState('Hero');
-  const [stagedFps, setStagedFps] = useState(8);
-  const [stagedAutoAnchor, setStagedAutoAnchor] = useState(true);
-  const [dragOverSlot, setDragOverSlot] = useState(null);
-
-  // Canvas preview trong Modal (cho 3 hướng: down, side, up)
-  const previewDownCanvasRef = useRef(null);
-  const previewSideCanvasRef = useRef(null);
-  const previewUpCanvasRef = useRef(null);
-
   // Các cờ hiển thị chế độ Debug Godot
   const [showCollision, setShowCollision] = useState(true);
   const [showOrigin, setShowOrigin] = useState(true);
@@ -128,6 +120,36 @@ export default function GodotTestbed({
   const isDraggingRef = useRef(false);
   const dragCharIdxRef = useRef(null);
   const dragOffsetRef = useRef({ x: 0, y: 0 });
+
+  const {
+    isSlotModalOpen,
+    setIsSlotModalOpen,
+    editingCharIdx,
+    setEditingCharIdx,
+    slotMode,
+    setSlotMode,
+    slotsData,
+    setSlotsData,
+    stagedCharName,
+    setStagedCharName,
+    stagedFps,
+    setStagedFps,
+    dragOverSlot,
+    setDragOverSlot,
+    previewDownCanvasRef,
+    previewSideCanvasRef,
+    previewUpCanvasRef,
+    handleOpenSlotTemplateModal,
+    handleEditCharacterSlots,
+    handleSetSlotImage,
+    handleClearSlot,
+    handleSwapSlots,
+    handleSwapRows,
+    handleClearRow,
+    handleShiftRow,
+    handleBatchAutoAssignSlots,
+    handleConfirmSlotTemplate
+  } = useSlotTemplateEditor({characters, setCharacters, setActiveCharIdx, currentProject, groundY, rosterStateRef, setAddMenuOpen, setErrorMsg});
 
   // Đóng dropdown khi nhấp chuột ra ngoài
   useEffect(() => {
@@ -175,15 +197,7 @@ export default function GodotTestbed({
 
       loadedChars.push(charObj);
 
-      rosterStateRef.current.push({
-        x: cfg.x,
-        y: 540,
-        direction: 'down',
-        facingLeft: false,
-        animTime: 0,
-        animFrameIdx: 0,
-        isMoving: false
-      });
+      rosterStateRef.current.push(createRosterState(cfg.x, 540));
     });
 
     setCharacters(loadedChars);
@@ -198,7 +212,7 @@ export default function GodotTestbed({
     const projectId = currentProject.id;
 
     // 1. Tự động tải bản đồ nền từ MySQL (testbed_maps)
-    fetch(`/api/testbed/map?project_id=${projectId}`)
+    loadTestbedMap(projectId)
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (data && data.status === 'success' && data.map_image_base64) {
@@ -216,7 +230,7 @@ export default function GodotTestbed({
       .catch((err) => console.error('Lỗi khi tải bản đồ từ MySQL:', err));
 
     // 2. Tự động tải danh sách nhân vật & 15 ô frame từ MySQL (testbed_characters, testbed_character_frames)
-    fetch(`/api/testbed/characters?project_id=${projectId}`)
+    loadTestbedCharacters(projectId)
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (data && data.characters && data.characters.length > 0) {
@@ -277,15 +291,7 @@ export default function GodotTestbed({
               slotMode: '3_rows'
             });
 
-            rosterStateRef.current.push({
-              x: charDb.pos_x || (160 + idx * 100),
-              y: groundY,
-              direction: 'down',
-              facingLeft: false,
-              animTime: 0,
-              animFrameIdx: 0,
-              isMoving: false
-            });
+            rosterStateRef.current.push(createRosterState(charDb.pos_x || (160 + idx * 100), groundY));
           });
 
           if (loaded.length > 0) {
@@ -310,14 +316,10 @@ export default function GodotTestbed({
   useEffect(() => {
     if (!currentProject?.id) return;
     const timer = setTimeout(() => {
-      fetch('/api/testbed/map/ground-y', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      saveTestbedGroundY({
           project_id: currentProject.id,
           ground_y: groundY
-        })
-      }).catch((err) => console.error('Lỗi khi cập nhật ground_y vào MySQL:', err));
+        }).catch((err) => console.error('Lỗi khi cập nhật ground_y vào MySQL:', err));
     }, 400);
 
     return () => clearTimeout(timer);
@@ -354,15 +356,7 @@ export default function GodotTestbed({
       };
 
       const newX = 160 + characters.length * 90;
-      rosterStateRef.current.push({
-        x: Math.min(1150, newX),
-        y: groundY,
-        direction: 'down',
-        facingLeft: false,
-        animTime: 0,
-        animFrameIdx: 0,
-        isMoving: false
-      });
+      rosterStateRef.current.push(createRosterState(Math.min(1150, newX), groundY));
 
       setCharacters((prev) => [...prev, newChar]);
       setActiveCharIdx(characters.length);
@@ -393,17 +387,13 @@ export default function GodotTestbed({
 
         // Tự động lưu bản đồ nền thật dạng MEDIUMBLOB vào MySQL
         if (currentProject?.id) {
-          fetch('/api/testbed/map', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
+          saveTestbedMap({
               project_id: currentProject.id,
               name: file.name,
               map_image_base64: dataUrl,
               ground_y: groundY,
               show_ground_line: showGroundLine
-            })
-          }).catch((err) => console.error('Lỗi khi lưu bản đồ vào MySQL:', err));
+            }).catch((err) => console.error('Lỗi khi lưu bản đồ vào MySQL:', err));
         }
       };
       img.onerror = () => {
@@ -425,9 +415,7 @@ export default function GodotTestbed({
 
     // Xóa bản đồ nền khỏi MySQL nếu đang mở dự án
     if (currentProject?.id) {
-      fetch(`/api/testbed/map?project_id=${currentProject.id}`, {
-        method: 'DELETE'
-      }).catch((err) => console.error('Lỗi khi xóa bản đồ khỏi MySQL:', err));
+      deleteTestbedMap(currentProject.id).catch((err) => console.error('Lỗi khi xóa bản đồ khỏi MySQL:', err));
     }
   };
 
@@ -465,15 +453,7 @@ export default function GodotTestbed({
       };
 
       const newX = 160 + characters.length * 90;
-      rosterStateRef.current.push({
-        x: Math.min(1150, newX),
-        y: groundY,
-        direction: 'down',
-        facingLeft: false,
-        animTime: 0,
-        animFrameIdx: 0,
-        isMoving: false
-      });
+      rosterStateRef.current.push(createRosterState(Math.min(1150, newX), groundY));
 
       // Tự động trích xuất các ô frame từ Sheet và lưu vĩnh viễn vào MySQL
       if (currentProject?.id) {
@@ -484,10 +464,7 @@ export default function GodotTestbed({
           if (v && v.url) slotsPayload[k] = v.url;
         });
 
-        fetch('/api/testbed/characters', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
+        createTestbedCharacter({
             project_id: currentProject.id,
             name: newChar.name,
             scale: 1.0,
@@ -496,7 +473,6 @@ export default function GodotTestbed({
             move_speed: 130,
             slots_data: slotsPayload
           })
-        })
           .then((res) => (res.ok ? res.json() : null))
           .then((data) => {
             if (data && data.id) {
@@ -516,439 +492,6 @@ export default function GodotTestbed({
     };
     img.src = url;
   };
-
-  // ========================================================
-  // CHỨC NĂNG 2: THÊM NHÂN VẬT MỚI TỪ BẢNG KHUNG Ô (SLOT TEMPLATE)
-  // ========================================================
-  const handleOpenSlotTemplateModal = () => {
-    setAddMenuOpen(false);
-    setEditingCharIdx(null); // Đang tạo nhân vật mới
-    setSlotsData({});
-    setStagedCharName('Hero');
-    setStagedFps(8);
-    setStagedAutoAnchor(true);
-    setSlotMode('3_rows');
-    setIsSlotModalOpen(true);
-  };
-
-  // ========================================================
-  // CHỨC NĂNG 3: MỞ LẠI BẢNG KHUNG Ô ĐỂ CHỈNH SỬA / ĐỔI FRAME ĐẶT NHẦM
-  // ========================================================
-  const handleEditCharacterSlots = (charIdx) => {
-    const charToEdit = characters[charIdx];
-    if (!charToEdit) return;
-
-    setEditingCharIdx(charIdx);
-    setStagedCharName(charToEdit.name);
-    setStagedFps(charToEdit.fps || 8);
-    setStagedAutoAnchor(true);
-    setSlotMode(charToEdit.rows > 1 ? '3_rows' : '1_row');
-
-    // Nạp lại các ô đã lưu hoặc trích xuất từng ô từ Sprite Sheet hiện tại
-    if (charToEdit.slotsData && Object.keys(charToEdit.slotsData).length > 0) {
-      setSlotsData({ ...charToEdit.slotsData });
-    } else {
-      const extracted = extractSlotsFromSheet(charToEdit);
-      setSlotsData(extracted);
-    }
-
-    setIsSlotModalOpen(true);
-  };
-
-  /**
-   * Nạp tệp ảnh vào đúng một ô cụ thể theo slotId (kèm tạo canvas đệm đồng bộ)
-   */
-  const handleSetSlotImage = (slotId, file) => {
-    if (!file) return;
-    if (file.name.endsWith('.import')) return;
-
-    const reader = new FileReader();
-    reader.onload = (re) => {
-      const dataUrl = re.target.result;
-      const img = new Image();
-      img.onload = () => {
-        const c = document.createElement('canvas');
-        c.width = img.naturalWidth || img.width;
-        c.height = img.naturalHeight || img.height;
-        const ctx = c.getContext('2d');
-        ctx.imageSmoothingEnabled = false;
-        ctx.drawImage(img, 0, 0);
-
-        setSlotsData((prev) => ({
-          ...prev,
-          [slotId]: {
-            img,
-            canvas: c,
-            url: dataUrl,
-            name: file.name,
-            file
-          }
-        }));
-      };
-      img.src = dataUrl;
-    };
-    reader.readAsDataURL(file);
-  };
-
-  /**
-   * Gỡ bỏ ảnh khỏi một ô cụ thể
-   */
-  const handleClearSlot = (slotId, e) => {
-    if (e) e.stopPropagation();
-    setSlotsData((prev) => {
-      const updated = { ...prev };
-      delete updated[slotId];
-      return updated;
-    });
-  };
-
-  /**
-   * Hoán đổi vị trí ảnh giữa 2 ô slot bất kỳ
-   */
-  const handleSwapSlots = (slotA, slotB) => {
-    if (!slotA || !slotB || slotA === slotB) return;
-    setSlotsData((prev) => {
-      const updated = { ...prev };
-      const tempA = updated[slotA];
-      const tempB = updated[slotB];
-      if (tempB) updated[slotA] = tempB;
-      else delete updated[slotA];
-      if (tempA) updated[slotB] = tempA;
-      else delete updated[slotB];
-      return updated;
-    });
-  };
-
-  /**
-   * Hoán đổi toàn bộ 5 ô giữa 2 hàng (ví dụ: Down ↔ Side, hoặc Side ↔ Up)
-   */
-  const handleSwapRows = (rowA, rowB) => {
-    if (!rowA || !rowB || rowA === rowB) return;
-    setSlotsData((prev) => {
-      const updated = { ...prev };
-      for (let c = 0; c < 5; c++) {
-        const idA = `${rowA}_${c}`;
-        const idB = `${rowB}_${c}`;
-        const tempA = updated[idA];
-        const tempB = updated[idB];
-        if (tempB) updated[idA] = tempB;
-        else delete updated[idA];
-        if (tempA) updated[idB] = tempA;
-        else delete updated[idB];
-      }
-      return updated;
-    });
-  };
-
-  /**
-   * Xóa toàn bộ ảnh trong một hàng cụ thể
-   */
-  const handleClearRow = (rowName) => {
-    setSlotsData((prev) => {
-      const updated = { ...prev };
-      for (let c = 0; c < 5; c++) {
-        delete updated[`${rowName}_${c}`];
-      }
-      return updated;
-    });
-  };
-
-  /**
-   * Dịch chuyển vòng các ô trong hàng sang trái (-1) hoặc sang phải (+1)
-   */
-  const handleShiftRow = (rowName, direction) => {
-    setSlotsData((prev) => {
-      const updated = { ...prev };
-      const rowSlots = [];
-      for (let c = 0; c < 5; c++) {
-        rowSlots.push(updated[`${rowName}_${c}`]);
-      }
-      if (direction > 0) {
-        // Dịch phải (ô cuối quay về đầu)
-        const last = rowSlots.pop();
-        rowSlots.unshift(last);
-      } else {
-        // Dịch trái (ô đầu ra sau)
-        const first = rowSlots.shift();
-        rowSlots.push(first);
-      }
-      for (let c = 0; c < 5; c++) {
-        if (rowSlots[c]) updated[`${rowName}_${c}`] = rowSlots[c];
-        else delete updated[`${rowName}_${c}`];
-      }
-      return updated;
-    });
-  };
-
-  /**
-   * Nạp nhanh tự động nếu người dùng có sẵn cả cụm nhiều file ảnh
-   */
-  const handleBatchAutoAssignSlots = (event) => {
-    const files = Array.from(event.target.files || []);
-    event.target.value = '';
-    if (!files || files.length === 0) return;
-
-    const imageFiles = files.filter((f) => !f.name.endsWith('.import') && /\.(png|jpe?g|webp)$/i.test(f.name));
-
-    imageFiles.forEach((file) => {
-      const name = file.name.toLowerCase();
-      let matchedSlot = null;
-
-      let dir = 'down';
-      if (name.includes('side') || name.includes('left') || name.includes('right')) dir = 'side';
-      else if (name.includes('up') || name.includes('back')) dir = 'up';
-
-      if (name.includes('idle') || name.includes('stand')) {
-        matchedSlot = `${dir}_0`;
-      } else {
-        const numMatch = name.match(/(\d+)/);
-        if (numMatch) {
-          const stepNum = parseInt(numMatch[1], 10);
-          if (stepNum >= 0 && stepNum <= 3) {
-            matchedSlot = `${dir}_${stepNum + 1}`;
-          } else if (stepNum >= 1 && stepNum <= 4) {
-            matchedSlot = `${dir}_${stepNum}`;
-          }
-        }
-      }
-
-      if (matchedSlot) {
-        handleSetSlotImage(matchedSlot, file);
-      }
-    });
-  };
-
-  /**
-   * Xác nhận ghép toàn bộ các ô Slot thành Sprite Sheet:
-   * - Nếu editingCharIdx !== null: Cập nhật nhân vật đang có (giữ nguyên toạ độ trên sàn và đồng bộ MySQL).
-   * - Nếu editingCharIdx === null: Tạo nhân vật mới vào đội hình và lưu vào MySQL.
-   */
-  const handleConfirmSlotTemplate = () => {
-    const hasAnyImage = Object.keys(slotsData).length > 0;
-    if (!hasAnyImage) {
-      setErrorMsg('Vui lòng chọn ít nhất 1 ảnh vào ô đứng yên (idle_down) để tạo nhân vật.');
-      return;
-    }
-
-    const is3R = slotMode === '3_rows';
-    const stitched = stitchSlotsToSheet(slotsData, is3R, stagedAutoAnchor);
-    if (!stitched) {
-      setErrorMsg('Lỗi khi ghép các ô thành Sprite Sheet.');
-      return;
-    }
-
-    const charName = stagedCharName.trim() || 'Hero';
-    const stitchedImg = new Image();
-    stitchedImg.onload = () => {
-      // Chuẩn bị dữ liệu 15 ô frame dạng Base64 gửi lên MySQL (ưu tiên toDataURL từ canvas để đảm bảo chuẩn Base64)
-      const slotsPayload = {};
-      Object.entries(slotsData).forEach(([k, v]) => {
-        if (v) {
-          if (v.canvas && typeof v.canvas.toDataURL === 'function') {
-            slotsPayload[k] = v.canvas.toDataURL('image/png');
-          } else if (v.url && v.url.startsWith('data:image')) {
-            slotsPayload[k] = v.url;
-          }
-        }
-      });
-
-      if (editingCharIdx !== null && characters[editingCharIdx]) {
-        // CẬP NHẬT NHÂN VẬT ĐANG CÓ (Giữ nguyên toạ độ X, Y, Scale và ID)
-        const existingChar = characters[editingCharIdx];
-        const updatedChar = {
-          ...existingChar,
-          name: charName,
-          sheetImage: stitchedImg,
-          sheetUrl: stitched.dataUrl,
-          sheetFileName: `${charName.toLowerCase()}_sheet.png`,
-          rows: stitched.rows,
-          columns: stitched.columns,
-          fps: stagedFps,
-          cellWidth: stitched.cellW,
-          cellHeight: stitched.cellH,
-          slotsData: { ...slotsData },
-          slotMode: slotMode
-        };
-
-        setCharacters((prev) => prev.map((c, i) => i === editingCharIdx ? updatedChar : c));
-        setEditingCharIdx(null);
-
-        // Đồng bộ cập nhật nhân vật và 15 ô frame vào MySQL
-        if (currentProject?.id) {
-          if (existingChar.dbId) {
-            // Trường hợp 1: Nhân vật đã có trong MySQL -> Gửi PUT cập nhật thông số và các ô ảnh
-            fetch(`/api/testbed/characters/${existingChar.dbId}?project_id=${currentProject.id}`, {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                name: charName,
-                scale: existingChar.scale || 1.0,
-                pos_x: rosterStateRef.current[editingCharIdx]?.x || 260,
-                fps: stagedFps
-              })
-            }).catch((err) => console.error('Lỗi khi cập nhật thông tin nhân vật vào MySQL:', err));
-
-            // Cập nhật từng ô ảnh rời vào bảng testbed_character_frames
-            Object.entries(slotsPayload).forEach(([slotKey, imgBase64]) => {
-              fetch(`/api/testbed/characters/${existingChar.dbId}/slots`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ slot_key: slotKey, image_base64: imgBase64 })
-              }).catch((err) => console.error(`Lỗi cập nhật ô ${slotKey} vào MySQL:`, err));
-            });
-          } else {
-            // Trường hợp 2: Nhân vật mẫu ban đầu (chưa có trong MySQL) được người dùng đè asset lên
-            // Tự động lưu thành nhân vật thật trong MySQL và gán mã dbId
-            fetch('/api/testbed/characters', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                project_id: currentProject.id,
-                name: charName,
-                scale: existingChar.scale || 1.0,
-                pos_x: rosterStateRef.current[editingCharIdx]?.x || 260,
-                fps: stagedFps,
-                move_speed: existingChar.moveSpeed || 135,
-                slots_data: slotsPayload
-              })
-            })
-              .then((res) => (res.ok ? res.json() : null))
-              .then((data) => {
-                if (data && data.id) {
-                  existingChar.dbId = data.id;
-                  updatedChar.dbId = data.id;
-                  setCharacters((prev) => prev.map((c, i) => i === editingCharIdx ? { ...c, dbId: data.id } : c));
-                }
-              })
-              .catch((err) => console.error('Lỗi khi lưu nhân vật mẫu đã sửa vào MySQL:', err));
-          }
-        }
-      } else {
-        // TẠO MỚI NHÂN VẬT
-        const newId = `char_${Date.now()}`;
-        const newX = Math.min(1150, 160 + characters.length * 90);
-        const newChar = {
-          id: newId,
-          dbId: null, // Sẽ được gán sau khi MySQL trả về ID
-          name: charName,
-          icon: '🖼️',
-          sheetImage: stitchedImg,
-          sheetUrl: stitched.dataUrl,
-          sheetFileName: `${charName.toLowerCase()}_sheet.png`,
-          rows: stitched.rows,
-          columns: stitched.columns,
-          fps: stagedFps,
-          moveSpeed: 135,
-          cellWidth: stitched.cellW,
-          cellHeight: stitched.cellH,
-          scale: 1.0,
-          isCustom: true,
-          slotsData: { ...slotsData },
-          slotMode: slotMode
-        };
-
-        rosterStateRef.current.push({
-          x: newX,
-          y: groundY,
-          direction: 'down',
-          facingLeft: false,
-          animTime: 0,
-          animFrameIdx: 0,
-          isMoving: false
-        });
-
-        // Lưu mới vào MySQL và nhận ID tự tăng
-        if (currentProject?.id) {
-          fetch('/api/testbed/characters', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              project_id: currentProject.id,
-              name: charName,
-              scale: 1.0,
-              pos_x: newX,
-              fps: stagedFps,
-              move_speed: 135,
-              slots_data: slotsPayload
-            })
-          })
-            .then((res) => (res.ok ? res.json() : null))
-            .then((data) => {
-              if (data && data.id) {
-                newChar.dbId = data.id;
-              }
-            })
-            .catch((err) => console.error('Lỗi khi lưu nhân vật mới vào MySQL:', err));
-        }
-
-        const updated = [...characters, newChar];
-        setCharacters(updated);
-        setActiveCharIdx(updated.length - 1);
-      }
-
-      setIsSlotModalOpen(false);
-      setSlotsData({});
-      setErrorMsg('');
-    };
-    stitchedImg.src = stitched.dataUrl;
-  };
-
-  // Vòng lặp xem trước 3 hướng hoạt họa trong Modal
-  useEffect(() => {
-    if (!isSlotModalOpen) return;
-    let step = 0;
-    let lastT = performance.now();
-    let animId;
-
-    const dirs = [
-      { name: 'down', canvasRef: previewDownCanvasRef },
-      { name: 'side', canvasRef: previewSideCanvasRef },
-      { name: 'up', canvasRef: previewUpCanvasRef }
-    ];
-
-    const loop = (now) => {
-      const dt = (now - lastT) / 1000;
-      if (dt >= 1.0 / Math.max(1, stagedFps)) {
-        step = (step + 1) % 4;
-        lastT = now;
-      }
-
-      dirs.forEach(({ name: dir, canvasRef: cRef }) => {
-        const canvas = cRef.current;
-        if (!canvas) return;
-        const ctx = canvas.getContext('2d');
-        ctx.imageSmoothingEnabled = false;
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-        const activeItem = slotsData[`${dir}_${step + 1}`] || slotsData[`${dir}_0`] || slotsData['down_0'];
-        const curImg = activeItem ? (activeItem.canvas || activeItem.img) : null;
-        if (curImg) {
-          const cw = canvas.width;
-          const ch = canvas.height;
-          const fw = curImg.naturalWidth || curImg.width;
-          const fh = curImg.naturalHeight || curImg.height;
-
-          const scale = Math.min(2.0, (ch - 18) / fh);
-          const dw = Math.round(fw * scale);
-          const dh = Math.round(fh * scale);
-          const dx = Math.round((cw - dw) / 2);
-          const dy = Math.round(ch - 10 - dh);
-
-          ctx.fillStyle = 'rgba(0,0,0,0.45)';
-          ctx.beginPath();
-          ctx.ellipse(cw / 2, ch - 8, dw * 0.35, 5, 0, 0, Math.PI * 2);
-          ctx.fill();
-
-          ctx.drawImage(curImg, dx, dy, dw, dh);
-        }
-      });
-
-      animId = requestAnimationFrame(loop);
-    };
-
-    animId = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(animId);
-  }, [isSlotModalOpen, slotsData, stagedFps]);
 
   // Thay đổi ảnh Sprite nhanh bằng file Sprite Sheet
   const handleReplaceCharacterImage = (event, charIdx) => {
@@ -1031,16 +574,12 @@ export default function GodotTestbed({
 
             // Đồng bộ cập nhật lên MySQL nếu nhân vật đã có dbId
             if (currentProject?.id && updated.dbId) {
-              fetch(`/api/testbed/characters/${updated.dbId}?project_id=${currentProject.id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
+              updateTestbedCharacter(updated.dbId, currentProject.id, {
                   name: updated.name,
                   scale: updated.scale || 1.0,
                   fps: updated.fps || 8,
                   move_speed: updated.moveSpeed || 140,
-                }),
-              }).catch(() => {});
+                }).catch(() => {});
             }
             return updated;
           })
@@ -1068,25 +607,14 @@ export default function GodotTestbed({
         };
 
         const newX = 160 + characters.length * 90;
-        rosterStateRef.current.push({
-          x: Math.min(1150, newX),
-          y: groundY,
-          direction: 'down',
-          facingLeft: false,
-          animTime: 0,
-          animFrameIdx: 0,
-          isMoving: false,
-        });
+        rosterStateRef.current.push(createRosterState(Math.min(1150, newX), groundY));
 
         setCharacters((prev) => [...prev, newChar]);
         setActiveCharIdx(characters.length);
 
         // Tự động lưu nhân vật mới vào MySQL (testbed_characters)
         if (currentProject?.id) {
-          fetch('/api/testbed/characters', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
+          createTestbedCharacter({
               project_id: currentProject.id,
               name: newChar.name,
               scale: newChar.scale,
@@ -1094,8 +622,7 @@ export default function GodotTestbed({
               move_speed: newChar.moveSpeed,
               pos_x: Math.min(1150, newX),
               pos_y: groundY,
-            }),
-          })
+            })
             .then((res) => (res.ok ? res.json() : null))
             .then((data) => {
               if (data && data.character_id) {
@@ -1137,16 +664,12 @@ export default function GodotTestbed({
 
       // Tự động đồng bộ lên MySQL nếu nhân vật đã có dbId
       if (currentProject?.id && updated.dbId) {
-        fetch(`/api/testbed/characters/${updated.dbId}?project_id=${currentProject.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
+        updateTestbedCharacter(updated.dbId, currentProject.id, {
             name: updated.name,
             scale: updated.scale || 1.0,
             pos_x: rosterStateRef.current[activeCharIdx]?.x || 260,
             fps: updated.fps || 8
-          })
-        }).catch((err) => console.error('Lỗi khi cập nhật thông số nhân vật vào MySQL:', err));
+          }).catch((err) => console.error('Lỗi khi cập nhật thông số nhân vật vào MySQL:', err));
       }
       return updated;
     }));
@@ -1161,9 +684,7 @@ export default function GodotTestbed({
 
     const charToRemove = characters[idxToRemove];
     if (charToRemove?.dbId && currentProject?.id) {
-      fetch(`/api/testbed/characters/${charToRemove.dbId}?project_id=${currentProject.id}`, {
-        method: 'DELETE'
-      }).catch((err) => console.error('Lỗi khi xóa nhân vật khỏi MySQL:', err));
+      deleteTestbedCharacter(charToRemove.dbId, currentProject.id).catch((err) => console.error('Lỗi khi xóa nhân vật khỏi MySQL:', err));
     }
 
     const updated = characters.filter((_, idx) => idx !== idxToRemove);
@@ -1308,83 +829,6 @@ export default function GodotTestbed({
     if (canvasRef.current) canvasRef.current.style.cursor = 'default';
   };
 
-  // Vẽ phông nền mặc định
-  const drawDefaultNightCliffMap = (ctx, w, h) => {
-    const skyGrad = ctx.createLinearGradient(0, 0, 0, h);
-    skyGrad.addColorStop(0, '#040714');
-    skyGrad.addColorStop(0.45, '#0b132b');
-    skyGrad.addColorStop(0.75, '#1c2541');
-    skyGrad.addColorStop(1, '#0a1128');
-    ctx.fillStyle = skyGrad;
-    ctx.fillRect(0, 0, w, h);
-
-    const moonX = w * 0.72;
-    const moonY = h * 0.22;
-    const moonRadius = 46;
-
-    const moonGlow = ctx.createRadialGradient(moonX, moonY, 10, moonX, moonY, 180);
-    moonGlow.addColorStop(0, 'rgba(219, 234, 254, 0.45)');
-    moonGlow.addColorStop(0.4, 'rgba(147, 197, 253, 0.15)');
-    moonGlow.addColorStop(1, 'rgba(147, 197, 253, 0)');
-    ctx.fillStyle = moonGlow;
-    ctx.beginPath();
-    ctx.arc(moonX, moonY, 180, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = '#f8fafc';
-    ctx.beginPath();
-    ctx.arc(moonX, moonY, moonRadius, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
-    const stars = [
-      [120, 80, 2], [180, 140, 1.5], [290, 70, 2.5], [410, 110, 1.5],
-      [520, 60, 2], [640, 130, 2], [790, 75, 1.5], [920, 120, 2.5],
-      [1040, 85, 2], [1160, 130, 1.5], [210, 190, 1.5], [350, 220, 2],
-      [850, 210, 1.5], [1080, 230, 2]
-    ];
-    for (const [sx, sy, sr] of stars) {
-      ctx.beginPath();
-      ctx.arc(sx, sy, sr, 0, Math.PI * 2);
-      ctx.fill();
-    }
-
-    ctx.fillStyle = '#0d1b2a';
-    ctx.beginPath();
-    ctx.moveTo(0, h * 0.65);
-    ctx.lineTo(w * 0.18, h * 0.52);
-    ctx.lineTo(w * 0.38, h * 0.62);
-    ctx.lineTo(w * 0.55, h * 0.48);
-    ctx.lineTo(w * 0.78, h * 0.58);
-    ctx.lineTo(w * 0.92, h * 0.50);
-    ctx.lineTo(w, h * 0.60);
-    ctx.lineTo(w, h);
-    ctx.lineTo(0, h);
-    ctx.closePath();
-    ctx.fill();
-
-    const cliffY = groundY;
-    const cliffGrad = ctx.createLinearGradient(0, cliffY, 0, h);
-    cliffGrad.addColorStop(0, '#1b4332');
-    cliffGrad.addColorStop(0.08, '#081c15');
-    cliffGrad.addColorStop(1, '#020907');
-    ctx.fillStyle = cliffGrad;
-    ctx.beginPath();
-    ctx.moveTo(0, cliffY);
-    ctx.lineTo(w, cliffY);
-    ctx.lineTo(w, h);
-    ctx.lineTo(0, h);
-    ctx.closePath();
-    ctx.fill();
-
-    ctx.strokeStyle = '#40916c';
-    ctx.lineWidth = 4;
-    ctx.beginPath();
-    ctx.moveTo(0, cliffY);
-    ctx.lineTo(w, cliffY);
-    ctx.stroke();
-  };
-
   // Game loop 60 FPS
   const gameLoop = useCallback((currentTime) => {
     const delta = Math.min((currentTime - lastTime.current) / 1000.0, 0.1);
@@ -1396,239 +840,8 @@ export default function GodotTestbed({
       const w = canvas.width;
       const h = canvas.height;
 
-      const activeState = rosterStateRef.current[activeCharIdx];
-      const activeChar = characters[activeCharIdx];
-
-      if (activeState && activeChar && !isDraggingRef.current) {
-        let dx = 0;
-        let dy = 0;
-        const keys = keysPressed.current;
-        if (keys['w'] || keys['arrowup']) dy -= 1;
-        if (keys['s'] || keys['arrowdown']) dy += 1;
-        if (keys['a'] || keys['arrowleft']) dx -= 1;
-        if (keys['d'] || keys['arrowright']) dx += 1;
-
-        const isMoving = dx !== 0 || dy !== 0;
-        activeState.isMoving = isMoving;
-
-        if (isMoving) {
-          const len = Math.sqrt(dx * dx + dy * dy);
-          dx /= len;
-          dy /= len;
-
-          if (Math.abs(dx) > Math.abs(dy)) {
-            activeState.direction = 'side';
-            activeState.facingLeft = dx < 0;
-          } else if (dy > 0) {
-            activeState.direction = 'down';
-            activeState.facingLeft = false;
-          } else {
-            activeState.direction = 'up';
-            activeState.facingLeft = false;
-          }
-
-          activeState.x += dx * activeChar.moveSpeed * delta;
-          activeState.y += dy * (activeChar.moveSpeed * 0.7) * delta;
-
-          activeState.x = Math.max(50, Math.min(w - 50, activeState.x));
-          activeState.y = Math.max(groundY - 60, Math.min(h - 30, activeState.y));
-
-          activeState.animTime += delta;
-          const frameDuration = 1.0 / Math.max(1, activeChar.fps);
-          if (activeState.animTime >= frameDuration) {
-            activeState.animTime = 0;
-            const walkFrameCount = Math.max(1, activeChar.columns - 1);
-            activeState.animFrameIdx = (activeState.animFrameIdx % walkFrameCount) + 1;
-          }
-        } else {
-          activeState.animFrameIdx = 0;
-          activeState.animTime = 0;
-        }
-      }
-
-      rosterStateRef.current.forEach((st, idx) => {
-        if (idx !== activeCharIdx && characters[idx]) {
-          st.isMoving = false;
-          st.animTime += delta;
-          const charObj = characters[idx];
-          const frameDuration = 1.0 / Math.max(1, charObj.fps);
-          if (st.animTime >= frameDuration) {
-            st.animTime = 0;
-            st.animFrameIdx = 0;
-          }
-        }
-      });
-
-      ctx.imageSmoothingEnabled = false;
-
-      if (mapImage) {
-        ctx.drawImage(mapImage, 0, 0, w, h);
-      } else {
-        drawDefaultNightCliffMap(ctx, w, h);
-      }
-
-      if (showFloorGrid) {
-        const tileSize = 32;
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
-        ctx.lineWidth = 1;
-        for (let x = 0; x < w; x += tileSize) {
-          ctx.beginPath();
-          ctx.moveTo(x, 0);
-          ctx.lineTo(x, h);
-          ctx.stroke();
-        }
-        for (let y = 0; y < h; y += tileSize) {
-          ctx.beginPath();
-          ctx.moveTo(0, y);
-          ctx.lineTo(w, y);
-          ctx.stroke();
-        }
-      }
-
-      if (showGroundLine) {
-        ctx.strokeStyle = 'rgba(168, 85, 247, 0.7)';
-        ctx.setLineDash([6, 6]);
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.moveTo(0, groundY);
-        ctx.lineTo(w, groundY);
-        ctx.stroke();
-        ctx.setLineDash([]);
-
-        ctx.fillStyle = '#d8b4fe';
-        ctx.font = 'bold 11px monospace';
-        ctx.fillText(`MẶT ĐẤT Y = ${groundY} px (Chân tiếp xúc 1:1 • Kéo thả chuột để dời vị trí)`, 14, groundY - 8);
-      }
-
-      const sortedIndices = characters.map((_, idx) => idx).sort((a, b) => {
-        const yA = rosterStateRef.current[a]?.y || 0;
-        const yB = rosterStateRef.current[b]?.y || 0;
-        return yA - yB;
-      });
-
-      sortedIndices.forEach((idx) => {
-        const charObj = characters[idx];
-        const state = rosterStateRef.current[idx];
-        if (!charObj || !state || !charObj.sheetImage) return;
-
-        const px = Math.round(state.x);
-        const py = Math.round(state.y);
-        const isCurrentActive = idx === activeCharIdx;
-
-        const effectiveZoom = pixelZoom * (charObj.scale || 1.0);
-        const drawW = Math.round(charObj.cellWidth * effectiveZoom);
-        const drawH = Math.round(charObj.cellHeight * effectiveZoom);
-
-        if (isCurrentActive) {
-          ctx.save();
-          ctx.fillStyle = 'rgba(192, 132, 252, 0.22)';
-          ctx.strokeStyle = '#c084fc';
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.ellipse(px, py, drawW * 0.35, drawW * 0.18, 0, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.stroke();
-
-          ctx.fillStyle = '#c084fc';
-          ctx.beginPath();
-          ctx.moveTo(px, py - drawH - 16);
-          ctx.lineTo(px - 6, py - drawH - 24);
-          ctx.lineTo(px + 6, py - drawH - 24);
-          ctx.closePath();
-          ctx.fill();
-          ctx.restore();
-        } else {
-          ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
-          ctx.beginPath();
-          ctx.ellipse(px, py, drawW * 0.28, drawW * 0.12, 0, 0, Math.PI * 2);
-          ctx.fill();
-        }
-
-        let rowIdx = 0;
-        if (state.direction === 'side' && charObj.rows > 1) rowIdx = 1;
-        if (state.direction === 'up' && charObj.rows > 2) rowIdx = 2;
-
-        const colIdx = Math.min(state.animFrameIdx, charObj.columns - 1);
-        const srcX = (charObj.marginX || 0) + colIdx * charObj.cellWidth;
-        const srcY = (charObj.marginY || 0) + rowIdx * charObj.cellHeight;
-
-        const drawX = Math.round(px - drawW / 2);
-        const drawY = Math.round(py - drawH);
-
-        ctx.save();
-        if (state.facingLeft) {
-          ctx.translate(px, 0);
-          ctx.scale(-1, 1);
-          ctx.drawImage(
-            charObj.sheetImage,
-            srcX, srcY, charObj.cellWidth, charObj.cellHeight,
-            Math.round(-drawW / 2), drawY, drawW, drawH
-          );
-        } else {
-          ctx.drawImage(
-            charObj.sheetImage,
-            srcX, srcY, charObj.cellWidth, charObj.cellHeight,
-            drawX, drawY, drawW, drawH
-          );
-        }
-        ctx.restore();
-
-        if (showCollision) {
-          const colW = Math.round(drawW * 0.45);
-          const colH = Math.round(drawH * 0.65);
-          const colX = Math.round(px - colW / 2);
-          const colY = Math.round(py - colH);
-
-          ctx.fillStyle = isCurrentActive ? 'rgba(239, 68, 68, 0.22)' : 'rgba(168, 85, 247, 0.14)';
-          ctx.fillRect(colX, colY, colW, colH);
-          ctx.strokeStyle = isCurrentActive ? '#ef4444' : 'rgba(168, 85, 247, 0.4)';
-          ctx.lineWidth = 1.5;
-          ctx.strokeRect(colX, colY, colW, colH);
-        }
-
-        if (showOrigin) {
-          ctx.strokeStyle = '#fbbf24';
-          ctx.lineWidth = 1.5;
-          ctx.beginPath();
-          ctx.moveTo(px - 6, py);
-          ctx.lineTo(px + 6, py);
-          ctx.moveTo(px, py - 6);
-          ctx.lineTo(px + 6, py);
-          ctx.stroke();
-        }
-
-        ctx.fillStyle = isCurrentActive ? '#ffffff' : '#a39bc2';
-        ctx.font = 'bold 11px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText(`[${idx + 1}] ${charObj.name}`, px, py + 16);
-
-        ctx.fillStyle = isCurrentActive ? '#d8b4fe' : '#716b89';
-        ctx.font = '9px monospace';
-        const scaleTxt = charObj.scale && charObj.scale !== 1.0 ? ` (x${charObj.scale})` : '';
-        ctx.fillText(`${charObj.cellWidth}×${charObj.cellHeight} px${scaleTxt}`, px, py + 28);
-      });
-
-      if (showGuidelines && characters[activeCharIdx] && rosterStateRef.current[activeCharIdx]) {
-        const actChar = characters[activeCharIdx];
-        const actState = rosterStateRef.current[activeCharIdx];
-        const effZoom = pixelZoom * (actChar.scale || 1.0);
-        const actH = Math.round(actChar.cellHeight * effZoom);
-        const headY = Math.round(actState.y - actH);
-
-        ctx.strokeStyle = 'rgba(251, 191, 36, 0.75)';
-        ctx.setLineDash([4, 4]);
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.moveTo(0, headY);
-        ctx.lineTo(w, headY);
-        ctx.stroke();
-        ctx.setLineDash([]);
-
-        ctx.fillStyle = '#fbbf24';
-        ctx.font = 'bold 10px monospace';
-        ctx.textAlign = 'left';
-        ctx.fillText(`ĐỈNH ĐẦU: Cao ${Math.round(actChar.cellHeight * (actChar.scale || 1.0))}px (Tỉ lệ thực)`, 14, headY - 4);
-      }
+      advanceTestbedSimulation({characters, roster: rosterStateRef.current, activeCharIdx, keys: keysPressed.current, isDragging: isDraggingRef.current, delta, w, h, groundY});
+      drawTestbedCanvas(ctx, {characters, roster: rosterStateRef.current, activeCharIdx, w, h, groundY, mapImage, showFloorGrid, showGroundLine, showCollision, showOrigin, showGuidelines, pixelZoom});
     }
 
     animationFrameId.current = requestAnimationFrame(gameLoop);
@@ -1661,27 +874,7 @@ export default function GodotTestbed({
     setErrorMsg('');
 
     try {
-      const responseBlob = await fetch(activeChar.sheetUrl).then((r) => r.blob());
-      const formData = new FormData();
-      formData.append('file', responseBlob, activeChar.sheetFileName || 'character_sheet.png');
-      formData.append('rows', String(activeChar.rows));
-      formData.append('columns', String(activeChar.columns));
-      formData.append('fps', String(activeChar.fps));
-      formData.append('move_speed', String(activeChar.moveSpeed));
-      formData.append('character_name', activeChar.name.replace(/\s+/g, '_'));
-      formData.append('auto_anchor', 'true');
-
-      const response = await fetch('/api/export-godot', {
-        method: 'POST',
-        body: formData
-      });
-
-      if (!response.ok) {
-        const payload = await response.json().catch(() => null);
-        throw new Error(payload?.detail || 'Không thể đóng gói tài nguyên Godot từ máy chủ.');
-      }
-
-      const zipBlob = await response.blob();
+      const zipBlob = await exportGodotArchive(activeChar);
       const downloadUrl = URL.createObjectURL(zipBlob);
       const link = document.createElement('a');
       link.href = downloadUrl;
@@ -1700,10 +893,6 @@ export default function GodotTestbed({
 
   const activeChar = characters[activeCharIdx];
   const activeState = rosterStateRef.current[activeCharIdx];
-
-  const currentSlotDefinitions = slotMode === '3_rows'
-    ? SLOT_DEFINITIONS_3_ROWS
-    : SLOT_DEFINITIONS_3_ROWS.filter((s) => s.direction === 'down');
 
   return (
     <div className="atelier-godot-root">

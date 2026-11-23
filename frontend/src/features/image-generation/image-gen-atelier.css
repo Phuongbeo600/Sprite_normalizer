@@ -190,19 +190,13 @@
 }
 
 /* ============================================================================
-   5. BỐ CỤC 2 CỘT: PROMPT CONSOLE & PARAMETERS DOCK
+   5. BỐ CỤC KHUNG PROMPT TOÀN PHẦN (FULL-WIDTH PROMPT CONSOLE)
    ============================================================================ */
 .atelier-gen-workspace-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1.8fr) minmax(320px, 1fr);
+  display: flex;
+  flex-direction: column;
   gap: 18px;
-  align-items: start;
-}
-
-@media (max-width: 960px) {
-  .atelier-gen-workspace-grid {
-    grid-template-columns: 1fr;
-  }
+  width: 100%;
 }
 
 /* Khung Soạn Thảo Prompt */
@@ -366,57 +360,8 @@
 }
 
 /* ============================================================================
-   6. BẢNG THAM SỐ (PARAMETERS DOCK)
+   6. NÚT TẠO ẢNH CHÍNH (PRIMARY FORGE BUTTON)
    ============================================================================ */
-.atelier-gen-select {
-  width: 100%;
-  padding: 9px 12px;
-  border-radius: 8px;
-  background: rgba(10, 7, 20, 0.85);
-  border: 1px solid rgba(168, 85, 247, 0.2);
-  color: #ffffff;
-  font-size: 0.8rem;
-  font-weight: 500;
-  outline: none;
-  cursor: pointer;
-  transition: border-color 0.15s ease;
-}
-
-.atelier-gen-select:focus {
-  border-color: #c084fc;
-}
-
-.atelier-gen-count-selector {
-  display: flex;
-  gap: 8px;
-}
-
-.atelier-gen-count-btn {
-  flex: 1;
-  padding: 8px 0;
-  border-radius: 8px;
-  font-size: 0.8rem;
-  font-weight: 600;
-  cursor: pointer;
-  border: 1px solid rgba(168, 85, 247, 0.2);
-  background: rgba(14, 10, 26, 0.8);
-  color: var(--atl-text-secondary, #a39bc2);
-  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.atelier-gen-count-btn:hover {
-  border-color: rgba(192, 132, 252, 0.4);
-  color: #ffffff;
-}
-
-.atelier-gen-count-btn.active {
-  background: linear-gradient(135deg, rgba(147, 51, 234, 0.3) 0%, rgba(99, 102, 241, 0.3) 100%);
-  border-color: #c084fc;
-  color: #ffffff;
-  box-shadow: 0 0 14px rgba(168, 85, 247, 0.25);
-}
-
-/* Nút Tạo Ảnh Chính (Primary Forge Button) */
 .atelier-gen-btn-submit {
   width: 100%;
   padding: 12px 18px;

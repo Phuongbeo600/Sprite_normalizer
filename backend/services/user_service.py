@@ -10,7 +10,6 @@ from typing import Dict, Any, List, Optional
 # 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
 # ========================================================
 # sqlalchemy: Phiên làm việc cơ sở dữ liệu và cú pháp SQL thuần
-from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 # ========================================================
@@ -18,6 +17,8 @@ from sqlalchemy.orm import Session
 # ========================================================
 # UserRepository: Tầng truy xuất CSDL bảng 'users'
 from backend.repositories.user_repository import UserRepository
+# synchronize_development_login: Chính sách tương thích tài khoản mẫu.
+from backend.development_seed import synchronize_development_login
 # security: Các hàm băm mật khẩu Bcrypt và tạo mã JSON Web Token (JWT)
 from backend.core.security import (
     hash_password,
@@ -32,6 +33,21 @@ from backend.core.security import (
 
 # Biểu thức chính quy kiểm tra định dạng tài khoản Gmail
 GMAIL_REGEX = re.compile(r"^[a-zA-Z0-9_.+-]+@gmail\.com$", re.IGNORECASE)
+
+
+def public_user(user):
+    """Ánh xạ trường công khai, giữ nguyên giá trị mặc định và định dạng thời gian."""
+    return {
+        "id": user["id"],
+        "username": user["username"],
+        "role": user["role"],
+        "last_name": user.get("last_name") or "",
+        "middle_name": user.get("middle_name") or "",
+        "first_name": user.get("first_name") or "",
+        "full_name": user.get("full_name") or user["username"],
+        "avatar_url": user.get("avatar_url") or "",
+        "created_at": str(user.get("created_at") or ""),
+    }
 
 
 class UserService:
@@ -71,43 +87,9 @@ class UserService:
 
         user = self.repository.get_by_username(db, clean_user)
 
-        # TỰ ĐỘNG ĐỒNG BỘ: Đảm bảo tài khoản kiểm thử Origin (123456) luôn đăng nhập thành công
-        if clean_user.lower() == "origin@gmail.com" and clean_pass == "123456":
-            stored_pwd = user.get("password") if user else ""
-            is_valid_origin, _ = verify_password(clean_pass, stored_pwd) if stored_pwd else (False, False)
-            if not user or not is_valid_origin:
-                try:
-                    hashed_origin = hash_password(clean_pass)
-                    if not user:
-                        db.execute(text("""
-                            INSERT INTO users (id, username, password, role, first_name, full_name)
-                            VALUES (2, 'origin@gmail.com', :pwd, 'user', 'Origin', 'Origin (Tài khoản mẫu kiểm thử)');
-                        """), {"pwd": hashed_origin})
-                    else:
-                        db.execute(text("UPDATE users SET password = :pwd, role = 'user' WHERE username = 'origin@gmail.com';"), {"pwd": hashed_origin})
-                    db.commit()
-                    user = self.repository.get_by_username(db, "origin@gmail.com")
-                except Exception:
-                    db.rollback()
-
-        # TỰ ĐỘNG ĐỒNG BỘ: Đảm bảo tài khoản Admin (admin / 1) luôn đăng nhập thành công
-        if clean_user == "admin" and clean_pass == "1":
-            stored_admin_pwd = user.get("password") if user else ""
-            is_valid_admin, _ = verify_password(clean_pass, stored_admin_pwd) if stored_admin_pwd else (False, False)
-            if not user or not is_valid_admin:
-                try:
-                    hashed_admin = hash_password(clean_pass)
-                    if not user:
-                        db.execute(text("""
-                            INSERT INTO users (id, username, password, role, full_name)
-                            VALUES (1, 'admin', :pwd, 'admin', 'Quản trị viên tối cao');
-                        """), {"pwd": hashed_admin})
-                    else:
-                        db.execute(text("UPDATE users SET password = :pwd, role = 'admin' WHERE username = 'admin';"), {"pwd": hashed_admin})
-                    db.commit()
-                    user = self.repository.get_by_username(db, "admin")
-                except Exception:
-                    db.rollback()
+        user = synchronize_development_login(
+            db, self.repository, clean_user, clean_pass, user, verify_password, hash_password,
+        )
 
         # 1. KIỂM TRA TỒN TẠI TRONG MYSQL: Nếu chưa có tài khoản thì thông báo rõ chưa có
         if not user:
@@ -132,19 +114,7 @@ class UserService:
             "role": user["role"]
         })
 
-        return {
-            "id": user["id"],
-            "username": user["username"],
-            "role": user["role"],
-            "last_name": user.get("last_name") or "",
-            "middle_name": user.get("middle_name") or "",
-            "first_name": user.get("first_name") or "",
-            "full_name": user.get("full_name") or user["username"],
-            "avatar_url": user.get("avatar_url") or "",
-            "created_at": str(user.get("created_at") or ""),
-            "access_token": access_token,
-            "token_type": "bearer"
-        }
+        return {**public_user(user), "access_token": access_token, "token_type": "bearer"}
 
     def register(
         self,
@@ -270,17 +240,7 @@ class UserService:
 
         # Trả về thông tin cập nhật mới nhất
         updated = self.repository.get_by_id(db, user_id)
-        return {
-            "id": updated["id"],
-            "username": updated["username"],
-            "role": updated["role"],
-            "last_name": updated.get("last_name") or "",
-            "middle_name": updated.get("middle_name") or "",
-            "first_name": updated.get("first_name") or "",
-            "full_name": updated.get("full_name") or updated["username"],
-            "avatar_url": updated.get("avatar_url") or "",
-            "created_at": str(updated.get("created_at") or "")
-        }
+        return public_user(updated)
 
     def assign_project_to_user(self, db: Session, project_id: int, user_id: int) -> bool:
         """
@@ -298,18 +258,7 @@ class UserService:
         raw_users = self.repository.get_all(db)
         safe_users = []
         for u in raw_users:
-            safe_users.append({
-                "id": u["id"],
-                "username": u["username"],
-                "role": u["role"],
-                "last_name": u.get("last_name") or "",
-                "middle_name": u.get("middle_name") or "",
-                "first_name": u.get("first_name") or "",
-                "full_name": u.get("full_name") or u["username"],
-                "avatar_url": u.get("avatar_url") or "",
-                "created_at": str(u.get("created_at") or ""),
-                "project_count": int(u.get("project_count") or 0)
-            })
+            safe_users.append({**public_user(u), "project_count": int(u.get("project_count") or 0)})
         return safe_users
 
     def delete_user(self, db: Session, user_id: int, current_user_role: Optional[str] = None) -> bool:

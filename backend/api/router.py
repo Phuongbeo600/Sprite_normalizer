@@ -30,6 +30,8 @@ from backend.api.v1.testbed import testbed_router
 from backend.api.v1.auth import auth_router
 # users_router: Phân hệ quản trị tài khoản người dùng dành cho Admin (/api/users)
 from backend.api.v1.users import users_router
+# chat_router: Phân hệ trợ lý AI Chatbot phát luồng thời gian thực qua SSE (/api/chat)
+from backend.api.v1.chat import chat_router
 
 # ========================================================
 # 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
@@ -48,6 +50,7 @@ api_router.include_router(character_analysis_router)
 api_router.include_router(image_gen_router)
 api_router.include_router(translation_router)
 api_router.include_router(testbed_router)
+api_router.include_router(chat_router)
 
 
 @api_router.get("/health", tags=["Health Check"])

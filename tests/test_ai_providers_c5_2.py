@@ -141,6 +141,33 @@ class TestOpenAiDalleProvider(unittest.TestCase):
         self.provider = OpenAiDalleProvider()
 
     @patch("requests.post")
+    def test_generate_images_without_legacy_response_format(self, mock_post):
+        """Tạo ảnh được khi máy chủ từ chối tham số response_format cũ."""
+        def respond(url, *, json, headers, timeout):
+            """Mô phỏng máy chủ chỉ nhận các trường tạo ảnh được hỗ trợ."""
+            response = MagicMock()
+            if "response_format" in json:
+                response.status_code = 400
+                response.text = '{"error":{"message":"Unknown parameter: response_format","param":"response_format","code":"unknown_parameter"}}'
+            else:
+                response.status_code = 200
+                response.json.return_value = {"data": [{"b64_json": "sample_png"}]}
+            return response
+
+        mock_post.side_effect = respond
+        result = self.provider.generate_images(
+            api_key="test-key", prompt="pixel knight", base_url="https://proxy.example/v1"
+        )
+
+        self.assertEqual(result.images[0].b64_data, "sample_png")
+        mock_post.assert_called_once_with(
+            "https://proxy.example/v1/images/generations",
+            json={"model": "gpt-image-1.5", "prompt": "pixel knight", "n": 1, "size": "1024x1024"},
+            headers={"Authorization": "Bearer test-key", "Content-Type": "application/json"},
+            timeout=60,
+        )
+
+    @patch("requests.post")
     def test_generate_images_b64_success(self, mock_post):
         """Kiểm tra tạo ảnh thành công trả về chuỗi b64_json trực tiếp."""
         mock_resp = MagicMock()
@@ -158,8 +185,21 @@ class TestOpenAiDalleProvider(unittest.TestCase):
         )
         self.assertEqual(res.status, "success")
         self.assertEqual(res.provider_used, "openai")
-        self.assertEqual(res.model_used, "dall-e-3")
+        self.assertEqual(res.model_used, "gpt-image-1.5")
         self.assertEqual(res.images[0].b64_data, "openai_dalle_b64_data")
+
+    @patch("requests.post")
+    def test_gpt_image_sizes(self, mock_post):
+        """Gửi kích thước được GPT Image hỗ trợ cho mỗi nhóm tỉ lệ."""
+        mock_post.return_value.status_code = 200
+        mock_post.return_value.json.return_value = {"data": [{"b64_json": "sample_png"}]}
+        for ratio, size in [
+            ("1:1", "1024x1024"), ("3:4", "1024x1536"),
+            ("9:16", "1024x1536"), ("4:3", "1536x1024"), ("16:9", "1536x1024"),
+        ]:
+            with self.subTest(ratio=ratio):
+                self.provider.generate_images(api_key="test", prompt="sprite", aspect_ratio=ratio)
+                self.assertEqual(mock_post.call_args.kwargs["json"]["size"], size)
 
     @patch("requests.get")
     @patch("requests.post")

@@ -52,6 +52,9 @@ from backend.services.character.offline_fallbacks import (
 )
 
 # ========================================================
+# PromptBuilderService: Ánh xạ hồ sơ đầy đủ sang ma trận frame.
+from backend.services.character.prompt_builder_service import PromptBuilderService
+
 # 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
 # ========================================================
 # (Không áp dụng cho file backend)
@@ -298,6 +301,82 @@ class CharacterAnalysisService:
             "consistency_analysis": consistency.model_dump(),
             "negative_constraints": negatives.model_dump(),
         }
+
+    @staticmethod
+    def analyze_profile(image, tab_name, eff_key, eff_prov, eff_base, current_profile_json=None, vision_only=False):
+        """Điều phối một tab hoặc toàn bộ hồ sơ trong cùng một luồng xử lý.
+
+        @param tab_name Tên tab yêu cầu từ bên gọi.
+        @returns Kết quả hồ sơ và nhãn tab theo hợp đồng hiện có.
+        """
+        tab_clean = tab_name.lower().strip()
+
+        # Tab 1: Phân tích Toàn cục
+        if tab_clean == "global":
+            result = CharacterAnalysisService.analyze_tab_global(
+                image=image, api_key=eff_key, provider=eff_prov, base_url=eff_base, include_palette=not vision_only,
+            )
+            return {"status": "success", "tab": "global", "data": result}
+
+        # Tab 2: Phân tích 3 hướng nhìn
+        elif tab_clean == "directions":
+            result = CharacterAnalysisService.analyze_tab_directions(
+                image=image, api_key=eff_key, provider=eff_prov, base_url=eff_base
+            )
+            return {"status": "success", "tab": "directions", "data": result}
+
+        # Tab 3: Phân tích Hoạt họa
+        elif tab_clean == "animations":
+            result = CharacterAnalysisService.analyze_tab_animations(
+                image=image, api_key=eff_key, provider=eff_prov, base_url=eff_base
+            )
+            return {"status": "success", "tab": "animations", "data": result}
+
+        # Tab 4: Phân tích Tính nhất quán & Ràng buộc
+        elif tab_clean == "constraints":
+            curr_profile = json.loads(current_profile_json) if current_profile_json else {}
+            g_data = curr_profile.get("global_analysis", {})
+            d_data = curr_profile.get("direction_analysis", {})
+            a_data = curr_profile.get("animation_analysis", {})
+            result = CharacterAnalysisService.analyze_tab_constraints(
+                global_data=g_data, direction_data=d_data, animation_data=a_data,
+                api_key=eff_key, provider=eff_prov, base_url=eff_base
+            )
+            return {"status": "success", "tab": "constraints", "data": result}
+
+        # Chạy toàn bộ (All tabs tuần tự)
+        elif tab_clean == "all":
+            global_res = CharacterAnalysisService.analyze_tab_global( image,
+                api_key=eff_key, provider=eff_prov, base_url=eff_base, include_palette=not vision_only,
+            )
+            direction_res = CharacterAnalysisService.analyze_tab_directions( image,
+                api_key=eff_key, provider=eff_prov, base_url=eff_base,
+            )
+            animation_res = CharacterAnalysisService.analyze_tab_animations( image,
+                api_key=eff_key, provider=eff_prov, base_url=eff_base,
+            )
+            constraints_res = CharacterAnalysisService.analyze_tab_constraints(
+                global_data=global_res, direction_data=direction_res, animation_data=animation_res,
+                api_key=eff_key, provider=eff_prov, base_url=eff_base
+            )
+
+            full_ai_analysis = {
+                "global_analysis": global_res,
+                "direction_analysis": direction_res,
+                "animation_analysis": animation_res,
+                "consistency_analysis": constraints_res.get("consistency_analysis", {}),
+                "negative_constraints": constraints_res.get("negative_constraints", {}),
+            }
+            if not vision_only:
+                full_ai_analysis["palette_metrics"] = global_res.get("palette_metrics")
+                full_ai_analysis["pixel_art_report"] = global_res.get("pixel_art_report")
+            # Tự động ánh xạ dữ liệu 7 Schemas sang ma trận 15 frame hoạt họa có chân tay đối nghịch
+            full_ai_analysis["frame_actions_data"] = PromptBuilderService.build_default_frame_actions(full_ai_analysis)
+            return {"status": "success", "tab": "all", "data": full_ai_analysis}
+
+        else:
+            raise ValueError(f"Tab '{tab_name}' không hợp lệ.")
+
 
     @staticmethod
     def _resolve_credentials(

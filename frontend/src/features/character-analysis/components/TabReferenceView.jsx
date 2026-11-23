@@ -7,20 +7,7 @@ import React, { useState } from 'react';
 // 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
 // ========================================================
 // lucide-react: Biểu tượng cho ảnh mẫu, bảng màu, thước đo, mắt ẩn hiện, đũa phép và tải
-import {
-  Eye,
-  EyeOff,
-  FolderOpen,
-  LoaderCircle,
-  Palette,
-  Ruler,
-  Wand2,
-  Crop,
-  Sparkles,
-  ArrowRight,
-  AlertTriangle,
-  CheckCircle2
-} from 'lucide-react';
+import { Eye, EyeOff, FolderOpen, LoaderCircle, Palette, Ruler, Crop, Sparkles, ArrowRight, AlertTriangle, CheckCircle2 } from "lucide-react";
 
 // ========================================================
 // 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Components & Dữ liệu)

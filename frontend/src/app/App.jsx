@@ -30,6 +30,9 @@ import AuthModal from '../features/authentication/AuthModal';
 import ProfileModal from '../features/authentication/ProfileModal';
 // HelpCenter: Màn hình Trung tâm Hướng dẫn đa hình (Help Center)
 import HelpCenter from '../features/help/HelpCenter';
+// ChatWidget: Trợ lý AI Chatbot dạng bong bóng nổi phản hồi thời gian thực qua SSE
+import ChatWidget from '../features/chat/ChatWidget';
+import { useAuthSession } from '../features/authentication/useAuthSession';
 
 // Đọc trạng thái cấu hình AI khi mở dự án.
 import { getProjectApiConfig } from '../shared/api/projectApiConfig';
@@ -49,31 +52,7 @@ import { getProjectApiConfig } from '../shared/api/projectApiConfig';
  * @returns {React.ReactElement} Giao diện chính của ứng dụng.
  */
 export default function App() {
-  // Trạng thái tài khoản người dùng hiện đang đăng nhập (lưu trong localStorage)
-  // Mặc định khi chạy dự án: tự động đăng nhập vào tài khoản kiểm thử origin@gmail.com (id: 2)
-  const [currentUser, setCurrentUser] = useState(() => {
-    try {
-      const saved = localStorage.getItem('sprite_current_user');
-      if (saved) return JSON.parse(saved);
-
-      // Nếu trước đó người dùng chủ động bấm Đăng xuất thì giữ ở màn hình đăng nhập
-      const isLoggedOut = localStorage.getItem('sprite_logged_out');
-      if (isLoggedOut === 'true') return null;
-
-      // Mặc định tự động đăng nhập vào tài khoản origin@gmail.com để phục vụ kiểm thử
-      return {
-        id: 2,
-        username: 'origin@gmail.com',
-        role: 'user',
-        first_name: 'Origin',
-        last_name: 'Tester',
-        full_name: 'Origin (Tài khoản mẫu kiểm thử)',
-        avatar_url: ''
-      };
-    } catch {
-      return null;
-    }
-  });
+  const { currentUser, updateProfile, loginUser, logoutUser } = useAuthSession();
 
   const [activeTab, setActiveTab] = useState(() => {
     try {
@@ -111,10 +90,7 @@ export default function App() {
    * @param {Object} updatedUser Dữ liệu người dùng mới từ máy chủ MySQL.
    */
   const handleProfileUpdated = (updatedUser) => {
-    setCurrentUser(updatedUser);
-    try {
-      localStorage.setItem('sprite_current_user', JSON.stringify(updatedUser));
-    } catch {}
+    updateProfile(updatedUser);
   };
 
   /**
@@ -204,11 +180,7 @@ export default function App() {
    * @param {Object} user Dữ liệu người dùng nhận từ API.
    */
   const handleLoginSuccess = (user) => {
-    try {
-      localStorage.removeItem('sprite_logged_out');
-      localStorage.setItem('sprite_current_user', JSON.stringify(user));
-    } catch {}
-    setCurrentUser(user);
+    loginUser(user);
     if (user?.role === 'admin') {
       setActiveTab('admin_users');
     } else {
@@ -232,12 +204,7 @@ export default function App() {
   const handleConfirmLogout = () => {
     setShowLogoutConfirm(false);
 
-    try {
-      localStorage.setItem('sprite_logged_out', 'true');
-      localStorage.removeItem('sprite_current_user');
-    } catch {}
-
-    setCurrentUser(null);
+    logoutUser();
     setCurrentProject(null);
     setActiveTab('projects');
   };
@@ -364,6 +331,9 @@ export default function App() {
         onConfirm={handleConfirmLogout}
         onCancel={() => setShowLogoutConfirm(false)}
       />
+
+      {/* 5. Trợ lý AI Chatbot dạng nổi đa nhà cung cấp */}
+      <ChatWidget currentProject={currentProject} />
     </div>
   );
 }

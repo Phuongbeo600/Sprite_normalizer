@@ -7,21 +7,7 @@ import React, { useState } from 'react';
 // 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
 // ========================================================
 // lucide-react: Bộ icon minh họa các hướng di chuyển, dáng đứng, bước chân, xoay chiều, ngôn ngữ dịch và tải
-import {
-  Compass,
-  ArrowDown,
-  ArrowRight,
-  ArrowUp,
-  Footprints,
-  User,
-  Sparkles,
-  RotateCcw,
-  Layers,
-  ChevronDown,
-  ChevronUp,
-  Languages,
-  Loader2
-} from 'lucide-react';
+import { ArrowDown, ArrowRight, ArrowUp, Footprints, User, RotateCcw, Layers, ChevronDown, ChevronUp, Languages, Loader2 } from "lucide-react";
 
 // ========================================================
 // 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Components & Dữ liệu)

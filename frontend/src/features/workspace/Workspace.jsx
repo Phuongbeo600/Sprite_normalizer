@@ -9,24 +9,14 @@ import { useEffect, useRef, useState } from 'react';
 // ========================================================
 // lucide-react: Bộ icon vector cho mở ảnh, thu phóng, hoạt họa, cắt khung và tải về
 import {
-  Download,
   FolderOpen,
-  FolderPlus,
-  Check,
-  X,
   Grid2X2,
   Image as ImageIcon,
   LoaderCircle,
   Minus,
   Plus,
   Sliders,
-  Sparkles,
-  Layers,
-  ZoomIn,
-  CheckCircle2,
   AlertCircle,
-  Scaling,
-  Anchor,
 } from 'lucide-react';
 
 // ========================================================
@@ -34,21 +24,26 @@ import {
 // ========================================================
 // Dải khung hình và các điều khiển phát thử sprite sheet.
 import WorkspaceTimeline from './WorkspaceTimeline';
+// Bảng màu, vòng đời ảnh và các lệnh xử lý sheet được quản lý theo trách nhiệm.
+import useWorkspacePalette from './useWorkspacePalette';
+import useWorkspaceImageLifecycle, { createSourceDecoder } from './useWorkspaceImageLifecycle';
+import { createSheetOperations } from './sheetOperations';
+// Lớp phủ đường cắt chỉnh được bằng chuột hoặc bàn phím.
+import ManualSheetGrid from './components/ManualSheetGrid';
+// Khởi tạo và mã hóa tọa độ đường cắt theo ảnh nguồn.
+import { createGridCuts, savedGridCuts } from './sheetGrid';
 // Cột bảng màu Sprite Studio (Swatches Grid & Global Swap).
 import PaletteDock from './components/PaletteDock';
 // Thanh công cụ vẽ pixel art (Pencil, Bucket, Pipette, Eraser).
 import DrawingToolbar from './components/DrawingToolbar';
 // Bàn vẽ tương tác Pixel Canvas (Interactive Drawing Canvas).
 import PixelCanvas from './components/PixelCanvas';
-// Khung thẻ gập mở Accordion cho các công cụ thiết lập.
-import CollapsibleCard from './components/CollapsibleCard';
+// Các bảng công cụ và hộp thoại chỉ nhận dữ liệu cùng callback từ bàn làm việc.
+import SingleImageInspector from './components/SingleImageInspector';
+import SheetInspector from './components/SheetInspector';
+import SaveSheetPackDialog from './components/SaveSheetPackDialog';
 // Các yêu cầu xử lý và phân tích ảnh của bàn làm việc.
-import {
-  processImage,
-  analyzeSpriteColors,
-  saveSlicedPackToVault,
-  batchResizeSheetFrames,
-} from './workspaceApi';
+import { processImage } from './workspaceApi';
 
 // ========================================================
 // 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
@@ -67,7 +62,7 @@ const MAX_FRAMES = 256;
  * - Trình phát thử hoạt họa (Animation Timeline Player) điều chỉnh FPS.
  * - Xuất tệp PNG đơn lẻ hoặc gói nén ZIP chuẩn Godot Engine 4.3.
  * - Tự động lưu trữ lịch sử ảnh vào cơ sở dữ liệu MySQL.
- * 
+ *
  * @param {Object} props Thuộc tính truyền vào component.
  * @param {Object} [props.currentProject] Dự án hiện tại đang mở.
  * @param {File|null} [props.incomingFile] Tệp ảnh được chuyển tiếp từ màn hình Tạo ảnh AI hoặc Studio.
@@ -118,6 +113,8 @@ export default function Workspace({
   // Số hàng và số cột khi cắt Sprite Sheet
   const [rows, setRows] = useState(3);
   const [columns, setColumns] = useState(5);
+  // Giá trị rỗng dùng lưới tự động; lưới thủ công lưu các biên theo pixel ảnh gốc.
+  const [manualCuts, setManualCuts] = useState(null);
   // Tự động căn tâm & neo chân (Bottom-Center)
   const [autoAnchor, setAutoAnchor] = useState(false);
   // Dữ liệu Sprite Sheet sau khi bóc tách frame
@@ -162,10 +159,10 @@ export default function Workspace({
   // Tọa độ dịch chuyển tự do của bàn vẽ khi rê chuột (Pan Offset)
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
 
-  // Danh sách các mã màu HEX của bảng màu sprite
-  const [paletteColors, setPaletteColors] = useState([]);
-  // Mã màu Foreground đang được chọn để vẽ
-  const [activeColor, setActiveColor] = useState('#ffffff');
+  const {
+    paletteColors, setPaletteColors, activeColor, setActiveColor,
+    isPaletteLoading, fetchPalette, handleAddPaletteColor, handleDeletePaletteColor,
+  } = useWorkspacePalette();
   // Công cụ vẽ đang kích hoạt ('pencil' | 'bucket' | 'eyedropper' | 'eraser' | 'pan')
   const [activeTool, setActiveTool] = useState('pencil');
   // Kích thước đầu bút vẽ (1, 2, 3 px)
@@ -174,8 +171,7 @@ export default function Workspace({
   const [showPixelGrid, setShowPixelGrid] = useState(true);
   // Trạng thái khả dụng của hoàn tác (Undo) và làm lại (Redo)
   const [historyState, setHistoryState] = useState({ canUndo: false, canRedo: false });
-  // Trạng thái đang quét trích xuất bảng màu
-  const [isPaletteLoading, setIsPaletteLoading] = useState(false);
+
   // Tham chiếu đến component PixelCanvas để điều khiển hoàn tác và làm lại
   const pixelCanvasRef = useRef(null);
 
@@ -193,8 +189,12 @@ export default function Workspace({
   const gridCount = Number(rows) * Number(columns);
   const numRows = Math.max(1, Number(rows) || 1);
   const numCols = Math.max(1, Number(columns) || 1);
-  const cellWidth = dimensions ? Math.floor(dimensions.width / numCols) : 0;
-  const cellHeight = dimensions ? Math.floor(dimensions.height / numRows) : 0;
+  const cellWidth = manualCuts
+    ? Math.max(...manualCuts.x.slice(1).map((value, index) => value - manualCuts.x[index]))
+    : dimensions ? Math.floor(dimensions.width / numCols) : 0;
+  const cellHeight = manualCuts
+    ? Math.max(...manualCuts.y.slice(1).map((value, index) => value - manualCuts.y[index]))
+    : dimensions ? Math.floor(dimensions.height / numRows) : 0;
   const remainderX = dimensions ? dimensions.width % numCols : 0;
   const remainderY = dimensions ? dimensions.height % numRows : 0;
   const marginX = Math.floor(remainderX / 2);
@@ -219,6 +219,16 @@ export default function Workspace({
   const safeFitZoom = Number.isFinite(fitZoom) ? fitZoom : 1;
   const activeZoom = Number.isFinite(zoom) ? zoom : safeFitZoom;
   const nameStem = source?.file.name.replace(/\.[^.]+$/, '') || 'sprite';
+  const sheetLocked = Boolean(busy) || batchResizing || savingPack;
+
+  const { executeBatchResize, executeSliceSheet, exportSheet, handleConfirmSavePack } = createSheetOperations({
+    source, sheet, batchResizing, setBatchResizing, setBatchResizeMsg,
+    setError, batchResizeTarget, autoAnchor, setSheet, setBatchResizedSize,
+    dimensions, busy, gridValid, setBusy, setPlaying,
+    rows, columns, manualCuts, setFrameIndex, setZoom,
+    batchResizedSize, nameStem, currentProject, setSavePackStatus, setSavingPack,
+    packFolderName, fps, setShowSavePackModal,
+  });
 
   // Lắng nghe thay đổi kích thước khung nhìn để tính toán zoom vừa vặn
   useEffect(() => {
@@ -230,35 +240,10 @@ export default function Workspace({
     return () => observer.disconnect();
   }, []);
 
-  // Thu hồi bộ nhớ URL Blob khi ảnh bị thay đổi hoặc hủy
-  const sourceUrl = source?.url;
-  const resultUrl = result?.url;
-  useEffect(() => () => { if (sourceUrl) URL.revokeObjectURL(sourceUrl); }, [sourceUrl]);
-  useEffect(() => () => { if (resultUrl) URL.revokeObjectURL(resultUrl); }, [resultUrl]);
-
-  // Tự động dò độ phân giải lưới pixel khi nạp ảnh nguồn
-  useEffect(() => {
-    if (!dimensions || !sourceFile) return;
-    const controller = new AbortController();
-    setDetectingGrid(true);
-    async function detectGrid() {
-      try {
-        const response = await processImage(sourceFile, 'detect-resolution', {}, controller.signal);
-        const { png, width, height, scale } = await response.json();
-        if (controller.signal.aborted) return;
-        const file = png
-          ? new File([Uint8Array.from(atob(png), (char) => char.charCodeAt(0))], 'native.png', { type: 'image/png' })
-          : sourceFile;
-        setNativeGrid({ width, height, scale, file });
-      } catch (failure) {
-        if (!controller.signal.aborted) setGridError(failure.message);
-      } finally {
-        setDetectingGrid(false);
-      }
-    }
-    detectGrid();
-    return () => controller.abort();
-  }, [dimensions, sourceFile]);
+  useWorkspaceImageLifecycle({
+    source, result, dimensions, sourceFile,
+    setDetectingGrid, setNativeGrid, setGridError,
+  });
 
   // Cập nhật kích thước mục tiêu cho thao tác thu nhỏ khi phát hiện ảnh hoặc lưới
   useEffect(() => {
@@ -284,73 +269,6 @@ export default function Workspace({
     setPlaying(false);
     setZoom(null);
     setError('');
-  }
-
-  /**
-   * Trích xuất bảng màu đầy đủ từ ảnh sprite qua backend
-   *
-   * @param {File|Blob} file Tệp ảnh sprite cần phân tích.
-   * @returns {Promise<void>}
-   */
-  async function fetchPalette(file) {
-    if (!file) return;
-    try {
-      setIsPaletteLoading(true);
-      const data = await analyzeSpriteColors(file);
-      const pal =
-        data?.palette_metrics?.libresprite_palette ||
-        data?.pixel_art_report?.palette?.libresprite_palette ||
-        data?.pixel_art_report?.palette?.colors?.map((c) => c.hex) ||
-        [];
-      if (pal.length > 0) {
-        setPaletteColors(pal);
-        setActiveColor(pal[0]);
-      }
-    } catch (err) {
-      console.warn('Không trích xuất được bảng màu tự động:', err);
-    } finally {
-      setIsPaletteLoading(false);
-    }
-  }
-
-  /**
-   * Thêm một mã màu mới vào danh sách bảng màu sprite hiện tại.
-   *
-   * @param {string} colorToAppend Mã màu HEX cần thêm (ví dụ '#ff0055').
-   * @returns {void}
-   */
-  function handleAddPaletteColor(colorToAppend) {
-    if (!colorToAppend || typeof colorToAppend !== 'string') return;
-    const cleanHex = colorToAppend.trim();
-    if (!/^#[0-9A-Fa-f]{3,8}$/.test(cleanHex)) return;
-
-    let fullHex = cleanHex.toLowerCase();
-    if (fullHex.length === 4) {
-      fullHex = `#${fullHex[1]}${fullHex[1]}${fullHex[2]}${fullHex[2]}${fullHex[3]}${fullHex[3]}`;
-    }
-
-    setPaletteColors((prev) => [...prev, fullHex]);
-    setActiveColor(fullHex);
-  }
-
-  /**
-   * Xóa một ô màu khỏi bảng màu theo vị trí chỉ số (index).
-   *
-   * @param {number} indexToRemove Vị trí chỉ số màu cần xóa trong mảng màu.
-   * @returns {void}
-   */
-  function handleDeletePaletteColor(indexToRemove) {
-    if (paletteColors.length <= 1) return;
-    if (indexToRemove < 0 || indexToRemove >= paletteColors.length) return;
-
-    const nextColors = paletteColors.filter((_, idx) => idx !== indexToRemove);
-    setPaletteColors(nextColors);
-
-    // Tự động chuyển màu active sang ô lân cận để không bị mất dấu
-    const nextIndex = Math.min(indexToRemove, nextColors.length - 1);
-    if (nextIndex >= 0 && nextColors[nextIndex]) {
-      setActiveColor(nextColors[nextIndex]);
-    }
   }
 
   /**
@@ -402,9 +320,13 @@ export default function Workspace({
    * @returns {void}
    */
   function loadSourceImage(file, { fallbackName, decodeError }, initialPalette = null) {
+    setManualCuts(null);
     const version = ++uploadVersion.current;
     const url = URL.createObjectURL(file);
-    const image = new Image();
+    const image = createSourceDecoder({
+      file, url, version, uploadVersion, decodeError,
+      setDetectingGrid, setSource, setError,
+    });
     setNativeGrid(null);
     setGridError('');
     setDetectingGrid(false);
@@ -433,18 +355,6 @@ export default function Workspace({
     pendingProcessedBlobRef.current = null;
     setSpriteDbId(null);
 
-    image.onload = () => {
-      if (version !== uploadVersion.current) return;
-      const width = image.naturalWidth;
-      const height = image.naturalHeight;
-      setDetectingGrid(true);
-      setSource({ file, url, dimensions: { width, height, url } });
-    };
-    image.onerror = () => {
-      if (version === uploadVersion.current) {
-        setError(decodeError);
-      }
-    };
     image.src = url;
   }
 
@@ -478,14 +388,17 @@ export default function Workspace({
 
     // Nếu có dữ liệu trọn bộ frame cắt rời từ CSDL MySQL (lấy dữ liệu thực từ cột frame_image_data)
     if (incomingSheetData && incomingSheetData.frames && incomingSheetData.frames.length > 0) {
+      const restoredCuts = savedGridCuts(incomingSheetData);
       setMode('sheet');
       setRows(incomingSheetData.rows || 3);
       setColumns(incomingSheetData.columns || 5);
+      setManualCuts(restoredCuts);
       setAutoAnchor(Boolean(incomingSheetData.autoAnchor));
       setFps(incomingSheetData.fps || 6);
       setSheet({
         rows: incomingSheetData.rows || 3,
         columns: incomingSheetData.columns || 5,
+        cuts: restoredCuts,
         frames: incomingSheetData.frames,
       });
       setFrameIndex(null); // Mặc định hiển thị toàn bộ Sheet gốc và thanh Timeline 15 frame ở đáy
@@ -553,47 +466,6 @@ export default function Workspace({
   }
 
   /**
-   * Thực thi ép toàn bộ các khung hình trong Sprite Sheet về độ phân giải yêu cầu.
-   */
-  async function executeBatchResize() {
-    if (!source?.file || !sheet || batchResizing) return;
-    setBatchResizing(true);
-    setBatchResizeMsg('');
-    setError('');
-    try {
-      const res = await batchResizeSheetFrames({
-        file: source.file,
-        rows: sheet.rows,
-        columns: sheet.columns,
-        targetWidth: batchResizeTarget.width,
-        targetHeight: batchResizeTarget.height,
-        autoAnchor: autoAnchor,
-      });
-
-      if (res?.frames && res.frames.length > 0) {
-        setSheet({
-          rows: sheet.rows,
-          columns: sheet.columns,
-          frames: res.frames.map((f, idx) => ({
-            ...f,
-            index: idx + 1,
-            url: `data:image/png;base64,${f.png}`,
-            width: res.target_width,
-            height: res.target_height,
-          })),
-        });
-        setBatchResizedSize({ width: res.target_width, height: res.target_height });
-        setBatchResizeMsg(`Đã ép thành công ${res.frame_count} frame về kích thước ${res.target_width}×${res.target_height} px!`);
-        setTimeout(() => setBatchResizeMsg(''), 4000);
-      }
-    } catch (err) {
-      setError(err.message || 'Lỗi khi ép độ phân giải toàn bộ frame.');
-    } finally {
-      setBatchResizing(false);
-    }
-  }
-
-  /**
    * Thực thi lệnh xử lý ảnh đơn (Thu nhỏ ảnh hoặc Chuẩn hóa điểm neo)
    *
    * @param {'resize'|'normalize'} cmd Lệnh cần thực thi.
@@ -636,118 +508,6 @@ export default function Workspace({
   }
 
   /**
-   * Thực thi bóc tách lưới Sprite Sheet thành danh sách các frame hoạt họa
-   *
-   * @param {React.FormEvent} [event] Sự kiện gửi form.
-   * @returns {Promise<void>}
-   */
-  async function executeSliceSheet(event) {
-    event?.preventDefault();
-    if (!dimensions || busy || !gridValid) return;
-    setBusy('Đang cắt frame…');
-    setError('');
-    setPlaying(false);
-    try {
-      const response = await processImage(source.file, 'slice-sheet', {
-        rows,
-        columns,
-        auto_anchor: autoAnchor,
-      });
-      const { frames } = await response.json();
-      setSheet({
-        rows,
-        columns,
-        frames: frames.map(({ png, ...details }) => ({
-          ...details,
-          url: `data:image/png;base64,${png}`,
-        })),
-      });
-      setBatchResizedSize(null);
-      setFrameIndex(0);
-      setZoom(null);
-    } catch (failure) {
-      setError(failure.message);
-    } finally {
-      setBusy('');
-    }
-  }
-
-  /**
-   * Xuất toàn bộ các frame đã cắt thành file ZIP.
-   * Tự động áp dụng kích thước đã ép (Nearest Neighbor) nếu người dùng đã thực hiện ép hàng loạt.
-   */
-  async function exportSheet() {
-    if (!sheet || busy) return;
-    setBusy('Đang tạo ZIP…');
-    setError('');
-    try {
-      const extraFields = {
-        rows: sheet.rows,
-        columns: sheet.columns,
-        output: 'zip',
-        auto_anchor: autoAnchor,
-      };
-      if (batchResizedSize?.width && batchResizedSize?.height) {
-        extraFields.target_width = batchResizedSize.width;
-        extraFields.target_height = batchResizedSize.height;
-      }
-      const response = await processImage(source.file, 'slice-sheet', extraFields);
-      const url = URL.createObjectURL(await response.blob());
-      const link = document.createElement('a');
-      link.href = url;
-      const sizeTag = batchResizedSize ? `_${batchResizedSize.width}x${batchResizedSize.height}` : '';
-      link.download = `${nameStem}-frames${sizeTag}.zip`;
-      link.click();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-    } catch (failure) {
-      setError(failure.message);
-    } finally {
-      setBusy('');
-    }
-  }
-
-  /**
-   * Lưu trọn gói Sprite Sheet và toàn bộ các frame cắt rời vào một Thư mục trong Kho tài nguyên MySQL.
-   * Hỗ trợ lưu bộ frame đã ép kích thước (Nearest Neighbor) nếu người dùng đã thực hiện ép hàng loạt.
-   */
-  async function handleConfirmSavePack() {
-    if (!currentProject?.id) {
-      setSavePackStatus({ success: false, message: 'Vui lòng chọn hoặc mở một dự án trước khi lưu.' });
-      return;
-    }
-    if (!source?.file || !sheet) return;
-
-    setSavingPack(true);
-    setSavePackStatus({ success: false, message: '' });
-
-    try {
-      const res = await saveSlicedPackToVault({
-        file: source.file,
-        projectId: currentProject.id,
-        folderName: packFolderName.trim() || 'Mặc định',
-        rows: sheet.rows,
-        columns: sheet.columns,
-        autoAnchor: autoAnchor,
-        fps: fps || 6,
-        targetWidth: batchResizedSize?.width || null,
-        targetHeight: batchResizedSize?.height || null,
-      });
-
-      setSavePackStatus({
-        success: true,
-        message: `Đã lưu thành công ${res.frame_count} frame (${batchResizedSize ? 'đã ép ' + batchResizedSize.width + '×' + batchResizedSize.height + ' px' : 'kích thước gốc'}) vào thư mục "${res.folder_name}"!`
-      });
-      setTimeout(() => {
-        setShowSavePackModal(false);
-      }, 1600);
-    } catch (err) {
-      setSavePackStatus({ success: false, message: err.message || 'Lỗi khi lưu bộ frame.' });
-    } finally {
-      setSavingPack(false);
-    }
-  }
-
-  /**
    * Chọn xem một frame cụ thể trong danh sách
    */
   function selectFrame(index) {
@@ -771,11 +531,39 @@ export default function Workspace({
    * Cập nhật thông số hàng/cột của lưới cắt
    */
   function changeGrid(setValue, value) {
+    setManualCuts(null);
     setValue(value);
     setSheet(null);
     setBatchResizedSize(null);
     selectFrame(null);
     setError('');
+  }
+
+  /**
+   * Đổi biên cắt và loại bỏ kết quả cũ để lần xuất kế tiếp dùng đúng lưới.
+   * @param {{x: number[], y: number[]}|null} cuts Các biên theo pixel ảnh gốc.
+   * @returns {void}
+   */
+  function changeManualCuts(cuts) {
+    setManualCuts(cuts);
+    setSheet(null);
+    setBatchResizedSize(null);
+    setBatchResizeMsg('');
+    setFrameIndex(null);
+    setPlaying(false);
+    setError('');
+  }
+
+  /**
+   * Đặt các biên đều trên toàn ảnh để bắt đầu căn chỉnh thủ công.
+   * @returns {void}
+   */
+  function resetManualCuts() {
+    if (!gridValid) return;
+    changeManualCuts({
+      x: createGridCuts(dimensions.width, numCols),
+      y: createGridCuts(dimensions.height, numRows),
+    });
   }
 
   /**
@@ -987,7 +775,15 @@ export default function Workspace({
                     alt={frame?.name || source.file.name}
                     draggable={false}
                   />
-                  {gridValid && (
+                  {gridValid && manualCuts && (
+                    <ManualSheetGrid
+                      cuts={manualCuts}
+                      dimensions={dimensions}
+                      disabled={sheetLocked}
+                      onChange={changeManualCuts}
+                    />
+                  )}
+                  {gridValid && !manualCuts && (
                     <div
                       className="atelier-ws-grid"
                       aria-hidden="true"
@@ -1108,487 +904,76 @@ export default function Workspace({
 
             {sheetMode ? (
               /* THIẾT LẬP CHẾ ĐỘ SPRITE SHEET */
-              <>
-                <h3 className="atelier-inspector-section-title">
-                  <Grid2X2 size={16} />
-                  <span>Sprite Sheet Studio</span>
-                </h3>
-
-                {/* Khung 1: Cắt lưới Sprite Sheet */}
-                <CollapsibleCard
-                  title="Cắt lưới Sprite Sheet"
-                  icon={Grid2X2}
-                  isOpen={openSections.sheetSlice}
-                  onToggle={() => toggleSection('sheetSlice')}
-                >
-                  <div className="atelier-inspector-grid-inputs">
-                    <div className="atelier-inspector-field">
-                      <label className="atelier-inspector-label">Số hàng</label>
-                      <input
-                        type="number"
-                        min="1"
-                        max={MAX_FRAMES}
-                        required
-                        value={rows}
-                        disabled={Boolean(busy)}
-                        className="atelier-inspector-input"
-                        onChange={(event) => changeGrid(setRows, event.target.value)}
-                      />
-                    </div>
-                    <div className="atelier-inspector-field">
-                      <label className="atelier-inspector-label">Số cột</label>
-                      <input
-                        type="number"
-                        min="1"
-                        max={MAX_FRAMES}
-                        required
-                        value={columns}
-                        disabled={Boolean(busy)}
-                        className="atelier-inspector-input"
-                        onChange={(event) => changeGrid(setColumns, event.target.value)}
-                      />
-                    </div>
-                  </div>
-
-                  <label className="atelier-inspector-checkbox">
-                    <input
-                      type="checkbox"
-                      checked={autoAnchor}
-                      onChange={(e) => setAutoAnchor(e.target.checked)}
-                      disabled={Boolean(busy)}
-                    />
-                    <span>Căn tâm &amp; neo chân (Bottom-Center)</span>
-                  </label>
-
-                  {gridValid && (
-                    <div className="atelier-inspector-info-card" style={{ margin: '2px 0' }}>
-                      <p>{gridCount} frame · {cellWidth} × {cellHeight} px mỗi ô</p>
-                      {(remainderX > 0 || remainderY > 0) && (
-                        <span>
-                          ✓ Tự động căn giữa lưới (bỏ {remainderX}px viền ngang, {remainderY}px viền dọc).
-                        </span>
-                      )}
-                    </div>
-                  )}
-
-                  {dimensions && !gridValid && (
-                    <p className="atelier-ws-error">
-                      Dùng lưới tối đa {MAX_FRAMES} ô. Kích thước ảnh phải đủ lớn cho số hàng và số cột.
-                    </p>
-                  )}
-
-                  <button
-                    className="atelier-btn-primary-action"
-                    type="button"
-                    disabled={!gridValid || Boolean(busy)}
-                    onClick={executeSliceSheet}
-                  >
-                    {busy === 'Đang cắt frame…' ? (
-                      <>
-                        <LoaderCircle size={15} className="atelier-ws-spinner-icon" />
-                        <span>Đang cắt frame…</span>
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles size={15} />
-                        <span>Cắt frame hoạt họa</span>
-                      </>
-                    )}
-                  </button>
-                </CollapsibleCard>
-
-                {/* Khung: Ép độ phân giải frame hàng loạt (Batch Resize) */}
-                {sheet && (
-                  <CollapsibleCard
-                    title="Ép độ phân giải frame (Batch Resize)"
-                    icon={Scaling}
-                    isOpen={openSections.sheetBatchResize}
-                    onToggle={() => toggleSection('sheetBatchResize')}
-                  >
-                    <div className="atelier-inspector-info-card" style={{ padding: '6px 10px', margin: '0 0 6px 0' }}>
-                      <p style={{ fontSize: '0.74rem', color: '#c084fc', margin: 0 }}>
-                        Kích thước ô gốc: <strong>{cellWidth} × {cellHeight} px</strong>
-                      </p>
-                    </div>
-
-                    <div className="atelier-inspector-grid-inputs">
-                      <div className="atelier-inspector-field">
-                        <label className="atelier-inspector-label">Chiều rộng (px)</label>
-                        <input
-                          type="number"
-                          min="1"
-                          max="2048"
-                          value={batchResizeTarget.width}
-                          onChange={(e) => changeBatchResizeTarget('width', e.target.value)}
-                          disabled={batchResizing}
-                          className="atelier-inspector-input"
-                        />
-                      </div>
-                      <div className="atelier-inspector-field">
-                        <label className="atelier-inspector-label">Chiều cao (px)</label>
-                        <input
-                          type="number"
-                          min="1"
-                          max="2048"
-                          value={batchResizeTarget.height}
-                          onChange={(e) => changeBatchResizeTarget('height', e.target.value)}
-                          disabled={batchResizing}
-                          className="atelier-inspector-input"
-                        />
-                      </div>
-                    </div>
-
-                    <label className="atelier-inspector-checkbox" style={{ margin: '4px 0' }}>
-                      <input
-                        type="checkbox"
-                        checked={batchKeepRatio}
-                        onChange={(e) => setBatchKeepRatio(e.target.checked)}
-                        disabled={batchResizing}
-                      />
-                      <span>Khóa tỷ lệ khung hình</span>
-                    </label>
-
-                    {/* Các nút chọn nhanh kích thước thông dụng - Căn 5 cột gọn gàng */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '4px', margin: '2px 0 6px 0' }}>
-                      {[16, 32, 48, 64, 128].map((size) => (
-                        <button
-                          key={size}
-                          type="button"
-                          className="atelier-btn-secondary-action"
-                          style={{
-                            width: '100%',
-                            padding: '5px 2px',
-                            fontSize: '0.68rem',
-                            justifyContent: 'center',
-                            textAlign: 'center',
-                          }}
-                          onClick={() => {
-                            if (batchKeepRatio && cellWidth > 0 && cellHeight > 0) {
-                              const ratio = cellHeight / cellWidth;
-                              setBatchResizeTarget({ width: size, height: Math.max(1, Math.round(size * ratio)) });
-                            } else {
-                              setBatchResizeTarget({ width: size, height: size });
-                            }
-                          }}
-                          disabled={batchResizing}
-                        >
-                          {size}×{size}
-                        </button>
-                      ))}
-                    </div>
-
-                    <button
-                      className="atelier-btn-primary-action"
-                      type="button"
-                      disabled={!source?.file || !sheet || batchResizing}
-                      onClick={executeBatchResize}
-                      style={{
-                        background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
-                        borderColor: '#34d399',
-                        boxShadow: '0 0 15px rgba(16, 185, 129, 0.25)',
-                        marginTop: '2px',
-                      }}
-                    >
-                      {batchResizing ? (
-                        <>
-                          <LoaderCircle size={15} className="atelier-ws-spinner-icon" />
-                          <span>Đang ép kích thước…</span>
-                        </>
-                      ) : (
-                        <>
-                          <Scaling size={15} />
-                          <span>Ép toàn bộ {sheet?.frames?.length || (rows * columns)} frame</span>
-                        </>
-                      )}
-                    </button>
-
-                    {batchResizeMsg && (
-                      <p style={{ fontSize: '0.75rem', color: '#34d399', marginTop: '6px', textAlign: 'center' }}>
-                        {batchResizeMsg}
-                      </p>
-                    )}
-                  </CollapsibleCard>
-                )}
-
-                {/* Khung 2: Xuất tài nguyên (Export & Download) */}
-                {sheet && (
-                  <CollapsibleCard
-                    title="Xuất tài nguyên (Export)"
-                    icon={Download}
-                    isOpen={openSections.sheetExport}
-                    onToggle={() => toggleSection('sheetExport')}
-                  >
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      {/* Nút lưu trọn gói vào Thư mục Kho tài nguyên */}
-                      <button
-                        className="atelier-btn-primary-action"
-                        type="button"
-                        onClick={() => {
-                          const base = (source?.file?.name || 'SpriteSheet').replace(/\.[^/.]+$/, '');
-                          const sizeTag = batchResizedSize ? `_${batchResizedSize.width}x${batchResizedSize.height}` : '';
-                          setPackFolderName(`${base}_${sheet.rows}x${sheet.columns}${sizeTag}`);
-                          setSavePackStatus({ success: false, message: '' });
-                          setShowSavePackModal(true);
-                        }}
-                        style={{
-                          background: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)',
-                          borderColor: '#c084fc',
-                          boxShadow: '0 0 15px rgba(168, 85, 247, 0.35)',
-                          marginBottom: '4px'
-                        }}
-                      >
-                        <FolderPlus size={15} />
-                        <span>Lưu bộ Frame vào Thư mục</span>
-                      </button>
-
-                      <button
-                        className="atelier-btn-secondary-action"
-                        type="button"
-                        onClick={() => selectFrame(null)}
-                      >
-                        Xem sheet gốc
-                      </button>
-
-                      {frame && (
-                        <a
-                          className="atelier-btn-secondary-action"
-                          href={frame.url}
-                          download={frame.name}
-                        >
-                          <Download size={14} />
-                          <span>Tải frame PNG</span>
-                        </a>
-                      )}
-
-                      <button
-                        className="atelier-btn-secondary-action"
-                        type="button"
-                        disabled={Boolean(busy)}
-                        onClick={exportSheet}
-                      >
-                        <Download size={14} />
-                        <span>{busy === 'Đang tạo ZIP…' ? busy : 'Tải tất cả (ZIP)'}</span>
-                      </button>
-                    </div>
-                  </CollapsibleCard>
-                )}
-              </>
+              <SheetInspector
+                MAX_FRAMES={MAX_FRAMES}
+                openSections={openSections}
+                toggleSection={toggleSection}
+                rows={rows}
+                columns={columns}
+                sheetLocked={sheetLocked}
+                changeGrid={changeGrid}
+                setRows={setRows}
+                setColumns={setColumns}
+                manualCuts={manualCuts}
+                gridValid={gridValid}
+                resetManualCuts={resetManualCuts}
+                changeManualCuts={changeManualCuts}
+                frameIndex={frameIndex}
+                selectFrame={selectFrame}
+                autoAnchor={autoAnchor}
+                setAutoAnchor={setAutoAnchor}
+                gridCount={gridCount}
+                cellWidth={cellWidth}
+                cellHeight={cellHeight}
+                remainderX={remainderX}
+                remainderY={remainderY}
+                dimensions={dimensions}
+                busy={busy}
+                executeSliceSheet={executeSliceSheet}
+                sheet={sheet}
+                batchResizeTarget={batchResizeTarget}
+                changeBatchResizeTarget={changeBatchResizeTarget}
+                batchResizing={batchResizing}
+                batchKeepRatio={batchKeepRatio}
+                setBatchKeepRatio={setBatchKeepRatio}
+                setBatchResizeTarget={setBatchResizeTarget}
+                source={source}
+                executeBatchResize={executeBatchResize}
+                batchResizeMsg={batchResizeMsg}
+                batchResizedSize={batchResizedSize}
+                setPackFolderName={setPackFolderName}
+                setSavePackStatus={setSavePackStatus}
+                setShowSavePackModal={setShowSavePackModal}
+                frame={frame}
+                exportSheet={exportSheet}
+              />
             ) : (
               /* THIẾT LẬP CHẾ ĐỘ ẢNH ĐƠN (ACCORDION CARDS) */
-              <>
-                <h3 className="atelier-inspector-section-title">
-                  <Sliders size={16} />
-                  <span>Thao tác ảnh đơn</span>
-                </h3>
-
-                {/* Khung 1: Thu nhỏ ảnh (Resize) */}
-                <CollapsibleCard
-                  title="Thu nhỏ ảnh (Resize)"
-                  icon={Scaling}
-                  isOpen={openSections.resize}
-                  onToggle={() => toggleSection('resize')}
-                >
-                  <div className="atelier-inspector-grid-inputs">
-                    <div className="atelier-inspector-field">
-                      <label className="atelier-inspector-label">Rộng (px)</label>
-                      <input
-                        type="number"
-                        min="1"
-                        max={resizeSource?.width || 512}
-                        required
-                        value={resizeTarget.width}
-                        onChange={(event) => changeResizeTarget('width', event.target.value)}
-                        disabled={Boolean(busy) || detectingGrid}
-                        className="atelier-inspector-input"
-                      />
-                    </div>
-                    <div className="atelier-inspector-field">
-                      <label className="atelier-inspector-label">Cao (px)</label>
-                      <input
-                        type="number"
-                        min="1"
-                        max={resizeSource?.height || 512}
-                        required
-                        value={resizeTarget.height}
-                        onChange={(event) => changeResizeTarget('height', event.target.value)}
-                        disabled={Boolean(busy) || detectingGrid}
-                        className="atelier-inspector-input"
-                      />
-                    </div>
-                  </div>
-
-                  <label className="atelier-inspector-checkbox">
-                    <input
-                      type="checkbox"
-                      checked={keepRatio}
-                      onChange={(event) => {
-                        setKeepRatio(event.target.checked);
-                        if (event.target.checked && resizeSource && Number(resizeTarget.width) > 0) {
-                          setResizeTarget({
-                            ...resizeTarget,
-                            height: Math.max(1, Math.round((resizeTarget.width * resizeSource.height) / resizeSource.width)),
-                          });
-                        }
-                      }}
-                      disabled={Boolean(busy) || detectingGrid}
-                    />
-                    <span>Khóa tỷ lệ khung hình</span>
-                  </label>
-
-                  <button
-                    className="atelier-btn-primary-action"
-                    type="button"
-                    disabled={!dimensions || Boolean(busy) || detectingGrid}
-                    onClick={() =>
-                      executeSingleCommand('resize', {
-                        target_width: resizeTarget.width,
-                        target_height: resizeTarget.height,
-                      })
-                    }
-                  >
-                    {busy === 'Đang thu nhỏ ảnh…' || busy === 'Đang khôi phục độ phân giải…' ? (
-                      <>
-                        <LoaderCircle size={15} className="atelier-ws-spinner-icon" />
-                        <span>{busy}</span>
-                      </>
-                    ) : (
-                      <>
-                        <Scaling size={15} />
-                        <span>{restoringGrid ? 'Khôi phục độ phân giải thật' : 'Thu nhỏ ảnh'}</span>
-                      </>
-                    )}
-                  </button>
-                </CollapsibleCard>
-
-                {/* Khung 2: Chuẩn hóa & Điểm neo (Anchor / Normalize) */}
-                <CollapsibleCard
-                  title="Chuẩn hóa & Điểm neo"
-                  icon={Anchor}
-                  isOpen={openSections.anchor}
-                  onToggle={() => toggleSection('anchor')}
-                >
-                  <div className="atelier-inspector-field">
-                    <label className="atelier-inspector-label">Điểm neo (Anchor)</label>
-                    <select
-                      value={anchor}
-                      onChange={(event) => setAnchor(event.target.value)}
-                      disabled={Boolean(busy)}
-                      className="atelier-inspector-select"
-                    >
-                      <option value="bottom_center">Dưới và giữa (Bottom-Center: Chuẩn game)</option>
-                      <option value="center">Chính giữa (Center)</option>
-                      <option value="top_left">Góc trên bên trái (Top-Left)</option>
-                    </select>
-                  </div>
-
-                  <div className="atelier-inspector-grid-inputs">
-                    <div className="atelier-inspector-field">
-                      <label className="atelier-inspector-label">Rộng (px)</label>
-                      <input
-                        type="number"
-                        min="1"
-                        max={512}
-                        required
-                        value={normalizeTarget.width}
-                        onChange={(event) => changeNormalizeTarget('width', event.target.value)}
-                        disabled={Boolean(busy)}
-                        className="atelier-inspector-input"
-                      />
-                    </div>
-                    <div className="atelier-inspector-field">
-                      <label className="atelier-inspector-label">Cao (px)</label>
-                      <input
-                        type="number"
-                        min="1"
-                        max={512}
-                        required
-                        value={normalizeTarget.height}
-                        onChange={(event) => changeNormalizeTarget('height', event.target.value)}
-                        disabled={Boolean(busy)}
-                        className="atelier-inspector-input"
-                      />
-                    </div>
-                  </div>
-
-                  <button
-                    className="atelier-btn-primary-action"
-                    type="button"
-                    disabled={!dimensions || Boolean(busy)}
-                    onClick={() =>
-                      executeSingleCommand('normalize', {
-                        target_width: normalizeTarget.width,
-                        target_height: normalizeTarget.height,
-                        anchor,
-                      })
-                    }
-                  >
-                    {busy === 'Đang chuẩn hóa ảnh…' ? (
-                      <>
-                        <LoaderCircle size={15} className="atelier-ws-spinner-icon" />
-                        <span>Đang chuẩn hóa…</span>
-                      </>
-                    ) : (
-                      <>
-                        <Anchor size={15} />
-                        <span>Chuẩn hóa khung &amp; điểm neo</span>
-                      </>
-                    )}
-                  </button>
-                </CollapsibleCard>
-
-                {/* Khung 3: Kết quả xử lý & Tải về (chỉ hiện khi có kết quả) */}
-                {result && (
-                  <CollapsibleCard
-                    title="Kết quả xử lý"
-                    icon={Sparkles}
-                    isOpen={openSections.result}
-                    onToggle={() => toggleSection('result')}
-                  >
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      <div
-                        className="atelier-ws-mode-switch"
-                        role="group"
-                        aria-label="So sánh ảnh"
-                        style={{ width: '100%', boxSizing: 'border-box' }}
-                      >
-                        <button
-                          type="button"
-                          style={{ flex: 1 }}
-                          className={`atelier-ws-mode-btn ${!showResult ? 'active' : ''}`}
-                          onClick={() => {
-                            setShowResult(false);
-                            setZoom(null);
-                            setPanOffset({ x: 0, y: 0 });
-                          }}
-                        >
-                          Ảnh gốc
-                        </button>
-                        <button
-                          type="button"
-                          style={{ flex: 1 }}
-                          className={`atelier-ws-mode-btn ${showResult ? 'active' : ''}`}
-                          onClick={() => {
-                            setShowResult(true);
-                            setZoom(null);
-                            setPanOffset({ x: 0, y: 0 });
-                          }}
-                        >
-                          Kết quả
-                        </button>
-                      </div>
-
-                      <a
-                        className="atelier-btn-secondary-action"
-                        href={result.url}
-                        download={`${nameStem}-processed.png`}
-                      >
-                        <Download size={14} />
-                        <span>Tải ảnh PNG</span>
-                      </a>
-                    </div>
-                  </CollapsibleCard>
-                )}
-              </>
+              <SingleImageInspector
+                openSections={openSections}
+                toggleSection={toggleSection}
+                resizeSource={resizeSource}
+                resizeTarget={resizeTarget}
+                changeResizeTarget={changeResizeTarget}
+                busy={busy}
+                detectingGrid={detectingGrid}
+                keepRatio={keepRatio}
+                setKeepRatio={setKeepRatio}
+                setResizeTarget={setResizeTarget}
+                dimensions={dimensions}
+                executeSingleCommand={executeSingleCommand}
+                restoringGrid={restoringGrid}
+                anchor={anchor}
+                setAnchor={setAnchor}
+                normalizeTarget={normalizeTarget}
+                changeNormalizeTarget={changeNormalizeTarget}
+                result={result}
+                showResult={showResult}
+                setShowResult={setShowResult}
+                setZoom={setZoom}
+                setPanOffset={setPanOffset}
+                nameStem={nameStem}
+              />
             )}
 
             {error && <p className="atelier-ws-error" role="alert">{error}</p>}
@@ -1616,201 +1001,20 @@ export default function Workspace({
       {/* 4. MODAL LƯU BỘ FRAME & SHEET VÀO THƯ MỤC KHO TÀI NGUYÊN        */}
       {/* ================================================================ */}
       {showSavePackModal && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'rgba(5, 3, 13, 0.78)',
-            backdropFilter: 'blur(6px)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 9999,
-            padding: '16px'
-          }}
-          onClick={() => setShowSavePackModal(false)}
-        >
-          <div
-            style={{
-              width: '100%',
-              maxWidth: '460px',
-              backgroundColor: '#120d24',
-              border: '1px solid #7c3aed',
-              boxShadow: '0 16px 40px rgba(0, 0, 0, 0.6), 0 0 24px rgba(124, 58, 237, 0.25)',
-              borderRadius: '14px',
-              overflow: 'hidden',
-              display: 'flex',
-              flexDirection: 'column'
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Tiêu đề Modal */}
-            <div
-              style={{
-                padding: '14px 18px',
-                borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                background: 'linear-gradient(90deg, rgba(124, 58, 237, 0.15) 0%, transparent 100%)'
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <FolderPlus size={18} color="#c084fc" />
-                <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 600, color: '#f3e8ff' }}>
-                  Lưu bộ Frame vào Thư mục Kho
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowSavePackModal(false)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: '#94a3b8',
-                  cursor: 'pointer',
-                  padding: '4px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  borderRadius: '4px'
-                }}
-              >
-                <X size={16} />
-              </button>
-            </div>
-
-            {/* Nội dung Modal */}
-            <div style={{ padding: '18px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <div>
-                <label
-                  style={{
-                    display: 'block',
-                    fontSize: '0.8rem',
-                    fontWeight: 600,
-                    color: '#cbd5e1',
-                    marginBottom: '6px'
-                  }}
-                >
-                  Tên Thư mục / Bộ hoạt họa nhân vật:
-                </label>
-                <input
-                  type="text"
-                  value={packFolderName}
-                  onChange={(e) => setPackFolderName(e.target.value)}
-                  placeholder="Ví dụ: Pháp sư tím_3x5"
-                  style={{
-                    width: '100%',
-                    boxSizing: 'border-box',
-                    padding: '9px 12px',
-                    backgroundColor: '#1b1433',
-                    border: '1px solid rgba(192, 132, 252, 0.35)',
-                    borderRadius: '8px',
-                    color: '#fff',
-                    fontSize: '0.875rem',
-                    outline: 'none'
-                  }}
-                  autoFocus
-                />
-              </div>
-
-              {/* Tóm tắt nội dung gói lưu */}
-              <div
-                style={{
-                  backgroundColor: 'rgba(255, 255, 255, 0.03)',
-                  border: '1px solid rgba(255, 255, 255, 0.06)',
-                  borderRadius: '10px',
-                  padding: '12px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '8px',
-                  fontSize: '0.8rem',
-                  color: '#94a3b8'
-                }}
-              >
-                <div style={{ fontWeight: 600, color: '#e2e8f0', marginBottom: '2px' }}>
-                  📦 Nội dung gói tài nguyên sẽ lưu:
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
-                  <div>• <strong>Sheet gốc:</strong> {source?.dimensions?.width || 0}×{source?.dimensions?.height || 0}px</div>
-                  <div>• <strong>Số frame:</strong> {sheet?.frames?.length || (sheet?.rows * sheet?.columns)} frame</div>
-                  <div>• <strong>Lưới cắt:</strong> {sheet?.rows} hàng × {sheet?.columns} cột</div>
-                  <div>• <strong>Tốc độ:</strong> {fps} FPS</div>
-                  <div style={{ gridColumn: 'span 2', color: batchResizedSize ? '#34d399' : '#c084fc', marginTop: '2px' }}>
-                    • <strong>Kích thước từng frame:</strong> {batchResizedSize ? `${batchResizedSize.width} × ${batchResizedSize.height} px (Đã ép độ phân giải)` : `${cellWidth} × ${cellHeight} px (Gốc)`}
-                  </div>
-                </div>
-              </div>
-
-              {/* Thông báo trạng thái */}
-              {savePackStatus.message && (
-                <div
-                  style={{
-                    padding: '10px 14px',
-                    borderRadius: '8px',
-                    fontSize: '0.8rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    backgroundColor: savePackStatus.success ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                    border: `1px solid ${savePackStatus.success ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)'}`,
-                    color: savePackStatus.success ? '#6ee7b7' : '#fca5a5'
-                  }}
-                >
-                  {savePackStatus.success ? <Check size={16} /> : <AlertCircle size={16} />}
-                  <span>{savePackStatus.message}</span>
-                </div>
-              )}
-            </div>
-
-            {/* Chân Modal */}
-            <div
-              style={{
-                padding: '12px 18px',
-                borderTop: '1px solid rgba(255, 255, 255, 0.08)',
-                display: 'flex',
-                justifyContent: 'flex-end',
-                gap: '10px',
-                backgroundColor: 'rgba(0, 0, 0, 0.2)'
-              }}
-            >
-              <button
-                type="button"
-                className="atelier-btn-secondary-action"
-                onClick={() => setShowSavePackModal(false)}
-                disabled={savingPack}
-                style={{ padding: '7px 14px', margin: 0 }}
-              >
-                Hủy
-              </button>
-              <button
-                type="button"
-                className="atelier-btn-primary-action"
-                onClick={handleConfirmSavePack}
-                disabled={savingPack || !packFolderName.trim()}
-                style={{
-                  padding: '7px 18px',
-                  margin: 0,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  background: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)'
-                }}
-              >
-                {savingPack ? (
-                  <>
-                    <LoaderCircle size={14} className="atelier-ws-spinner-icon" />
-                    <span>Đang lưu vào kho…</span>
-                  </>
-                ) : (
-                  <>
-                    <Check size={14} />
-                    <span>Xác nhận Lưu vào Kho</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
+        <SaveSheetPackDialog
+                setShowSavePackModal={setShowSavePackModal}
+                packFolderName={packFolderName}
+                setPackFolderName={setPackFolderName}
+                source={source}
+                sheet={sheet}
+                fps={fps}
+                batchResizedSize={batchResizedSize}
+                cellWidth={cellWidth}
+                cellHeight={cellHeight}
+                savePackStatus={savePackStatus}
+                savingPack={savingPack}
+                handleConfirmSavePack={handleConfirmSavePack}
+              />
       )}
     </div>
   );

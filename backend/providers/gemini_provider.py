@@ -4,7 +4,7 @@
 # json: Phân tích cú pháp dữ liệu JSON từ API phản hồi
 import json
 # typing: Khai báo kiểu dữ liệu
-from typing import Dict, Any, Optional, Tuple
+from typing import Dict, Any, Optional, Tuple, Generator, List
 
 # ========================================================
 # 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
@@ -39,6 +39,7 @@ class GeminiProvider(BaseAiProvider):
         "gemini-3.8-flash"
     ]
     API_URL_TEMPLATE = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+    STREAM_API_URL_TEMPLATE = "https://generativelanguage.googleapis.com/v1beta/models/{model}:streamGenerateContent?alt=sse&key={api_key}"
 
     def test_connection(self, api_key: str, base_url: Optional[str] = None) -> Tuple[bool, str]:
         """
@@ -147,6 +148,74 @@ class GeminiProvider(BaseAiProvider):
             error_prefix="Không thể kết nối Gemini API",
             timeout=20
         )
+
+    def stream_chat(
+        self,
+        messages: List[Dict[str, str]],
+        api_key: str,
+        base_url: Optional[str] = None,
+        system_instruction: Optional[str] = None
+    ) -> Generator[str, None, None]:
+        """
+        Gửi hội thoại tới Google Gemini API và phát luồng (stream) từng token văn bản về theo chuẩn SSE.
+
+        @param {List[Dict[str, str]]} messages Danh sách lịch sử tin nhắn [{'role': 'user'|'assistant', 'content': '...'}].
+        @param {str} api_key Khóa Google Gemini API.
+        @param {Optional[str]} base_url Không bắt buộc với Gemini (dùng mặc định Google API).
+        @param {Optional[str]} system_instruction Chỉ dẫn định hình phong cách cho AI.
+        @returns {Generator[str, None, None]} Máy phát sinh từng đoạn chữ (token).
+        """
+        clean_key = (api_key or "").strip()
+        if not clean_key:
+            raise ValueError("Chưa cấu hình Google Gemini API Key.")
+
+        gemini_contents = []
+        for msg in messages:
+            role = "model" if msg.get("role") in ["assistant", "bot", "model"] else "user"
+            gemini_contents.append({
+                "role": role,
+                "parts": [{"text": msg.get("content", "").strip()}]
+            })
+
+        payload: Dict[str, Any] = {
+            "contents": gemini_contents,
+            "generationConfig": {
+                "temperature": 0.7,
+            }
+        }
+        if system_instruction:
+            payload["system_instruction"] = {
+                "parts": [{"text": system_instruction.strip()}]
+            }
+
+        last_error = ""
+        for model in self.CANDIDATE_MODELS:
+            url = self.STREAM_API_URL_TEMPLATE.format(model=model, api_key=clean_key)
+            try:
+                resp = requests.post(url, json=payload, stream=True, timeout=30)
+                if resp.status_code == 200:
+                    for line in resp.iter_lines():
+                        if line:
+                            decoded = line.decode("utf-8")
+                            if decoded.startswith("data: "):
+                                json_str = decoded[6:].strip()
+                                event_data = json.loads(json_str)
+                                candidates = event_data.get("candidates", [])
+                                if candidates:
+                                    parts = candidates[0].get("content", {}).get("parts", [])
+                                    for part in parts:
+                                        text_chunk = part.get("text", "")
+                                        if text_chunk:
+                                            yield text_chunk
+                    return
+                last_error = f"{model} status {resp.status_code}"
+                if resp.text:
+                    last_error += f": {resp.text[:100]}"
+            except Exception as e:
+                last_error = f"{model} error: {str(e)}"
+                continue
+
+        raise RuntimeError(f"Tất cả các model Gemini đều không thể phát luồng phản hồi: {last_error}")
 
     def _execute_generation(
         self,

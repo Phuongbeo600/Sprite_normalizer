@@ -11,48 +11,7 @@
 /* ============================================================================
    1. HỆ THỐNG BIẾN MÀU ATELIER (DESIGN TOKENS)
    ============================================================================ */
-.atelier-app-layout {
-  /* Bảng màu Nền Sâu (Obsidian & Midnight Purple) */
-  --atl-void: #06040c;
-  --atl-bg-app: #090614;
-  --atl-bg-sidebar: rgba(12, 8, 24, 0.82);
-  --atl-bg-panel: rgba(18, 13, 34, 0.75);
-  --atl-bg-card: rgba(24, 17, 44, 0.65);
-  --atl-bg-card-hover: rgba(36, 25, 64, 0.85);
-  --atl-bg-input: rgba(14, 10, 26, 0.88);
 
-  /* Bảng màu Thạch Anh & Điểm Nhấn Ma Thuật */
-  --atl-amethyst: #9333ea;
-  --atl-amethyst-light: #c084fc;
-  --atl-amethyst-deep: #581c87;
-  --atl-amethyst-glow: rgba(147, 51, 234, 0.25);
-  --atl-amethyst-soft: rgba(168, 85, 247, 0.12);
-
-  /* Màu Kim Loại & Ánh Sáng Kỳ Ảo */
-  --atl-gold: #f59e0b;
-  --atl-gold-glow: rgba(245, 158, 11, 0.2);
-  --atl-emerald: #10b981;
-  --atl-emerald-glow: rgba(16, 185, 129, 0.2);
-  --atl-rose: #f43f5e;
-
-  /* Bảng Màu Chữ Công Thái Học */
-  --atl-text-pure: #ffffff;
-  --atl-text-primary: #f5f3ff;
-  --atl-text-secondary: #a39bc2;
-  --atl-text-tertiary: #6e658a;
-
-  /* Đường Viền Sắc Nét & Phân Tách */
-  --atl-border-subtle: rgba(255, 255, 255, 0.06);
-  --atl-border-amethyst: rgba(168, 85, 247, 0.18);
-  --atl-border-hover: rgba(192, 132, 252, 0.45);
-
-  /* Bo Góc & Chuyển Động */
-  --atl-r-sm: 8px;
-  --atl-r-md: 12px;
-  --atl-r-lg: 16px;
-  --atl-trans-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
-  --atl-trans-smooth: 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-}
 
 /* ============================================================================
    2. TÁI ĐỊNH HÌNH KHUNG NHÌN CHÍNH (VIEWPORT CONTAINER)
