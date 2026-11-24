@@ -9,8 +9,9 @@ from typing import List, Optional, Dict, Any
 # ========================================================
 # 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
 # ========================================================
-# sqlalchemy: Thực thi câu lệnh SQL và quản lý phiên Session
+# sqlalchemy: Thực thi câu lệnh SQL, bắt ngoại lệ toàn vẹn và quản lý phiên Session
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 # ========================================================
@@ -110,15 +111,23 @@ class SpriteRepository(BaseRepository):
         if file_hash and "file_hash" not in meta_dict:
             meta_dict["file_hash"] = file_hash
         meta_json = safe_json_dumps(meta_dict)
-        result = db.execute(sql, {
-            "project_id": project_id,
-            "name": name,
-            "file_hash": file_hash,
-            "raw_image_data": raw_image_bytes,
-            "processing_metadata": meta_json
-        })
-        db.commit()
-        return result.lastrowid
+        try:
+            result = db.execute(sql, {
+                "project_id": project_id,
+                "name": name,
+                "file_hash": file_hash,
+                "raw_image_data": raw_image_bytes,
+                "processing_metadata": meta_json
+            })
+            db.commit()
+            return result.lastrowid
+        except IntegrityError:
+            # Xử lý Race Condition: Khi 2 request cùng upload ảnh trùng mã hash đồng thời
+            db.rollback()
+            existing = self.get_by_hash(db, project_id, file_hash) if file_hash else None
+            if existing:
+                return existing["id"]
+            raise
 
     def update_processed_sprite(
         self,
@@ -224,36 +233,49 @@ class SpriteRepository(BaseRepository):
                 meta_dict["file_hash"] = file_hash
             meta_dict["frame_count"] = len(frames)
             meta_json = safe_json_dumps(meta_dict)
-            res = db.execute(insert_sheet_sql, {
-                "project_id": project_id,
-                "name": sheet_name,
-                "file_hash": file_hash,
-                "folder_name": folder_name,
-                "raw_image_data": sheet_bytes,
-                "processing_metadata": meta_json
-            })
-            sprite_id = res.lastrowid
+            try:
+                res = db.execute(insert_sheet_sql, {
+                    "project_id": project_id,
+                    "name": sheet_name,
+                    "file_hash": file_hash,
+                    "folder_name": folder_name,
+                    "raw_image_data": sheet_bytes,
+                    "processing_metadata": meta_json
+                })
+                sprite_id = res.lastrowid
+            except IntegrityError:
+                # Xử lý Race Condition khi 2 request cùng upload sheet trùng hash đồng thời
+                db.rollback()
+                existing = self.get_by_hash(db, project_id, file_hash) if file_hash else None
+                if existing:
+                    sprite_id = existing["id"]
+                else:
+                    raise
 
-        # Xóa các frame cũ nếu có của sprite này trước khi nạp mới (đảm bảo tính toàn vẹn)
-        db.execute(text("DELETE FROM sprite_frames WHERE sprite_id = :sprite_id;"), {"sprite_id": sprite_id})
+        try:
+            # Xóa các frame cũ nếu có của sprite này trước khi nạp mới (đảm bảo tính toàn vẹn)
+            db.execute(text("DELETE FROM sprite_frames WHERE sprite_id = :sprite_id;"), {"sprite_id": sprite_id})
 
-        # Lưu danh sách frame cắt rời vào sprite_frames
-        insert_frame_sql = text("""
-            INSERT INTO sprite_frames (sprite_id, project_id, frame_index, frame_name, frame_image_data, metadata)
-            VALUES (:sprite_id, :project_id, :frame_index, :frame_name, :frame_image_data, :metadata);
-        """)
-        for item in frames:
-            f_meta = safe_json_dumps(item.get("metadata") or {"size": item.get("size")})
-            db.execute(insert_frame_sql, {
-                "sprite_id": sprite_id,
-                "project_id": project_id,
-                "frame_index": item.get("index", 1),
-                "frame_name": item.get("name", f"frame_{item.get('index', 1):03}.png"),
-                "frame_image_data": item.get("bytes", b""),
-                "metadata": f_meta
-            })
+            # Lưu danh sách frame cắt rời vào sprite_frames
+            insert_frame_sql = text("""
+                INSERT INTO sprite_frames (sprite_id, project_id, frame_index, frame_name, frame_image_data, metadata)
+                VALUES (:sprite_id, :project_id, :frame_index, :frame_name, :frame_image_data, :metadata);
+            """)
+            for item in frames:
+                f_meta = safe_json_dumps(item.get("metadata") or {"size": item.get("size")})
+                db.execute(insert_frame_sql, {
+                    "sprite_id": sprite_id,
+                    "project_id": project_id,
+                    "frame_index": item.get("index", 1),
+                    "frame_name": item.get("name", f"frame_{item.get('index', 1):03}.png"),
+                    "frame_image_data": item.get("bytes", b""),
+                    "metadata": f_meta
+                })
 
-        db.commit()
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
         return {
             "sprite_id": sprite_id,
             "folder_name": folder_name,

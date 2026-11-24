@@ -89,6 +89,12 @@ def ensure_sprite_columns(conn_or_session):
             conn_or_session.execute(text(f"ALTER TABLE project_sprites ADD COLUMN {col_name} {col_type};"))
         except Exception:
             pass
+    # Tạo chỉ mục UNIQUE (project_id, file_hash) chống Race Condition và bảo đảm tính toàn vẹn dữ liệu
+    try:
+        conn_or_session.execute(text("CREATE UNIQUE INDEX uq_project_sprite_hash ON project_sprites (project_id, file_hash);"))
+    except Exception:
+        # Bỏ qua nếu ràng buộc UNIQUE hoặc chỉ mục đã tồn tại từ trước
+        pass
     try:
         conn_or_session.execute(text("CREATE INDEX idx_project_sprite_hash ON project_sprites (project_id, file_hash);"))
     except Exception:
@@ -206,8 +212,8 @@ def bootstrap_schema(conn):
             status VARCHAR(50) DEFAULT 'raw',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            INDEX idx_project_hash (project_id, file_hash),
             INDEX idx_project_folder (project_id, folder_name),
+            UNIQUE KEY uq_project_sprite_hash (project_id, file_hash),
             CONSTRAINT fk_sprite_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     """))

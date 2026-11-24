@@ -521,6 +521,9 @@ class TestSpriteRepository(unittest.TestCase):
             )
         """))
         self.db.execute(text("""
+            CREATE UNIQUE INDEX uq_project_sprite_hash ON project_sprites (project_id, file_hash);
+        """))
+        self.db.execute(text("""
             CREATE TABLE sprite_frames (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 sprite_id INTEGER NOT NULL,
@@ -646,6 +649,94 @@ class TestSpriteRepository(unittest.TestCase):
         self.assertIsNotNone(sheet_record)
         self.assertEqual(sheet_record["frame_count"], 3)
         self.assertEqual(sheet_record["folder_name"], "Mage_Purple_15f")
+
+    def test_save_raw_sprite_race_condition_handling(self):
+        """
+        Kiểm tra xử lý Race Condition khi xảy ra xung đột IntegrityError do 2 request song song.
+        Mô phỏng trường hợp get_by_hash không phát hiện trước đó và DB ném IntegrityError khi INSERT.
+        """
+        import hashlib
+        img_bytes = b"race_condition_test_bytes_abc"
+        expected_hash = hashlib.sha256(img_bytes).hexdigest()
+
+        # Lưu bản ghi lần 1
+        first_id = self.sprite_repo.save_raw_sprite(
+            db=self.db,
+            project_id=1,
+            name="hero_first.png",
+            raw_image_bytes=img_bytes
+        )
+        self.assertGreater(first_id, 0)
+
+        # Mô phỏng Race Condition: Mock get_by_hash lần đầu trả về None (như thể 2 request cùng đọc đồng thời trước khi ghi)
+        original_get_by_hash = self.sprite_repo.get_by_hash
+        call_count = {"count": 0}
+
+        def mock_get_by_hash(db, project_id, file_hash):
+            call_count["count"] += 1
+            if call_count["count"] == 1:
+                # Lần gọi đầu tiên (trước INSERT) giả lập chưa thấy bản ghi
+                return None
+            # Lần gọi thứ hai (trong khối except IntegrityError) tìm thấy bản ghi do thread khác chèn
+            return original_get_by_hash(db, project_id, file_hash)
+
+        self.sprite_repo.get_by_hash = mock_get_by_hash
+        try:
+            # Khi thực hiện INSERT sẽ đụng vi phạm UNIQUE constraint trên SQLite,
+            # hàm phải bắt IntegrityError, tự rollback và gọi lại get_by_hash trả về first_id
+            second_id = self.sprite_repo.save_raw_sprite(
+                db=self.db,
+                project_id=1,
+                name="hero_concurrent.png",
+                raw_image_bytes=img_bytes
+            )
+            self.assertEqual(second_id, first_id)
+        finally:
+            self.sprite_repo.get_by_hash = original_get_by_hash
+
+    def test_save_sliced_pack_race_condition_handling(self):
+        """
+        Kiểm tra xử lý Race Condition trong save_sliced_pack khi xung đột IntegrityError.
+        """
+        sheet_bytes = b"race_condition_sheet_bytes_xyz"
+        frames = [
+            {"index": 1, "name": "f1.png", "bytes": b"f1", "size": [16, 16]}
+        ]
+
+        # Lưu lần 1 thành công
+        res1 = self.sprite_repo.save_sliced_pack(
+            db=self.db,
+            project_id=1,
+            folder_name="Pack1",
+            sheet_name="sheet1.png",
+            sheet_bytes=sheet_bytes,
+            frames=frames
+        )
+        self.assertGreater(res1["sprite_id"], 0)
+
+        # Mô phỏng Race Condition cho lần lưu thứ 2
+        original_get_by_hash = self.sprite_repo.get_by_hash
+        call_count = {"count": 0}
+
+        def mock_get_by_hash(db, project_id, file_hash):
+            call_count["count"] += 1
+            if call_count["count"] == 1:
+                return None
+            return original_get_by_hash(db, project_id, file_hash)
+
+        self.sprite_repo.get_by_hash = mock_get_by_hash
+        try:
+            res2 = self.sprite_repo.save_sliced_pack(
+                db=self.db,
+                project_id=1,
+                folder_name="Pack1_Concurrent",
+                sheet_name="sheet1_concurrent.png",
+                sheet_bytes=sheet_bytes,
+                frames=frames
+            )
+            self.assertEqual(res2["sprite_id"], res1["sprite_id"])
+        finally:
+            self.sprite_repo.get_by_hash = original_get_by_hash
 
 
 if __name__ == "__main__":

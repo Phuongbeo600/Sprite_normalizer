@@ -3,6 +3,8 @@
 # ========================================================
 # os: Đọc và gán biến môi trường hệ thống
 import os
+# threading: Khóa đồng bộ hóa chống Race Condition khi ghi file .env đồng thời
+import threading
 # Path: Quản lý đường dẫn tuyệt đối tới file .env
 from pathlib import Path
 # typing: Định nghĩa kiểu từ điển, tùy chọn
@@ -23,6 +25,9 @@ from backend.providers.factory import AiProviderFactory
 # 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
 # ========================================================
 # (Không áp dụng cho file backend)
+
+# Khóa luồng toàn cục bảo vệ thao tác đọc/ghi file .env nguyên tử
+_env_file_lock = threading.Lock()
 
 
 class SettingsService:
@@ -92,43 +97,55 @@ class SettingsService:
         if openai_base_url and openai_base_url.strip():
             os.environ["OPENAI_BASE_URL"] = openai_base_url.strip()
 
-        # Đọc và ghi đè bền vững vào file .env
-        env_lines = []
-        if cls.ENV_PATH.exists():
-            with open(cls.ENV_PATH, "r", encoding="utf-8") as f:
-                env_lines = f.readlines()
+        # Đồng bộ hóa ghi file .env chống xung đột khi nhiều request ghi đồng thời
+        with _env_file_lock:
+            env_lines = []
+            if cls.ENV_PATH.exists():
+                with open(cls.ENV_PATH, "r", encoding="utf-8") as f:
+                    env_lines = f.readlines()
 
-        keys_to_update = {
-            "AI_PROVIDER": clean_provider,
-            "GEMINI_API_KEY": os.getenv("GEMINI_API_KEY", ""),
-            "OPENAI_API_KEY": os.getenv("OPENAI_API_KEY", ""),
-            "OPENAI_BASE_URL": os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
-        }
+            keys_to_update = {
+                "AI_PROVIDER": clean_provider,
+                "GEMINI_API_KEY": os.getenv("GEMINI_API_KEY", ""),
+                "OPENAI_API_KEY": os.getenv("OPENAI_API_KEY", ""),
+                "OPENAI_BASE_URL": os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
+            }
 
-        updated_keys = set()
-        new_lines = []
-        for line in env_lines:
-            stripped = line.strip()
-            if not stripped or stripped.startswith("#"):
-                new_lines.append(line)
-                continue
-            if "=" in line:
-                k, _ = line.split("=", 1)
-                k_clean = k.strip()
-                if k_clean in keys_to_update:
-                    new_lines.append(f"{k_clean}={keys_to_update[k_clean]}\n")
-                    updated_keys.add(k_clean)
+            updated_keys = set()
+            new_lines = []
+            for line in env_lines:
+                stripped = line.strip()
+                if not stripped or stripped.startswith("#"):
+                    new_lines.append(line)
+                    continue
+                if "=" in line:
+                    k, _ = line.split("=", 1)
+                    k_clean = k.strip()
+                    if k_clean in keys_to_update:
+                        new_lines.append(f"{k_clean}={keys_to_update[k_clean]}\n")
+                        updated_keys.add(k_clean)
+                    else:
+                        new_lines.append(line)
                 else:
                     new_lines.append(line)
-            else:
-                new_lines.append(line)
 
-        for k, v in keys_to_update.items():
-            if k not in updated_keys:
-                new_lines.append(f"{k}={v}\n")
+            for k, v in keys_to_update.items():
+                if k not in updated_keys:
+                    new_lines.append(f"{k}={v}\n")
 
-        with open(cls.ENV_PATH, "w", encoding="utf-8") as f:
-            f.writelines(new_lines)
+            # Ghi nguyên tử (Atomic write) qua file tạm để tránh hỏng dữ liệu khi có sự cố
+            temp_path = cls.ENV_PATH.with_suffix(".tmp")
+            try:
+                with open(temp_path, "w", encoding="utf-8") as f:
+                    f.writelines(new_lines)
+                os.replace(temp_path, cls.ENV_PATH)
+            except Exception:
+                if temp_path.exists():
+                    try:
+                        temp_path.unlink()
+                    except Exception:
+                        pass
+                raise
 
         return {
             "status": "success",
