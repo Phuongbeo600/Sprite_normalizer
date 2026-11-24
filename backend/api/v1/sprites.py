@@ -16,8 +16,8 @@ from typing import Annotated, Literal, Optional
 # ========================================================
 # 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
 # ========================================================
-# fastapi: Khởi tạo router, nhận file upload và xử lý HTTP response
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends, Query
+# fastapi: Khởi tạo router, nhận file upload, Request và xử lý HTTP response
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends, Query, Request
 from fastapi.responses import Response
 # run_in_threadpool: Chuyển các tác vụ nặng (CPU-bound và I/O đồng bộ) vào ThreadPool để không chặn Event Loop
 from fastapi.concurrency import run_in_threadpool
@@ -33,6 +33,15 @@ from PIL import Image, ImageOps
 from backend.db import get_db
 # get_current_user_optional, check_project_access, check_sprite_access: Kiểm soát quyền truy cập và sở hữu dữ liệu
 from backend.core.dependencies import get_current_user_optional, check_project_access, check_sprite_access
+# load_control: Kiểm soát tải, Rate Limiting, Concurrency Limiter và kiểm tra kích thước payload
+from backend.core.load_control import (
+    check_rate_limit,
+    image_proc_concurrency,
+    validate_upload_file_size,
+    validate_sheet_grid_limits,
+    RATE_LIMIT_IMAGE_PROC,
+    RATE_LIMIT_UPLOAD
+)
 # SpriteRepository: Kho lưu trữ ảnh sprite gốc, ảnh tối ưu và khung cắt rời trong MySQL
 from backend.repositories.sprite_repository import SpriteRepository
 # SpriteService: Dịch vụ cắt viền và chuẩn hóa kích thước sprite
@@ -146,34 +155,44 @@ def slice_sprite_sheet(
     trim_outer_padding: Annotated[bool, Form()] = True, # tự động nhận diện và gọt bỏ lề trống thừa xung quanh
     x_cuts_json: Annotated[Optional[str], Form()] = None,
     y_cuts_json: Annotated[Optional[str], Form()] = None,
+    http_request: Request = None,
+    current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional),
 ):
     """Cắt lưới Sprite Sheet thích ứng và trả danh sách PNG hoặc tệp ZIP (Hỗ trợ auto_anchor, ép độ phân giải & gọt lề trống)."""
+    validate_sheet_grid_limits(rows, columns, target_width, target_height)
+    if http_request is not None and hasattr(http_request, "headers"):
+        check_rate_limit(http_request, scope="image_proc", max_requests=RATE_LIMIT_IMAGE_PROC, current_user=current_user)
+
     try:
         x_cuts, y_cuts = _parse_manual_grid(x_cuts_json, y_cuts_json)
-        with Image.open(file.file) as source:
-            image = ImageOps.exif_transpose(source)
-            if output == "zip":
-                return Response(
-                    SpriteService.sheet_zip(
-                        image,
-                        rows,
-                        columns,
-                        auto_anchor=auto_anchor,
-                        target_width=target_width,
-                        target_height=target_height,
-                        trim_outer_padding=trim_outer_padding,
-                        x_cuts=x_cuts, y_cuts=y_cuts,
-                    ),
-                    media_type="application/zip",
-                    headers={"Content-Disposition": 'attachment; filename="sprite-frames.zip"'},#Cho phép tải file từ hệ thống xuống
-                )
-            return {"frames": [
-                {"name": name, "width": width, "height": height, "png": b64encode(png).decode("ascii")}
-                for name, (width, height), png in SpriteService.sheet_frames(
-                    image, rows, columns, auto_anchor=auto_anchor, trim_outer_padding=trim_outer_padding,
-                    x_cuts=x_cuts, y_cuts=y_cuts,
-                )
-            ]}
+        with image_proc_concurrency:
+            with Image.open(file.file) as source:
+                image = ImageOps.exif_transpose(source)
+                try:
+                    if output == "zip":
+                        return Response(
+                            SpriteService.sheet_zip(
+                                image,
+                                rows,
+                                columns,
+                                auto_anchor=auto_anchor,
+                                target_width=target_width,
+                                target_height=target_height,
+                                trim_outer_padding=trim_outer_padding,
+                                x_cuts=x_cuts, y_cuts=y_cuts,
+                            ),
+                            media_type="application/zip",
+                            headers={"Content-Disposition": 'attachment; filename="sprite-frames.zip"'},#Cho phép tải file từ hệ thống xuống
+                        )
+                    return {"frames": [
+                        {"name": name, "width": width, "height": height, "png": b64encode(png).decode("ascii")}
+                        for name, (width, height), png in SpriteService.sheet_frames(
+                            image, rows, columns, auto_anchor=auto_anchor, trim_outer_padding=trim_outer_padding,
+                            x_cuts=x_cuts, y_cuts=y_cuts,
+                        )
+                    ]}
+                finally:
+                    image.close()
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
     except (OSError, Image.DecompressionBombError) as error:
@@ -191,31 +210,41 @@ def batch_resize_sheet_stateless(
     trim_outer_padding: Annotated[bool, Form()] = True,
     x_cuts_json: Annotated[Optional[str], Form()] = None,
     y_cuts_json: Annotated[Optional[str], Form()] = None,
+    http_request: Request = None,
+    current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional),
 ):
     """
     Cắt lưới Sprite Sheet và ép toàn bộ các khung hình về độ phân giải yêu cầu bằng thuật toán Nearest Neighbor.
     Bảo toàn 100% độ sắc nét cho đồ họa Pixel Art.
     """
+    validate_sheet_grid_limits(rows, columns, target_width, target_height)
+    if http_request is not None and hasattr(http_request, "headers"):
+        check_rate_limit(http_request, scope="image_proc", max_requests=RATE_LIMIT_IMAGE_PROC, current_user=current_user)
+
     try:
         x_cuts, y_cuts = _parse_manual_grid(x_cuts_json, y_cuts_json)
-        with Image.open(file.file) as source:
-            image = ImageOps.exif_transpose(source)
-            resized_frames = [
-                {"name": name, "width": target_width, "height": target_height,
-                 "png": b64encode(png).decode("ascii")}
-                for name, _size, png in SpriteService.resized_sheet_frames(
-                    image, rows, columns, target_width, target_height,
-                    auto_anchor=auto_anchor, trim_outer_padding=trim_outer_padding,
-                    x_cuts=x_cuts, y_cuts=y_cuts,
-                )
-            ]
-            return {
-                "status": "success",
-                "target_width": target_width,
-                "target_height": target_height,
-                "frame_count": len(resized_frames),
-                "frames": resized_frames
-            }
+        with image_proc_concurrency:
+            with Image.open(file.file) as source:
+                image = ImageOps.exif_transpose(source)
+                try:
+                    resized_frames = [
+                        {"name": name, "width": target_width, "height": target_height,
+                         "png": b64encode(png).decode("ascii")}
+                        for name, _size, png in SpriteService.resized_sheet_frames(
+                            image, rows, columns, target_width, target_height,
+                            auto_anchor=auto_anchor, trim_outer_padding=trim_outer_padding,
+                            x_cuts=x_cuts, y_cuts=y_cuts,
+                        )
+                    ]
+                    return {
+                        "status": "success",
+                        "target_width": target_width,
+                        "target_height": target_height,
+                        "frame_count": len(resized_frames),
+                        "frames": resized_frames
+                    }
+                finally:
+                    image.close()
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
     except (OSError, Image.DecompressionBombError) as error:
@@ -248,25 +277,33 @@ async def normalize_sprite(
     target_width: int = Form(64),
     target_height: int = Form(64),
     anchor: str = Form("bottom_center"),
-    ground_y: Optional[int] = Form(None)
+    ground_y: Optional[int] = Form(None),
+    http_request: Request = None,
+    current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional),
 ):
     """
     Chuẩn hóa kích thước khung hình sprite, cắt viền thừa và căn lề điểm neo.
     Hỗ trợ căn chỉnh thông minh theo mốc chân tiếp đất sinh học (ground_y) do AI phát hiện.
     """
     _validate_image_upload(file)
+    if http_request is not None and hasattr(http_request, "headers"):
+        check_rate_limit(http_request, scope="image_proc", max_requests=RATE_LIMIT_IMAGE_PROC, current_user=current_user)
 
     try:
         contents = await file.read()
-        png_bytes = await run_in_threadpool(
-            SpriteService.normalize_image_bytes,
-            image_bytes=contents,
-            target_width=target_width,
-            target_height=target_height,
-            anchor=anchor,
-            ground_y=ground_y
-        )
-        return Response(content=png_bytes, media_type="image/png")
+        validate_upload_file_size(contents)
+        with image_proc_concurrency:
+            png_bytes = await run_in_threadpool(
+                SpriteService.normalize_image_bytes,
+                image_bytes=contents,
+                target_width=target_width,
+                target_height=target_height,
+                anchor=anchor,
+                ground_y=ground_y
+            )
+            return Response(content=png_bytes, media_type="image/png")
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lỗi khi xử lý sprite: {str(e)}")
 
@@ -275,27 +312,33 @@ async def normalize_sprite(
 async def analyze_character(
     file: UploadFile = File(...),
     auto_remove_bg: bool = Form(True),
+    http_request: Request = None,
+    current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional),
 ):
     """Đo tỷ lệ và tạo lớp phủ bằng các thuật toán Python."""
     _validate_image_upload(file)
+    if http_request is not None and hasattr(http_request, "headers"):
+        check_rate_limit(http_request, scope="image_proc", max_requests=RATE_LIMIT_IMAGE_PROC, current_user=current_user)
 
     try:
         contents = await file.read()
+        validate_upload_file_size(contents)
 
         def _perform_analysis():
-            with Image.open(io.BytesIO(contents)) as source:
-                image = ImageOps.exif_transpose(source)
+            with image_proc_concurrency:
+                with Image.open(io.BytesIO(contents)) as source:
+                    image = ImageOps.exif_transpose(source)
 
-            try:
-                metrics, message, annotated_b64 = AnatomyService.analyze_sprite( #metrics chứa dữ liệu đầu , cổ, chân ở python đã tính
-                    image=image, auto_remove_bg=auto_remove_bg,
-                )
-                if not metrics:
-                    return None, message, None, None
-                regions = AnatomyService.measure_anatomy_regions(image, metrics, auto_remove_bg)
-                return metrics, message, annotated_b64, regions
-            finally:
-                image.close()
+                try:
+                    metrics, message, annotated_b64 = AnatomyService.analyze_sprite( #metrics chứa dữ liệu đầu , cổ, chân ở python đã tính
+                        image=image, auto_remove_bg=auto_remove_bg,
+                    )
+                    if not metrics:
+                        return None, message, None, None
+                    regions = AnatomyService.measure_anatomy_regions(image, metrics, auto_remove_bg)
+                    return metrics, message, annotated_b64, regions
+                finally:
+                    image.close()
 
         metrics, message, annotated_b64, regions = await run_in_threadpool(_perform_analysis)
 
@@ -324,32 +367,39 @@ def export_godot_package(
     move_speed: Annotated[float, Form(ge=10.0, le=1000.0)] = 120.0,
     character_name: Annotated[str, Form()] = "Player",
     auto_anchor: Annotated[bool, Form()] = True,
+    http_request: Request = None,
+    current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional),
 ):
     """
     Đóng gói toàn bộ tài nguyên nhân vật cho Godot Engine 4 (PNG, TRES, TSCN, GD) thành file ZIP.
     Đảm bảo tính chính xác 1:1 tuyệt đối về điểm neo đáy chân, tỷ lệ pixel và hộp va chạm CollisionShape2D.
     """
+    validate_sheet_grid_limits(rows, columns)
+    if http_request is not None and hasattr(http_request, "headers"):
+        check_rate_limit(http_request, scope="image_proc", max_requests=RATE_LIMIT_IMAGE_PROC, current_user=current_user)
+
     try:
-        with Image.open(file.file) as source:
-            image = ImageOps.exif_transpose(source)
-            try:
-                zip_bytes = GodotExportService.export_godot_package(
-                    image=image,
-                    rows=rows,
-                    columns=columns,
-                    fps=fps,
-                    move_speed=move_speed,
-                    character_name=character_name,
-                    auto_anchor=auto_anchor
+        with image_proc_concurrency:
+            with Image.open(file.file) as source:
+                image = ImageOps.exif_transpose(source)
+                try:
+                    zip_bytes = GodotExportService.export_godot_package(
+                        image=image,
+                        rows=rows,
+                        columns=columns,
+                        fps=fps,
+                        move_speed=move_speed,
+                        character_name=character_name,
+                        auto_anchor=auto_anchor
+                    )
+                finally:
+                    image.close()
+                clean_filename = f"{character_name.strip() or 'Player'}_godot4.zip"
+                return Response(
+                    zip_bytes,
+                    media_type="application/zip",
+                    headers={"Content-Disposition": f'attachment; filename="{clean_filename}"'}
                 )
-            finally:
-                image.close()
-            clean_filename = f"{character_name.strip() or 'Player'}_godot4.zip"
-            return Response(
-                zip_bytes,
-                media_type="application/zip",
-                headers={"Content-Disposition": f'attachment; filename="{clean_filename}"'}
-            )
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
     except Exception as error:
@@ -382,6 +432,7 @@ async def save_raw_sprite(
     file: UploadFile = File(...),
     project_id: int = Form(...),
     name: Optional[str] = Form(None),
+    http_request: Request = None,
     current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
@@ -389,10 +440,16 @@ async def save_raw_sprite(
     Lưu ảnh thô ban đầu vào MySQL với cơ chế băm SHA-256 chống lưu trùng lặp (có kiểm tra quyền sở hữu).
     Nếu ảnh đã tồn tại trong dự án, hệ thống trả về thông báo và ID hiện có mà không tạo bản ghi rác mới.
     """
+    if http_request is not None and hasattr(http_request, "headers"):
+        check_rate_limit(http_request, scope="upload", max_requests=RATE_LIMIT_UPLOAD, current_user=current_user)
+
     check_project_access(db, project_id, current_user)
     try:
         raw_bytes = await file.read()
+        validate_upload_file_size(raw_bytes)
         return await run_in_threadpool(sprite_workspace().save_raw, db, raw_bytes, file.filename, name, project_id)
+    except HTTPException:
+        raise
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Lỗi khi lưu ảnh gốc vào CSDL: {str(exc)}")
 
@@ -402,16 +459,23 @@ async def save_processed_sprite(
     sprite_id: int,
     file: UploadFile = File(...),
     project_id: int = Form(...),
+    http_request: Request = None,
     current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
     """
     Lưu trực tiếp ảnh sau khi đã tối ưu/chuẩn hóa vào cột processed_image_data (MEDIUMBLOB) trong MySQL (có kiểm tra quyền sở hữu).
     """
+    if http_request is not None and hasattr(http_request, "headers"):
+        check_rate_limit(http_request, scope="upload", max_requests=RATE_LIMIT_UPLOAD, current_user=current_user)
+
     check_project_access(db, project_id, current_user)
     try:
         proc_bytes = await file.read()
+        validate_upload_file_size(proc_bytes)
         return await run_in_threadpool(sprite_workspace().save_processed, db, proc_bytes, file.filename, sprite_id, project_id)
+    except HTTPException:
+        raise
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Lỗi khi lưu ảnh tối ưu: {str(exc)}")
 
@@ -476,6 +540,7 @@ async def save_sliced_pack(
     fps: Annotated[int, Form(description="Tốc độ khung hình hoạt họa")] = 6,
     target_width: Annotated[Optional[int], Form(description="Chiều rộng mục tiêu cho từng frame (nếu ép kích thước)")] = None,
     target_height: Annotated[Optional[int], Form(description="Chiều cao mục tiêu cho từng frame (nếu ép kích thước)")] = None,
+    http_request: Request = None,
     current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional),
     db: Session = Depends(get_db),
     x_cuts_json: Annotated[Optional[str], Form()] = None,
@@ -486,15 +551,23 @@ async def save_sliced_pack(
     - Bảng 'project_sprites': Lưu ảnh Sheet gốc hoặc Sheet đã ghép từ các frame đã ép kích thước, băm SHA-256 chống trùng và gán folder_name.
     - Bảng 'sprite_frames': Bóc tách từng ô frame (đã ép kích thước nếu có) và lưu nguyên tử trong cùng một phiên.
     """
+    validate_sheet_grid_limits(rows, columns, target_width, target_height)
+    if http_request is not None and hasattr(http_request, "headers"):
+        check_rate_limit(http_request, scope="upload", max_requests=RATE_LIMIT_UPLOAD, current_user=current_user)
+
     check_project_access(db, project_id, current_user)
     try:
         x_cuts, y_cuts = _parse_manual_grid(x_cuts_json, y_cuts_json)
         raw_bytes = await file.read()
-        return await run_in_threadpool(
-            sprite_workspace().save_sliced_pack,
-            db, raw_bytes, file.filename, project_id, rows, columns, folder_name,
-            auto_anchor, fps, target_width, target_height, x_cuts, y_cuts,
-        )
+        validate_upload_file_size(raw_bytes)
+        with image_proc_concurrency:
+            return await run_in_threadpool(
+                sprite_workspace().save_sliced_pack,
+                db, raw_bytes, file.filename, project_id, rows, columns, folder_name,
+                auto_anchor, fps, target_width, target_height, x_cuts, y_cuts,
+            )
+    except HTTPException:
+        raise
     except ValueError as exc:
         if x_cuts_json is not None or y_cuts_json is not None:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
