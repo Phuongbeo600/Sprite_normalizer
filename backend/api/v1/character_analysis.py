@@ -25,6 +25,8 @@ from PIL import Image, ImageOps
 # ========================================================
 # 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Services, Database & Schemas)
 # ========================================================
+# AiProviderError: Ngoại lệ chuẩn hóa từ các nhà cung cấp AI
+from backend.providers.base import AiProviderError
 # CharacterAnalysisService: Dịch vụ phân tích nhân vật theo phân hệ Tab
 from backend.services.character.character_analysis_service import CharacterAnalysisService
 # generate_style_prompt: Phân tích cách vẽ dựa trên ảnh và số đo Python.
@@ -78,11 +80,13 @@ def get_vision_status(project_id: Optional[int] = None):
     credentials = _resolve_project_api_key(project_id, None, None, None)# Đi tìm bộ thông tin xác thực (API key,provider)
     key, provider, _ = CharacterAnalysisService._resolve_credentials(*credentials)
     ready = provider in VISION_PROVIDERS and bool((key or "").strip()) and ai_enabled
+    active_model = AiCredentialsService.resolve_model(provider=provider, project_id=project_id, model_type="vision")
     return {
         "provider": provider,
         "ready": ready,
         "ai_enabled": ai_enabled,
-        "gemini_ready": provider == "gemini" and ready
+        "gemini_ready": provider == "gemini" and ready,
+        "model": active_model
     }
 
 
@@ -91,6 +95,10 @@ async def generate_reference_style_prompt(
     file: Annotated[UploadFile, File()],#lấy ảnh nạp lên từ người dùng
     python_metrics_json: Annotated[str, Form(max_length=12000)],#Annotated dùng để kẹp luật đi kèm, kiểu là str, độ dài tối đa 12k
     project_id: Annotated[Optional[int], Form()] = None,
+    api_key: Annotated[Optional[str], Form()] = None,
+    provider: Annotated[Optional[str], Form()] = None,
+    base_url: Annotated[Optional[str], Form()] = None,
+    model: Annotated[Optional[str], Form()] = None,
 ) -> ReferenceStylePrompt:
     """Tạo chỉ dẫn phong cách từ ảnh đã chọn và các số đo của Studio."""
     if project_id and not AiCredentialsService.is_ai_enabled(project_id):
@@ -99,9 +107,9 @@ async def generate_reference_style_prompt(
             detail="Tính năng AI đang bị tắt trong Cài đặt dự án. Vui lòng bật lại công tắc AI trước khi thực hiện."
         )
 
-    credentials = await run_in_threadpool(_resolve_project_api_key, project_id, None, None, None)
-    key, provider, base_url = CharacterAnalysisService._resolve_credentials(*credentials)
-    if provider not in VISION_PROVIDERS or not (key or "").strip():
+    credentials = await run_in_threadpool(_resolve_project_api_key, project_id, api_key, provider, base_url)
+    key, eff_provider, eff_base_url = CharacterAnalysisService._resolve_credentials(*credentials)
+    if eff_provider not in VISION_PROVIDERS or not (key or "").strip():
         raise HTTPException(status_code=409, detail="Chưa cấu hình khóa API cho nhà cung cấp đã chọn.")
 
     try:
@@ -118,8 +126,13 @@ async def generate_reference_style_prompt(
     except (OSError, ValueError, Image.DecompressionBombError) as error:
         raise HTTPException(status_code=400, detail="Không đọc được ảnh sprite.") from error
 
+    eff_model = AiCredentialsService.resolve_model(provider=eff_provider, model=model, project_id=project_id, model_type="vision")
     try:
-        return await run_in_threadpool(generate_style_prompt, image, metrics, key.strip(), provider, base_url)
+        return await run_in_threadpool(
+            generate_style_prompt, image, metrics, key.strip(), eff_provider, eff_base_url, eff_model
+        )
+    except AiProviderError as ape:
+        raise HTTPException(status_code=ape.status_code, detail=ape.message)
     except (ValueError, RuntimeError) as error:
         raise HTTPException(
             status_code=502, detail="Nhà cung cấp AI chưa trả được đoạn phong cách hợp lệ. Hãy thử lại.",
@@ -134,6 +147,7 @@ async def analyze_character_tab(
     api_key: Optional[str] = Form(None),
     provider: Optional[str] = Form(None),
     base_url: Optional[str] = Form(None),
+    model: Optional[str] = Form(None),
     current_profile_json: Optional[str] = Form(None),
     vision_only: Annotated[bool, Form()] = False,
 ):
@@ -163,13 +177,17 @@ async def analyze_character_tab(
             image = source.convert("RGBA")
         if tab_name.lower().strip() not in {"global", "directions", "animations", "constraints", "all"}:
             raise HTTPException(status_code=400, detail=f"Tab '{tab_name}' không hợp lệ.")
+
+        eff_model = AiCredentialsService.resolve_model(provider=eff_prov, model=model, project_id=project_id, model_type="vision")
         return await run_in_threadpool(
             CharacterAnalysisService.analyze_profile, image, tab_name, eff_key, eff_prov, eff_base,
-            current_profile_json, vision_only,
+            current_profile_json, vision_only, model=eff_model,
         )
 
     except HTTPException:
         raise
+    except AiProviderError as ape:
+        raise HTTPException(status_code=ape.status_code, detail=ape.message)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lỗi khi phân tích hồ sơ nhân vật: {str(e)}")
 

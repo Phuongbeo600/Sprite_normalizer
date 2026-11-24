@@ -70,6 +70,8 @@ export default function App() {
   // Dữ liệu prompt & negative prompt chuyển từ Studio sang Tạo ảnh AI
   const [imageGenPrompt, setImageGenPrompt] = useState('');
   const [imageGenNegativePrompt, setImageGenNegativePrompt] = useState('');
+  // Ảnh mẫu tham chiếu được chuyển tiếp từ Studio sang Tạo ảnh AI
+  const [imageGenReferenceImage, setImageGenReferenceImage] = useState(null);
   // Tệp ảnh được chuyển tiếp từ Tạo ảnh AI hoặc Studio sang Workspace hoặc Godot
   const [transferredImageForWorkspace, setTransferredImageForWorkspace] = useState(null);
   // Dữ liệu bảng màu đầy đủ đã phân tích chuyển tiếp sang Workspace để tái sử dụng ngay
@@ -104,14 +106,16 @@ export default function App() {
   };
 
   /**
-   * Chuyển prompt và negative prompt từ màn hình Phân tích sang màn hình Tạo ảnh AI.
+   * Chuyển prompt, negative prompt và ảnh mẫu từ màn hình Phân tích sang màn hình Tạo ảnh AI.
    * 
    * @param {string} promptText Nội dung prompt cần tạo ảnh.
    * @param {string} [negativePromptText] Nội dung lệnh cấm cần loại trừ.
+   * @param {File|string|null} [referenceImage] Tệp hoặc Data URL ảnh mẫu tham chiếu.
    */
-  const handleSendPromptToImageGen = (promptText, negativePromptText = '') => {
+  const handleSendPromptToImageGen = (promptText, negativePromptText = '', referenceImage = null) => {
     setImageGenPrompt(promptText);
     setImageGenNegativePrompt(negativePromptText || '');
+    setImageGenReferenceImage(referenceImage);
     setActiveTab('image_gen');
   };
 
@@ -277,6 +281,7 @@ export default function App() {
                 isAiEnabled={isAiEnabled}
                 imageGenPrompt={imageGenPrompt}
                 imageGenNegativePrompt={imageGenNegativePrompt}
+                imageGenReferenceImage={imageGenReferenceImage}
                 transferredImageForWorkspace={transferredImageForWorkspace}
                 transferredPaletteForWorkspace={transferredPaletteForWorkspace}
                 transferredSheetDataForWorkspace={transferredSheetDataForWorkspace}

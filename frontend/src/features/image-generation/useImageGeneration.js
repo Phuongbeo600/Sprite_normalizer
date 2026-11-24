@@ -9,7 +9,7 @@ import { requestImageGenerationStatus, requestGenerateImages } from './imageGene
 // 4. ĐỊNH DẠNG GIAO DIỆN / CẤU HÌNH (Không sử dụng)
 
 /** Giữ trạng thái form, yêu cầu tạo ảnh và bộ sưu tập cùng phiên hiện tại. */
-export function useImageGeneration({ currentProject, incomingPrompt, incomingNegativePrompt }) {
+export function useImageGeneration({ currentProject, incomingPrompt, incomingNegativePrompt, incomingImage }) {
   // Trạng thái cấu hình API Key đọc từ hệ thống (0 Token)
   const [configStatus, setConfigStatus] = useState(null); // Biến nhận trạng thái xem đã có api key chưa
   const [checkingConfig, setCheckingConfig] = useState(true); // Cờ báo hiệu đang hỏi backend
@@ -18,6 +18,10 @@ export function useImageGeneration({ currentProject, incomingPrompt, incomingNeg
   const [prompt, setPrompt] = useState(incomingPrompt || '');
   const [negativePrompt, setNegativePrompt] = useState(incomingNegativePrompt || '');
   const [selectedPreset, setSelectedPreset] = useState('');
+
+  // Ảnh mẫu tham chiếu (dạng Base64 Data URL để gửi kèm prompt cho AI)
+  const [referenceImage, setReferenceImage] = useState(null);
+  const [referenceImageName, setReferenceImageName] = useState('');
 
   // Trạng thái sinh ảnh
   const [generating, setGenerating] = useState(false);
@@ -28,6 +32,33 @@ export function useImageGeneration({ currentProject, incomingPrompt, incomingNeg
   const [generatedGallery, setGeneratedGallery] = useState([]);
   // Xem chi tiết ảnh phóng to
   const [modalImage, setModalImage] = useState(null);
+
+  // Chuyển đổi đối tượng File hoặc Blob sang chuỗi Base64 Data URL
+  const convertFileToDataUrl = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = (err) => reject(err);
+      reader.readAsDataURL(file);
+    });
+  };
+
+  // Đồng bộ ảnh mẫu tham chiếu nếu được chuyển từ Studio sang
+  useEffect(() => {
+    if (incomingImage) {
+      if (typeof incomingImage === 'string') {
+        setReferenceImage(incomingImage);
+        setReferenceImageName('Ảnh sprite mẫu từ Studio');
+      } else if (incomingImage instanceof File || incomingImage instanceof Blob) {
+        convertFileToDataUrl(incomingImage)
+          .then((dataUrl) => {
+            setReferenceImage(dataUrl);
+            setReferenceImageName(incomingImage.name || 'Ảnh sprite mẫu tham chiếu');
+          })
+          .catch((err) => console.warn('Lỗi đọc ảnh mẫu tham chiếu:', err));
+      }
+    }
+  }, [incomingImage]);
 
   // Cập nhật prompt nếu có dữ liệu chuyển từ tab Phân tích sang
   useEffect(() => {
@@ -42,6 +73,27 @@ export function useImageGeneration({ currentProject, incomingPrompt, incomingNeg
       setNegativePrompt(incomingNegativePrompt.trim());
     }
   }, [incomingNegativePrompt]);
+
+  // Tải ảnh mẫu trực tiếp từ máy tính lên
+  const handleUploadReferenceImage = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      convertFileToDataUrl(file)
+        .then((dataUrl) => {
+          setReferenceImage(dataUrl);
+          setReferenceImageName(file.name);
+        })
+        .catch((err) => {
+          setErrorMsg('Không thể đọc tệp ảnh mẫu tải lên.');
+        });
+    }
+  };
+
+  // Xóa ảnh mẫu tham chiếu nếu chỉ muốn tạo ảnh từ văn bản thuần túy
+  const handleClearReferenceImage = () => {
+    setReferenceImage(null);
+    setReferenceImageName('');
+  };
 
   // Kiểm tra cấu hình API hiện hành (hoàn toàn ngoại tuyến, không tốn token)
   const fetchApiStatus = async () => {
@@ -97,7 +149,8 @@ export function useImageGeneration({ currentProject, incomingPrompt, incomingNeg
         project_id: currentProject?.id || null,
         aspect_ratio: '1:1',
         number_of_images: 1,
-        style_preset: selectedPreset || null
+        style_preset: selectedPreset || null,
+        image: referenceImage || null
       };
 
       const resp = await requestGenerateImages(payload);
@@ -123,5 +176,26 @@ export function useImageGeneration({ currentProject, incomingPrompt, incomingNeg
     }
   };
 
-  return { configStatus, checkingConfig, prompt, setPrompt, negativePrompt, setNegativePrompt, generating, errorMsg, successMsg, generatedGallery, setGeneratedGallery, modalImage, setModalImage, handleApplyStyleTag, handleGenerateImage };
+  return {
+    configStatus,
+    checkingConfig,
+    prompt,
+    setPrompt,
+    negativePrompt,
+    setNegativePrompt,
+    referenceImage,
+    setReferenceImage,
+    referenceImageName,
+    handleUploadReferenceImage,
+    handleClearReferenceImage,
+    generating,
+    errorMsg,
+    successMsg,
+    generatedGallery,
+    setGeneratedGallery,
+    modalImage,
+    setModalImage,
+    handleApplyStyleTag,
+    handleGenerateImage
+  };
 }

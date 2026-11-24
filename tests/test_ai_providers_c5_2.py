@@ -27,6 +27,7 @@ from backend.providers.image_gen import (
     ImageGenProviderFactory
 )
 # Vision & Text Providers
+from backend.providers.base import AiProviderError
 from backend.providers.gemini_provider import GeminiProvider
 from backend.providers.openai_provider import OpenAiProvider
 # ImageGenService: Dịch vụ điều phối tạo ảnh
@@ -323,8 +324,40 @@ class TestImageGenService(unittest.TestCase):
             negative_prompt="modern, 3D",
             aspect_ratio="1:1",
             number_of_images=1,
-            base_url=None
+            base_url=None,
+            model=None,
+            image=None
         )
+
+    @patch("backend.services.ai_credentials_service.AiCredentialsService.is_ai_enabled", return_value=True)
+    @patch("backend.services.image_gen_service.ImageGenService.resolve_credentials", return_value=("test-key-123", "gemini", None))
+    @patch("backend.providers.image_gen.GeminiImagenProvider.generate_images")
+    def test_orchestration_with_reference_image_injects_hidden_prompt(self, mock_gemini_gen, mock_res, mock_ai_on):
+        """Kiểm tra truyền ảnh mẫu tham chiếu sẽ tự động tiêm prompt ẩn yêu cầu AI căn cứ vào ảnh mẫu."""
+        mock_gemini_gen.return_value = ImageGenResponse(
+            status="success",
+            message="OK",
+            provider_used="gemini",
+            model_used="imagen-3.0-generate-002",
+            images=[]
+        )
+
+        dummy_b64 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+        req = ImageGenRequest(
+            project_id=1,
+            prompt="warrior knight",
+            image=dummy_b64,
+            aspect_ratio="1:1",
+            number_of_images=1
+        )
+        res = ImageGenService.generate_images(req)
+
+        self.assertEqual(res.status, "success")
+        # Kiểm tra prompt thực tế gửi xuống provider có chứa chỉ dẫn ẩn bắt buộc
+        called_args, called_kwargs = mock_gemini_gen.call_args
+        self.assertIn("Đây là ảnh mẫu tham chiếu", called_kwargs["prompt"])
+        self.assertIn("warrior knight", called_kwargs["prompt"])
+        self.assertEqual(called_kwargs["image"], "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==")
 
 
 class TestVisionAndTextProviders(unittest.TestCase):
@@ -347,6 +380,10 @@ class TestVisionAndTextProviders(unittest.TestCase):
         ok, msg = self.gemini.test_connection("valid-key")
         self.assertTrue(ok)
         self.assertIn("thành công", msg)
+        mock_post.assert_called_once()
+        call_headers = mock_post.call_args.kwargs.get("headers", {})
+        self.assertEqual(call_headers.get("x-goog-api-key"), "valid-key")
+        self.assertNotIn("?key=", mock_post.call_args.args[0])
 
     @patch("requests.post")
     def test_gemini_analyze_vision(self, mock_post):
@@ -361,7 +398,96 @@ class TestVisionAndTextProviders(unittest.TestCase):
 
         data = self.gemini.analyze_vision(self.dummy_image, "gemini-key", "analyze")
         self.assertEqual(data["box_2d"], [0, 0, 32, 48])
-        self.assertEqual(data["model_used"], "gemini-flash-lite-latest")
+        self.assertEqual(data["model_used"], "gemini-2.5-flash")
+
+    @patch("requests.post")
+    def test_gemini_analyze_vision_custom_model(self, mock_post):
+        """Kiểm tra chỉ định model cụ thể được tôn trọng và không fallback."""
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {
+            "candidates": [
+                {"content": {"parts": [{"text": '{"box_2d": [10, 10, 20, 20]}'}]}}
+            ]
+        }
+        mock_post.return_value = mock_resp
+
+        data = self.gemini.analyze_vision(self.dummy_image, "gemini-key", "analyze", model="gemini-2.5-pro")
+        self.assertEqual(data["model_used"], "gemini-2.5-pro")
+        self.assertIn("gemini-2.5-pro", mock_post.call_args.args[0])
+
+    @patch("requests.post")
+    def test_gemini_error_403_billing(self, mock_post):
+        """Kiểm tra phản hồi 403 Billing bóc tách thông điệp rõ ràng."""
+        mock_resp = MagicMock()
+        mock_resp.status_code = 403
+        mock_resp.text = '{"error": {"code": 403, "message": "The Gemini API free tier is not available for this project. To use the Gemini API, please set up billing."}}'
+        mock_resp.json.return_value = {
+            "error": {"code": 403, "message": "The Gemini API free tier is not available for this project. To use the Gemini API, please set up billing."}
+        }
+        mock_post.return_value = mock_resp
+
+        with self.assertRaises(AiProviderError) as ctx:
+            self.gemini.analyze_vision(self.dummy_image, "gemini-key", "analyze", model="gemini-2.5-flash")
+        self.assertEqual(ctx.exception.status_code, 403)
+        self.assertIn("Billing", ctx.exception.message)
+
+    @patch("requests.post")
+    def test_gemini_error_401_invalid_key(self, mock_post):
+        """Kiểm tra phản hồi 401 ném AiProviderError với status 401."""
+        mock_resp = MagicMock()
+        mock_resp.status_code = 401
+        mock_resp.text = '{"error": {"code": 401, "message": "API key not valid"}}'
+        mock_resp.json.return_value = {"error": {"code": 401, "message": "API key not valid"}}
+        mock_post.return_value = mock_resp
+
+        with self.assertRaises(AiProviderError) as ctx:
+            self.gemini.analyze_vision(self.dummy_image, "bad-key", "analyze")
+        self.assertEqual(ctx.exception.status_code, 401)
+        self.assertIn("401", ctx.exception.message)
+
+    @patch("requests.post")
+    def test_gemini_error_404_model_not_found(self, mock_post):
+        """Kiểm tra phản hồi 404 mô hình không tồn tại."""
+        mock_resp = MagicMock()
+        mock_resp.status_code = 404
+        mock_resp.text = '{"error": {"code": 404, "message": "models/gemini-old is not found"}}'
+        mock_resp.json.return_value = {"error": {"code": 404, "message": "models/gemini-old is not found"}}
+        mock_post.return_value = mock_resp
+
+        with self.assertRaises(AiProviderError) as ctx:
+            self.gemini.analyze_vision(self.dummy_image, "gemini-key", "analyze", model="gemini-old")
+        self.assertEqual(ctx.exception.status_code, 404)
+        self.assertIn("404", ctx.exception.message)
+
+    @patch("requests.post")
+    def test_gemini_error_429_quota(self, mock_post):
+        """Kiểm tra phản hồi 429 vượt hạn mức quota."""
+        mock_resp = MagicMock()
+        mock_resp.status_code = 429
+        mock_resp.text = '{"error": {"code": 429, "message": "Resource has been exhausted"}}'
+        mock_resp.json.return_value = {"error": {"code": 429, "message": "Resource has been exhausted"}}
+        mock_post.return_value = mock_resp
+
+        with self.assertRaises(AiProviderError) as ctx:
+            self.gemini.analyze_vision(self.dummy_image, "gemini-key", "analyze", model="gemini-2.5-flash")
+        self.assertEqual(ctx.exception.status_code, 429)
+        self.assertIn("429", ctx.exception.message)
+
+    @patch("requests.post")
+    def test_gemini_no_leaked_key_in_error(self, mock_post):
+        """Kiểm tra khóa API không bị rò rỉ trong thông điệp lỗi."""
+        mock_resp = MagicMock()
+        mock_resp.status_code = 400
+        secret_key = "AIzaSySecretKey12345"
+        mock_resp.text = f'{{"error": {{"code": 400, "message": "Bad request with key {secret_key}"}}}}'
+        mock_resp.json.return_value = {"error": {"code": 400, "message": f"Bad request with key {secret_key}"}}
+        mock_post.return_value = mock_resp
+
+        with self.assertRaises(AiProviderError) as ctx:
+            self.gemini.analyze_vision(self.dummy_image, secret_key, "analyze", model="gemini-2.5-flash")
+        self.assertNotIn(secret_key, ctx.exception.message)
+        self.assertIn("[REDACTED_API_KEY]", ctx.exception.message)
 
     @patch("requests.post")
     def test_openai_connection(self, mock_post):
@@ -384,6 +510,20 @@ class TestVisionAndTextProviders(unittest.TestCase):
         data = self.openai.generate_json("generate prompt", "openai-key")
         self.assertEqual(data["prompt"], "pixel hero")
         self.assertIn("OpenAI", data["model_used"])
+
+    @patch("requests.post")
+    def test_openai_error_401(self, mock_post):
+        """Kiểm tra OpenAI phản hồi 401 ném AiProviderError."""
+        mock_resp = MagicMock()
+        mock_resp.status_code = 401
+        mock_resp.text = '{"error": {"message": "Incorrect API key provided"}}'
+        mock_resp.json.return_value = {"error": {"message": "Incorrect API key provided"}}
+        mock_post.return_value = mock_resp
+
+        with self.assertRaises(AiProviderError) as ctx:
+            self.openai.generate_json("prompt", "bad-key", model="gpt-4o-mini")
+        self.assertEqual(ctx.exception.status_code, 401)
+        self.assertIn("401", ctx.exception.message)
 
 
 if __name__ == "__main__":

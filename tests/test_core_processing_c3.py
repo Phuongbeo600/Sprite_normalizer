@@ -157,7 +157,7 @@ class TestCoreProcessingC3(unittest.TestCase):
         sheet.putpixel((10, 40), (0, 0, 255, 255))
         sheet.putpixel((40, 40), (255, 255, 0, 255))
 
-        frames = list(slice_sheet(sheet, rows=2, columns=2, auto_anchor=True))
+        frames = list(slice_sheet(sheet, rows=2, columns=2, auto_anchor=True, trim_outer_padding=False))
         self.assertEqual(len(frames), 4)
         for frame in frames:
             self.assertEqual(frame.size, (32, 32))

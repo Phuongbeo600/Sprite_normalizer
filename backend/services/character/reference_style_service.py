@@ -58,13 +58,17 @@ Viết ít câu hơn nếu chỉ tìm được ít đặc điểm đáng giữ. 
 
 
 def generate_style_prompt(
-    image: Image.Image, python_metrics: dict, api_key: str,
-    provider: Literal["gemini", "openai"], base_url: Optional[str] = None,
+    image: Image.Image,
+    python_metrics: dict,
+    api_key: str,
+    provider: Literal["gemini", "openai"],
+    base_url: Optional[str] = None,
+    model: Optional[str] = None,
 ) -> ReferenceStylePrompt:
-    """Gửi ảnh và số đo đến nhà cung cấp đã chọn rồi kiểm tra kết quả."""
+    """Gửi ảnh và số đo đến nhà cung cấp đã chọn kèm mô hình chỉ định rồi kiểm tra kết quả."""
     prompt = STYLE_PROMPT_TEMPLATE.replace(
         "{python_metrics_json}", json.dumps(python_metrics, ensure_ascii=False, indent=2),
     )
     ai_provider = AiProviderFactory.get_provider(provider)
-    response = ai_provider.analyze_vision(image, api_key, prompt, base_url=base_url)
+    response = ai_provider.analyze_vision(image, api_key, prompt, base_url=base_url, model=model)
     return ReferenceStylePrompt.model_validate({**response, "provider": provider})

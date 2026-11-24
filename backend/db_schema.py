@@ -23,6 +23,9 @@ def ensure_project_columns(conn_or_session):
         ("openai_api_key", "TEXT NULL"),
         ("openai_base_url", "VARCHAR(255) DEFAULT 'https://api.openai.com/v1'"),
         ("ai_enabled", "BOOLEAN DEFAULT TRUE"),
+        ("vision_model", "VARCHAR(100) NULL"),
+        ("image_gen_model", "VARCHAR(100) NULL"),
+        ("chat_model", "VARCHAR(100) NULL"),
         ("user_id", "INT NULL")
     ]
     for col_name, col_type in columns_to_ensure:

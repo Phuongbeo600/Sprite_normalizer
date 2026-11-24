@@ -34,3 +34,4 @@ class ChatStreamRequest(BaseModel):
     provider: Optional[str] = Field(None, description="Tên nhà cung cấp AI ('gemini', 'openai', 'deepseek', v.v.)")
     api_key: Optional[str] = Field(None, description="Khóa API truyền trực tiếp từ client (tùy chọn)")
     base_url: Optional[str] = Field(None, description="Địa chỉ máy chủ tùy biến (áp dụng cho OpenAI/Proxy/Local Ollama)")
+    model: Optional[str] = Field(None, description="Mô hình AI chỉ định cho hội thoại (tùy chọn)")

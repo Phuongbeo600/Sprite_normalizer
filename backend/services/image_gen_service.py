@@ -78,6 +78,7 @@ class ImageGenService:
         has_key = bool(key and key.strip())
         masked_key = SettingsService.mask_api_key(key) if has_key else ""
         ai_enabled = AiCredentialsService.is_ai_enabled(project_id)
+        active_model = AiCredentialsService.resolve_model(provider=provider, project_id=project_id, model_type="image_gen")
 
         return {
             "status": "success",
@@ -86,7 +87,8 @@ class ImageGenService:
             "masked_key": masked_key,
             "ready": has_key and ai_enabled,
             "ai_enabled": ai_enabled,
-            "base_url": base_url if provider == "openai" else None
+            "base_url": base_url if provider == "openai" else None,
+            "model": active_model
         }
 
     @classmethod
@@ -126,7 +128,29 @@ class ImageGenService:
             prompt_parts.append(f"Style: {request.style_preset.strip()}")
         full_prompt = ", ".join(prompt_parts)
 
-        # 4. Ủy quyền cho Provider chuyên trách thông qua Factory (Áp dụng Strategy Pattern)
+        # 3.1. Xử lý ảnh mẫu tham chiếu và tiêm chỉ dẫn ẩn ở backend (không hiển thị cho người dùng)
+        clean_image_b64 = None
+        if request.image and request.image.strip():
+            raw_img = request.image.strip()
+            clean_image_b64 = raw_img.split(",", 1)[1] if "," in raw_img else raw_img
+            # Đoạn prompt ẩn bắt buộc ở tầng backend: thông báo đây là ảnh mẫu và yêu cầu dựa vào ảnh + prompt
+            hidden_reference_instruction = (
+                "Đây là ảnh mẫu tham chiếu (reference sample image). "
+                "Hãy dựa vào phong cách pixel art, tỷ lệ giải phẫu, trang phục và màu sắc của ảnh mẫu này, "
+                "kết hợp chặt chẽ với mô tả chi tiết trong prompt sau để tạo ra sprite hoàn chỉnh: "
+            )
+            full_prompt = f"{hidden_reference_instruction}{full_prompt}"
+
+        # 4. Giải quyết model tạo ảnh: ưu tiên từ request -> cấu hình project trong CSDL
+        selected_model = request.model
+        if not selected_model and request.project_id:
+            selected_model = AiCredentialsService.resolve_model(
+                provider=provider,
+                project_id=request.project_id,
+                model_type="image_gen"
+            )
+
+        # 5. Ủy quyền cho Provider chuyên trách thông qua Factory (Áp dụng Strategy Pattern)
         clean_neg_prompt = request.negative_prompt.strip() if request.negative_prompt else None
         provider_instance = ImageGenProviderFactory.get_provider(provider)
 
@@ -136,7 +160,9 @@ class ImageGenService:
             negative_prompt=clean_neg_prompt,
             aspect_ratio=request.aspect_ratio,
             number_of_images=request.number_of_images,
-            base_url=base_url
+            base_url=base_url,
+            model=selected_model,
+            image=clean_image_b64
         )
 
     # ========================================================
@@ -150,7 +176,8 @@ class ImageGenService:
         prompt: str,
         negative_prompt: Optional[str],
         aspect_ratio: str,
-        number_of_images: int
+        number_of_images: int,
+        image: Optional[str] = None
     ) -> ImageGenResponse:
         """Phương thức tương thích ngược ủy quyền sang GeminiImagenProvider."""
         return GeminiImagenProvider().generate_images(
@@ -158,7 +185,8 @@ class ImageGenService:
             prompt=prompt,
             negative_prompt=negative_prompt,
             aspect_ratio=aspect_ratio,
-            number_of_images=number_of_images
+            number_of_images=number_of_images,
+            image=image
         )
 
     @classmethod
@@ -169,7 +197,8 @@ class ImageGenService:
         prompt: str,
         negative_prompt: Optional[str],
         aspect_ratio: str,
-        number_of_images: int
+        number_of_images: int,
+        image: Optional[str] = None
     ) -> ImageGenResponse:
         """Phương thức tương thích ngược ủy quyền sang OpenAiDalleProvider."""
         return OpenAiDalleProvider().generate_images(
@@ -178,5 +207,6 @@ class ImageGenService:
             negative_prompt=negative_prompt,
             aspect_ratio=aspect_ratio,
             number_of_images=number_of_images,
-            base_url=base_url
+            base_url=base_url,
+            image=image
         )

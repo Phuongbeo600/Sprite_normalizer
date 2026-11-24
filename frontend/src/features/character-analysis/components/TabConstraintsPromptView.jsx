@@ -60,7 +60,8 @@ export default function TabConstraintsPromptView({
   savingPreset,
   saveSuccessMsg,
   initialConfig,
-  onSendPromptToImageGen
+  onSendPromptToImageGen,
+  referenceFile = null
 }) {
   const {
     concept, setConcept, outfitAndColors, setOutfitAndColors, weaponsAndProps, setWeaponsAndProps, statureRule, setStatureRule, targetDir, vietnameseBackup, translatingInputs, frameActions, setInheritScale, setInheritStyle, setReusePalette, palette, referenceStyle, stylePrompt, hasPalette, hasGeometry, hasStyle, keepsStyle, keepsScale, keepsPalette, defaultMasterColorPrompt, masterColorPrompt, setMasterColorPrompt, liveNegativePrompt, appliedReference, handleChangeFrame, handleResetDirection, handleTranslateInputsToEnglish, handleRestoreVietnameseInputs, livePositivePrompt
@@ -319,8 +320,8 @@ export default function TabConstraintsPromptView({
                   <button
                     type="button"
                     className="atelier-btn-amber-send"
-                    onClick={() => onSendPromptToImageGen(livePositivePrompt, liveNegativePrompt)}
-                    title="Gửi câu Prompt kèm trọn bộ Lệnh cấm sang mục Tạo ảnh AI để sinh ảnh trực tiếp"
+                    onClick={() => onSendPromptToImageGen(livePositivePrompt, liveNegativePrompt, referenceFile)}
+                    title="Gửi câu Prompt kèm trọn bộ Lệnh cấm và ảnh mẫu tham chiếu sang mục Tạo ảnh AI để sinh ảnh trực tiếp"
                   >
                     <Sparkles size={14} color="#facc15" />
                     <span>Gửi sang Tạo ảnh AI</span>

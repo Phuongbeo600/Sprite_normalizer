@@ -26,6 +26,19 @@ from PIL import Image
 # (Không áp dụng cho file backend)
 
 
+class AiProviderError(RuntimeError):
+    """
+    Ngoại lệ chuẩn hóa cho các lỗi trả về từ nhà cung cấp AI bên thứ ba.
+    Bao gồm mã lỗi HTTP (status_code), thông điệp đã làm sạch và tên nhà cung cấp.
+    """
+
+    def __init__(self, message: str, status_code: int = 502, provider: str = "ai"):
+        super().__init__(message)
+        self.message = message
+        self.status_code = status_code
+        self.provider = provider
+
+
 class BaseAiProvider(ABC):
     """
     Interface cơ sở trừu tượng cho tất cả các nhà cung cấp trí tuệ nhân tạo (AI Providers).
@@ -35,12 +48,18 @@ class BaseAiProvider(ABC):
     """
 
     @abstractmethod
-    def test_connection(self, api_key: str, base_url: Optional[str] = None) -> Tuple[bool, str]:
+    def test_connection(
+        self,
+        api_key: str,
+        base_url: Optional[str] = None,
+        model: Optional[str] = None
+    ) -> Tuple[bool, str]:
         """
         Kiểm tra tính hợp lệ và khả năng kết nối của API Key.
 
         @param {str} api_key Khóa API cần kiểm tra.
         @param {Optional[str]} base_url Địa chỉ máy chủ (dành cho proxy hoặc custom gateway).
+        @param {Optional[str]} model Tên mô hình AI tùy chọn để kiểm tra.
         @returns {Tuple[bool, str]} (Thành công/Thất bại, Thông điệp giải thích).
         """
         pass
@@ -51,7 +70,8 @@ class BaseAiProvider(ABC):
         image: Image.Image,
         api_key: str,
         prompt: str,
-        base_url: Optional[str] = None
+        base_url: Optional[str] = None,
+        model: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Gửi ảnh Sprite cùng lời nhắc phân tích thị giác và nhận lại kết quả JSON có cấu trúc.
@@ -60,6 +80,7 @@ class BaseAiProvider(ABC):
         @param {str} api_key Khóa API.
         @param {str} prompt Nội dung yêu cầu thị giác (Visual Grounding).
         @param {Optional[str]} base_url Địa chỉ máy chủ API.
+        @param {Optional[str]} model Tên mô hình AI cụ thể được chỉ định.
         @returns {Dict[str, Any]} Dữ liệu JSON bóc tách được.
         """
         pass
@@ -69,7 +90,8 @@ class BaseAiProvider(ABC):
         self,
         prompt: str,
         api_key: str,
-        base_url: Optional[str] = None
+        base_url: Optional[str] = None,
+        model: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Gửi yêu cầu sinh văn bản có cấu trúc JSON (Dùng cho Cố vấn Prompt AI).
@@ -77,6 +99,7 @@ class BaseAiProvider(ABC):
         @param {str} prompt Nội dung yêu cầu sinh văn bản.
         @param {str} api_key Khóa API.
         @param {Optional[str]} base_url Địa chỉ máy chủ API.
+        @param {Optional[str]} model Tên mô hình AI cụ thể được chỉ định.
         @returns {Dict[str, Any]} Đối tượng JSON kết quả.
         """
         pass
@@ -86,7 +109,8 @@ class BaseAiProvider(ABC):
         messages: List[Dict[str, str]],
         api_key: str,
         base_url: Optional[str] = None,
-        system_instruction: Optional[str] = None
+        system_instruction: Optional[str] = None,
+        model: Optional[str] = None
     ) -> Generator[str, None, None]:
         """
         Gửi hội thoại tới mô hình AI và phát luồng (stream) từng token văn bản về theo chuẩn SSE.
@@ -96,6 +120,7 @@ class BaseAiProvider(ABC):
         @param {str} api_key Khóa API bảo mật của nhà cung cấp.
         @param {Optional[str]} base_url Địa chỉ máy chủ tùy biến (áp dụng cho OpenAI/Proxy/Local Ollama).
         @param {Optional[str]} system_instruction Chỉ dẫn định hình phong cách cho AI.
+        @param {Optional[str]} model Tên mô hình AI cụ thể được chỉ định.
         @returns {Generator[str, None, None]} Máy phát sinh từng đoạn chữ (token).
         """
         raise NotImplementedError("Nhà cung cấp AI này chưa hiện thực hóa phương thức stream_chat.")

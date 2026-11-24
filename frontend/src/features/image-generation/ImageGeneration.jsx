@@ -8,7 +8,7 @@ import React from 'react';
 // 2. THƯ VIỆN BÊN NGOÀI
 // ========================================================
 // lucide-react: Bộ biểu tượng cho biểu mẫu, trạng thái và thông báo.
-import { Sparkles, RefreshCw, AlertCircle, CheckCircle2, Trash2, Wand2, ShieldAlert, Lock, ArrowRight } from "lucide-react";
+import { Sparkles, RefreshCw, AlertCircle, CheckCircle2, Trash2, Wand2, ShieldAlert, Lock, ArrowRight, Image as ImageIcon } from "lucide-react";
 
 // ========================================================
 // 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Thành phần giao diện và dữ liệu)
@@ -43,12 +43,33 @@ export default function ImageGeneration({
   currentProject,
   incomingPrompt = '',
   incomingNegativePrompt = '',
+  incomingImage = null,
   onSelectTab,
   onTransferToWorkspace,
   onTransferToGodot,
   isAiEnabled = true
 }) {
-  const { configStatus, checkingConfig, prompt, setPrompt, negativePrompt, setNegativePrompt, generating, errorMsg, successMsg, generatedGallery, setGeneratedGallery, modalImage, setModalImage, handleApplyStyleTag, handleGenerateImage } = useImageGeneration({ currentProject, incomingPrompt, incomingNegativePrompt });
+  const {
+    configStatus,
+    checkingConfig,
+    prompt,
+    setPrompt,
+    negativePrompt,
+    setNegativePrompt,
+    referenceImage,
+    referenceImageName,
+    handleUploadReferenceImage,
+    handleClearReferenceImage,
+    generating,
+    errorMsg,
+    successMsg,
+    generatedGallery,
+    setGeneratedGallery,
+    modalImage,
+    setModalImage,
+    handleApplyStyleTag,
+    handleGenerateImage
+  } = useImageGeneration({ currentProject, incomingPrompt, incomingNegativePrompt, incomingImage });
 
   /**
    * Chuyển chuỗi Data URL Base64 thành đối tượng File để truyền sang Workspace / Godot
@@ -132,6 +153,11 @@ export default function ImageGeneration({
               <CheckCircle2 size={15} />
               <span>
                 Đã kết nối: <strong>{configStatus.provider === 'gemini' ? 'Google Gemini' : 'OpenAI'}</strong>
+                {configStatus.model && (
+                  <span style={{ marginLeft: '6px', color: '#c084fc', fontWeight: 600 }}>
+                    • Model: {configStatus.model}
+                  </span>
+                )}
               </span>
               <span style={{ opacity: 0.75, fontSize: '0.7rem' }}>
                 ({configStatus.masked_key || 'Đã nạp key'})
@@ -197,6 +223,57 @@ export default function ImageGeneration({
       <div className="atelier-gen-workspace-grid">
         {/* CỘT TRÁI: Ô NHẬP PROMPT & THẺ PHONG CÁCH */}
         <div className="atelier-gen-card">
+          {/* KHUNG ĐÍNH KÈM ẢNH MẪU THAM CHIẾU (REFERENCE SPRITE) */}
+          <div className={`atelier-gen-reference-box ${referenceImage ? 'has-image' : ''}`}>
+            {referenceImage ? (
+              <>
+                <div className="atelier-gen-ref-thumb-wrapper">
+                  <img src={referenceImage} alt="Ảnh mẫu tham chiếu" className="atelier-gen-ref-thumb" />
+                </div>
+                <div className="atelier-gen-ref-info">
+                  <span className="atelier-gen-ref-title">
+                    <Sparkles size={14} color="#facc15" />
+                    <span>Ảnh mẫu tham chiếu (Reference Sprite)</span>
+                  </span>
+                  <span className="atelier-gen-ref-desc">
+                    {referenceImageName || 'Đã nạp ảnh mẫu'} — AI sẽ dựa vào tỷ lệ, màu sắc & phong cách của ảnh này kết hợp cùng prompt.
+                  </span>
+                </div>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <label className="atelier-gen-btn-ref-action" title="Thay thế ảnh mẫu khác">
+                    <span>Đổi ảnh</span>
+                    <input type="file" accept="image/*" onChange={handleUploadReferenceImage} style={{ display: 'none' }} />
+                  </label>
+                  <button
+                    type="button"
+                    className="atelier-gen-btn-ref-remove"
+                    onClick={handleClearReferenceImage}
+                    title="Gỡ ảnh mẫu để tạo ảnh thuần text"
+                  >
+                    <Trash2 size={12} />
+                    <span>Bỏ ảnh</span>
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="atelier-gen-ref-info">
+                  <span className="atelier-gen-ref-title">
+                    <ImageIcon size={14} color="#c084fc" />
+                    <span>Đính kèm ảnh mẫu tham chiếu (Tùy chọn)</span>
+                  </span>
+                  <span className="atelier-gen-ref-desc">
+                    Tải lên ảnh sprite mẫu để AI căn cứ vào hình dáng & phong cách khi tạo sprite mới.
+                  </span>
+                </div>
+                <label className="atelier-gen-btn-ref-action" title="Tải ảnh mẫu từ máy tính">
+                  <span>+ Chọn ảnh mẫu</span>
+                  <input type="file" accept="image/*" onChange={handleUploadReferenceImage} style={{ display: 'none' }} />
+                </label>
+              </>
+            )}
+          </div>
+
           <div className="atelier-gen-card-header">
             <label className="atelier-gen-card-title">
               <Wand2 size={16} color="#c084fc" />

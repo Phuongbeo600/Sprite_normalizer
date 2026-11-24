@@ -46,6 +46,24 @@ class ProjectApiConfigRequest(BaseModel):
     openai_api_key: Optional[str] = Field(None, description="Khóa OpenAI API")
     openai_base_url: Optional[str] = Field("https://api.openai.com/v1", description="Địa chỉ API proxy")
     ai_enabled: Optional[bool] = Field(None, description="Trạng thái bật/tắt toàn bộ tính năng AI của dự án")
+    vision_model: Optional[str] = Field(None, description="Mô hình AI phân tích ảnh nhân vật")
+    image_gen_model: Optional[str] = Field(None, description="Mô hình AI tạo ảnh sprite")
+    chat_model: Optional[str] = Field(None, description="Mô hình AI trợ lý hội thoại")
+
+
+class ProjectTestConnectionRequest(BaseModel):
+    """Schema kiểm tra kết nối API Key của dự án."""
+    provider: Optional[str] = Field(None, description="Nhà cung cấp: 'gemini' hoặc 'openai'")
+    api_key: Optional[str] = Field(None, description="Khóa API truyền trực tiếp (nếu có)")
+    base_url: Optional[str] = Field(None, description="Địa chỉ máy chủ proxy")
+    model: Optional[str] = Field(None, description="Mô hình cần thử nghiệm")
+
+
+class ProjectFetchModelsRequest(BaseModel):
+    """Schema yêu cầu tải danh sách model khả dụng từ nhà cung cấp."""
+    provider: Optional[str] = Field(None, description="Nhà cung cấp: 'gemini' hoặc 'openai'")
+    api_key: Optional[str] = Field(None, description="Khóa API truyền trực tiếp (nếu có)")
+    base_url: Optional[str] = Field(None, description="Địa chỉ máy chủ proxy")
 
 
 class SaveCharacterPresetRequest(BaseModel):

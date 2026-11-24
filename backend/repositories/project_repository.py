@@ -65,6 +65,9 @@ def _format_api_config_record(data: Dict[str, Any], project_id: int) -> Dict[str
         "openai_masked_key": _mask_key(openai_key),
         "openai_base_url": data.get("openai_base_url") or "https://api.openai.com/v1",
         "ai_enabled": bool(data.get("ai_enabled") if data.get("ai_enabled") is not None else True),
+        "vision_model": data.get("vision_model") or "",
+        "image_gen_model": data.get("image_gen_model") or "",
+        "chat_model": data.get("chat_model") or "",
         # Trả về key thực tế cho tầng backend gọi AI
         "_gemini_raw_key": gemini_key,
         "_openai_raw_key": openai_key,
@@ -130,6 +133,9 @@ def _build_api_config_update(
     openai_api_key: Optional[str] = None,
     openai_base_url: Optional[str] = None,
     ai_enabled: Optional[bool] = None,
+    vision_model: Optional[str] = None,
+    image_gen_model: Optional[str] = None,
+    chat_model: Optional[str] = None,
 ) -> Tuple[str, Dict[str, Any]]:
     """
     Xây dựng câu truy vấn UPDATE động và tham số cho cấu hình API của dự án.
@@ -157,6 +163,18 @@ def _build_api_config_update(
     if ai_enabled is not None:
         updates.append("ai_enabled = :ai_enabled")
         params["ai_enabled"] = bool(ai_enabled)
+
+    if vision_model is not None:
+        updates.append("vision_model = :vision_model")
+        params["vision_model"] = vision_model.strip() if vision_model.strip() else None
+
+    if image_gen_model is not None:
+        updates.append("image_gen_model = :image_gen_model")
+        params["image_gen_model"] = image_gen_model.strip() if image_gen_model.strip() else None
+
+    if chat_model is not None:
+        updates.append("chat_model = :chat_model")
+        params["chat_model"] = chat_model.strip() if chat_model.strip() else None
 
     query_str = f"UPDATE projects SET {', '.join(updates)} WHERE id = :id"
     return query_str, params
@@ -285,7 +303,8 @@ class ProjectRepository(BaseRepository):
         @returns {Optional[Dict[str, Any]]} Cấu hình API của dự án.
         """
         sql = text("""
-            SELECT id, name, api_provider, gemini_api_key, openai_api_key, openai_base_url, ai_enabled
+            SELECT id, name, api_provider, gemini_api_key, openai_api_key, openai_base_url, ai_enabled,
+                   vision_model, image_gen_model, chat_model
             FROM projects WHERE id = :id
         """)
         try:
@@ -310,10 +329,13 @@ class ProjectRepository(BaseRepository):
         gemini_api_key: Optional[str] = None,
         openai_api_key: Optional[str] = None,
         openai_base_url: Optional[str] = None,
-        ai_enabled: Optional[bool] = None
+        ai_enabled: Optional[bool] = None,
+        vision_model: Optional[str] = None,
+        image_gen_model: Optional[str] = None,
+        chat_model: Optional[str] = None
     ) -> bool:
         """
-        Cập nhật cấu hình API Key và trạng thái kích hoạt AI cho dự án trong MySQL.
+        Cập nhật cấu hình API Key, trạng thái AI và mô hình được chọn cho dự án trong MySQL.
 
         @param {Session} db Phiên làm việc cơ sở dữ liệu.
         @param {int} project_id ID dự án.
@@ -322,6 +344,9 @@ class ProjectRepository(BaseRepository):
         @param {Optional[str]} openai_api_key Khóa OpenAI mới nếu có.
         @param {Optional[str]} openai_base_url Địa chỉ proxy nếu có.
         @param {Optional[bool]} ai_enabled Trạng thái bật/tắt toàn bộ AI trong dự án.
+        @param {Optional[str]} vision_model Mô hình phân tích ảnh được chọn.
+        @param {Optional[str]} image_gen_model Mô hình tạo ảnh được chọn.
+        @param {Optional[str]} chat_model Mô hình chatbot được chọn.
         @returns {bool} True nếu cập nhật thành công.
         """
         query_str, params = _build_api_config_update(
@@ -331,6 +356,9 @@ class ProjectRepository(BaseRepository):
             openai_api_key=openai_api_key,
             openai_base_url=openai_base_url,
             ai_enabled=ai_enabled,
+            vision_model=vision_model,
+            image_gen_model=image_gen_model,
+            chat_model=chat_model,
         )
 
         try:

@@ -19,12 +19,14 @@ import os
 # ========================================================
 # PIL (Pillow): Tạo ảnh mẫu RGBA kiểm thử
 from PIL import Image
-# UploadFile: Tạo tệp ảnh đầu vào cho tuyến API phân tích.
-from fastapi import UploadFile
+# UploadFile, HTTPException: Tạo tệp ảnh đầu vào và bắt ngoại lệ HTTP cho tuyến API phân tích.
+from fastapi import UploadFile, HTTPException
 
 # ========================================================
 # 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Services & Schemas)
 # ========================================================
+# AiProviderError: Ngoại lệ chuẩn hóa nhà cung cấp AI
+from backend.providers.base import AiProviderError
 # CharacterAnalysisService: Dịch vụ phân tích hồ sơ nhân vật theo tab
 from backend.services.character.character_analysis_service import CharacterAnalysisService
 # SettingsService: Kiểm tra hành vi của tuyến kiểm tra khóa OpenAI.
@@ -359,6 +361,97 @@ class TestCharacterProfileService(unittest.TestCase):
         # Khẳng định không bị nhét trang phục phiêu lưu của nhân vật mẫu vào
         self.assertNotIn("Trang phục phiêu lưu", pos_prompt)
         self.assertIn("16-bit", pos_prompt.lower())
+
+    def test_style_prompt_propagates_model_parameter(self):
+        """Kiểm tra tham số model truyền từ client được chuyển tiếp tới generate_style_prompt."""
+        buffer = io.BytesIO()
+        self.sample_image.save(buffer, format="PNG")
+        buffer.seek(0)
+        upload = UploadFile(buffer, filename="sprite.png", headers={"content-type": "image/png"})
+
+        with (
+            patch("backend.api.v1.character_analysis._resolve_project_api_key", return_value=("fake-key", "gemini", None)),
+            patch("backend.api.v1.character_analysis.generate_style_prompt") as mock_gen,
+        ):
+            mock_gen.return_value = MagicMock(style_prompt="Test style", observations=["Obs 1"])
+            result = asyncio.run(character_analysis.generate_reference_style_prompt(
+                upload, '{"palette":{"total_colors":16}}', model="gemini-2.5-pro",
+            ))
+
+        mock_gen.assert_called_once()
+        # Đối số thứ 6 (index 5) là eff_model
+        self.assertEqual(mock_gen.call_args.args[5], "gemini-2.5-pro")
+
+    def test_style_prompt_handles_ai_provider_error_403_billing(self):
+        """Kiểm tra ngoại lệ AiProviderError (403 Billing) được chuyển tiếp thành HTTPException 403."""
+        buffer = io.BytesIO()
+        self.sample_image.save(buffer, format="PNG")
+        buffer.seek(0)
+        upload = UploadFile(buffer, filename="sprite.png", headers={"content-type": "image/png"})
+
+        billing_err = AiProviderError(
+            message="Google Gemini API (403): Dự án Google Cloud / AI Studio chưa bật thanh toán (Billing).",
+            status_code=403,
+            provider="gemini"
+        )
+        with (
+            patch("backend.api.v1.character_analysis._resolve_project_api_key", return_value=("fake-key", "gemini", None)),
+            patch("backend.api.v1.character_analysis.generate_style_prompt", side_effect=billing_err),
+        ):
+            with self.assertRaises(HTTPException) as ctx:
+                asyncio.run(character_analysis.generate_reference_style_prompt(
+                    upload, '{"palette":{"total_colors":16}}',
+                ))
+
+        self.assertEqual(ctx.exception.status_code, 403)
+        self.assertIn("Billing", ctx.exception.detail)
+
+    def test_style_prompt_handles_ai_provider_error_401(self):
+        """Kiểm tra ngoại lệ AiProviderError (401) được chuyển tiếp thành HTTPException 401."""
+        buffer = io.BytesIO()
+        self.sample_image.save(buffer, format="PNG")
+        buffer.seek(0)
+        upload = UploadFile(buffer, filename="sprite.png", headers={"content-type": "image/png"})
+
+        auth_err = AiProviderError(
+            message="Google Gemini API (401): Khóa API không hợp lệ hoặc đã hết hạn.",
+            status_code=401,
+            provider="gemini"
+        )
+        with (
+            patch("backend.api.v1.character_analysis._resolve_project_api_key", return_value=("fake-key", "gemini", None)),
+            patch("backend.api.v1.character_analysis.generate_style_prompt", side_effect=auth_err),
+        ):
+            with self.assertRaises(HTTPException) as ctx:
+                asyncio.run(character_analysis.generate_reference_style_prompt(
+                    upload, '{"palette":{"total_colors":16}}',
+                ))
+
+        self.assertEqual(ctx.exception.status_code, 401)
+        self.assertIn("401", ctx.exception.detail)
+
+    def test_analyze_tab_propagates_model_and_handles_ai_provider_error(self):
+        """Kiểm tra analyze_tab truyền model và xử lý ngoại lệ AiProviderError."""
+        buffer = io.BytesIO()
+        self.sample_image.save(buffer, format="PNG")
+        buffer.seek(0)
+        upload = UploadFile(buffer, filename="sprite.png", headers={"content-type": "image/png"})
+
+        quota_err = AiProviderError(
+            message="Google Gemini API (429): Đã vượt quá hạn mức sử dụng.",
+            status_code=429,
+            provider="gemini"
+        )
+        with (
+            patch("backend.api.v1.character_analysis.CharacterAnalysisService.analyze_profile", side_effect=quota_err) as mock_analyze,
+        ):
+            with self.assertRaises(HTTPException) as ctx:
+                asyncio.run(analyze_character_tab(
+                    upload, "global", None, "fake-key", "gemini", None, model="gemini-2.5-flash", vision_only=True
+                ))
+
+        self.assertEqual(ctx.exception.status_code, 429)
+        self.assertIn("429", ctx.exception.detail)
 
 
 if __name__ == "__main__":

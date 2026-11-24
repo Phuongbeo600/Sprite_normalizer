@@ -161,6 +161,24 @@ class TestAiCredentialsService(unittest.TestCase):
             k3, p3, b3 = ImageGenService.resolve_credentials(project_id=1)
             self.assertEqual(k3, "db-gemini-key-12345")
 
+    def test_resolve_model_priority(self):
+        """Kiểm tra thứ tự ưu tiên phân giải model: truyền trực tiếp > biến môi trường > None."""
+        # 1. Truyền trực tiếp có ưu tiên cao nhất
+        m1 = AiCredentialsService.resolve_model(provider="gemini", model="gemini-2.5-pro")
+        self.assertEqual(m1, "gemini-2.5-pro")
+
+        # 2. Lấy từ biến môi trường nếu không truyền trực tiếp
+        os.environ["GEMINI_MODEL"] = "gemini-2.5-flash-lite"
+        os.environ["OPENAI_MODEL"] = "gpt-4o-mini"
+        self.assertEqual(AiCredentialsService.resolve_model(provider="gemini"), "gemini-2.5-flash-lite")
+        self.assertEqual(AiCredentialsService.resolve_model(provider="openai"), "gpt-4o-mini")
+
+        # 3. Khi không có biến môi trường và không truyền, trả về None
+        del os.environ["GEMINI_MODEL"]
+        del os.environ["OPENAI_MODEL"]
+        self.assertIsNone(AiCredentialsService.resolve_model(provider="gemini"))
+        self.assertIsNone(AiCredentialsService.resolve_model(provider="openai"))
+
 
 if __name__ == "__main__":
     unittest.main()

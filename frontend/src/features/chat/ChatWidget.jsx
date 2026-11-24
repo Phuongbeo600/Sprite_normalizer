@@ -25,6 +25,8 @@ import {
 // ========================================================
 // streamChatApi: Hàm gọi endpoint SSE phát luồng thời gian thực
 import { useStreamingChat } from './useStreamingChat';
+// getProjectApiConfig: Đọc cấu hình model chat của dự án
+import { getProjectApiConfig } from '../../shared/api/projectApiConfig';
 
 // ========================================================
 // 4. ĐỊNH DẠNG GIAO DIỆN VÀ MÀU SẮC (Stylesheets)
@@ -53,6 +55,24 @@ export default function ChatWidget({ currentProject }) {
 
   // Trạng thái mở/đóng cửa sổ chat
   const [isOpen, setIsOpen] = useState(false);
+  // Mô hình chat thực tế được cấu hình trong dự án
+  const [activeChatModel, setActiveChatModel] = useState('');
+
+  // Tự động tải tên model chat đang được cấu hình cho dự án khi mở khung chat
+  useEffect(() => {
+    if (currentProject?.id && isOpen) {
+      getProjectApiConfig(currentProject.id)
+        .then((res) => (res.ok ? res.json() : null))
+        .then((resJson) => {
+          if (resJson?.data?.chat_model) {
+            setActiveChatModel(resJson.data.chat_model);
+          } else {
+            setActiveChatModel('');
+          }
+        })
+        .catch(() => {});
+    }
+  }, [currentProject?.id, isOpen]);
   // Danh sách lịch sử tin nhắn trong phiên làm việc
   // Nội dung ô nhập liệu
   // Cờ báo hiệu AI đang phát luồng câu trả lời
@@ -109,7 +129,7 @@ export default function ChatWidget({ currentProject }) {
                 <h4>Trợ Lý Studio</h4>
                 <span>
                   <Sparkles size={11} color="var(--accent-purple)" />
-                  Phản hồi thời gian thực
+                  {activeChatModel ? `Model: ${activeChatModel}` : 'Phản hồi thời gian thực'}
                 </span>
               </div>
             </div>

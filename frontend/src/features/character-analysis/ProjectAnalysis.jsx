@@ -317,6 +317,7 @@ export default function ProjectAnalysis({
             initialConfig={loadedPresetConfig}
             onSendPromptToImageGen={onSendPromptToImageGen}
             isAiEnabled={isAiEnabled}
+            referenceFile={reference}
           />
         ) : (
           <PromptStudioEmptyState

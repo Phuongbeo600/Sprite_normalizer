@@ -36,12 +36,14 @@ class ImageGenRequest(BaseModel):
     Tự động liên kết khóa API từ Cài đặt dự án hoặc Cài đặt hệ thống.
     """
     prompt: str = Field(..., description="Văn bản mô tả nhân vật / sprite cần sinh")
+    image: Optional[str] = Field(None, description="Ảnh mẫu tham chiếu (chuỗi Base64 hoặc Data URL)")
     negative_prompt: Optional[str] = Field(None, description="Các chi tiết cần loại trừ (nếu mô hình hỗ trợ)")
     project_id: Optional[int] = Field(None, description="Mã dự án để tự động trích xuất API Key trong MySQL")
     aspect_ratio: str = Field("1:1", description="Tỉ lệ khung hình mong muốn: 1:1, 3:4, 4:3, 16:9")
     number_of_images: int = Field(1, ge=1, le=4, description="Số lượng ảnh cần sinh (từ 1 đến 4)")
     style_preset: Optional[str] = Field(None, description="Thẻ phong cách định sẵn (Pixel Art, Sprite Sheet, Chibi...)")
     provider: Optional[str] = Field(None, description="Ghi đè nhà cung cấp ('gemini' hoặc 'openai')")
+    model: Optional[str] = Field(None, description="Mô hình AI tạo ảnh cụ thể")
     api_key: Optional[str] = Field(None, description="Ghi đè khóa API nếu người dùng truyền trực tiếp")
     base_url: Optional[str] = Field(None, description="Ghi đè máy chủ proxy nếu dùng OpenAI")
 

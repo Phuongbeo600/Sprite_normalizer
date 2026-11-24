@@ -123,9 +123,12 @@ class ProjectService:
         gemini_api_key: Optional[str] = None,
         openai_api_key: Optional[str] = None,
         openai_base_url: Optional[str] = None,
-        ai_enabled: Optional[bool] = None
+        ai_enabled: Optional[bool] = None,
+        vision_model: Optional[str] = None,
+        image_gen_model: Optional[str] = None,
+        chat_model: Optional[str] = None
     ) -> bool:
-        """Cập nhật cấu hình API Key và trạng thái AI của dự án trong MySQL."""
+        """Cập nhật cấu hình API Key, trạng thái AI và mô hình được chọn của dự án trong MySQL."""
         project = self.repository.get_by_id(db, project_id)
         if not project:
             raise ValueError(f"Không tìm thấy dự án với ID = {project_id}")
@@ -137,7 +140,10 @@ class ProjectService:
             gemini_api_key=gemini_api_key,
             openai_api_key=openai_api_key,
             openai_base_url=openai_base_url,
-            ai_enabled=ai_enabled
+            ai_enabled=ai_enabled,
+            vision_model=vision_model,
+            image_gen_model=image_gen_model,
+            chat_model=chat_model
         )
 
     # ========================================================

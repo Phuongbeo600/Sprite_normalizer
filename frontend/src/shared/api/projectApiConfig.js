@@ -40,3 +40,33 @@ export function saveProjectApiConfig(projectId, payload) {
     body: JSON.stringify(payload)
   });
 }
+
+/**
+ * Kiểm tra kết nối tới nhà cung cấp AI với API Key đã nhập hoặc đã lưu.
+ *
+ * @param {number} projectId Mã dự án.
+ * @param {Object} payload Dữ liệu kiểm tra (provider, api_key, base_url, model).
+ * @returns {Promise<Response>} Phản hồi kiểm tra kết nối kèm mã trạng thái HTTP.
+ */
+export function testProjectApiConnection(projectId, payload) {
+  return fetch('/api/projects/' + projectId + '/test-connection', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+}
+
+/**
+ * Tải danh sách các model AI khả dụng trực tiếp từ API của nhà cung cấp.
+ *
+ * @param {number} projectId Mã dự án.
+ * @param {Object} payload Tham số truy vấn (provider, api_key, base_url).
+ * @returns {Promise<Response>} Phản hồi chứa danh sách model đã phân loại theo chức năng.
+ */
+export function fetchProjectModels(projectId, payload) {
+  return fetch('/api/projects/' + projectId + '/fetch-models', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+}

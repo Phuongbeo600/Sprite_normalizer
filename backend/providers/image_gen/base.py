@@ -39,7 +39,9 @@ class BaseImageGenProvider(ABC):
         negative_prompt: Optional[str] = None,
         aspect_ratio: str = "1:1",
         number_of_images: int = 1,
-        base_url: Optional[str] = None
+        base_url: Optional[str] = None,
+        model: Optional[str] = None,
+        image: Optional[str] = None
     ) -> ImageGenResponse:
         """
         Gửi yêu cầu tạo ảnh tới mô hình AI của nhà cung cấp và trả về kết quả chuẩn hóa.
@@ -50,6 +52,8 @@ class BaseImageGenProvider(ABC):
         @param {str} aspect_ratio Tỉ lệ khung hình ('1:1', '3:4', '4:3', '16:9', '9:16').
         @param {int} number_of_images Số lượng ảnh cần tạo.
         @param {Optional[str]} base_url Địa chỉ máy chủ tùy biến nếu có.
+        @param {Optional[str]} model Mô hình tạo ảnh cụ thể.
+        @param {Optional[str]} image Chuỗi Base64 ảnh mẫu tham chiếu nếu có.
         @returns {ImageGenResponse} Đối tượng phản hồi chứa danh sách ảnh Base64 và thông tin model.
         """
         pass

@@ -34,6 +34,7 @@ export default function ProjectTabs({
   isAiEnabled,
   imageGenPrompt,
   imageGenNegativePrompt,
+  imageGenReferenceImage,
   transferredImageForWorkspace,
   transferredPaletteForWorkspace,
   transferredSheetDataForWorkspace,
@@ -79,6 +80,7 @@ export default function ProjectTabs({
             currentProject={currentProject}
             incomingPrompt={imageGenPrompt}
             incomingNegativePrompt={imageGenNegativePrompt}
+            incomingImage={imageGenReferenceImage}
             onSelectTab={onSelectTab}
             onTransferToWorkspace={onTransferToWorkspace}
             onTransferToGodot={onTransferToGodot}

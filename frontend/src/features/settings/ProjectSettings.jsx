@@ -20,7 +20,11 @@ import {
   Bot,
   Power,
   Lock,
-  Sparkles
+  Sparkles,
+  Cpu,
+  Image as ImageIcon,
+  MessageSquare,
+  Activity
 } from 'lucide-react';
 
 // ========================================================
@@ -28,8 +32,13 @@ import {
 // ========================================================
 // (Không có component nội bộ phụ thuộc)
 
-// Yêu cầu đọc và lưu cấu hình API theo dự án.
-import { getProjectApiConfig, saveProjectApiConfig } from '../../shared/api/projectApiConfig';
+// Yêu cầu đọc và lưu cấu hình API theo dự án, kiểm tra kết nối và tải danh sách model.
+import {
+  getProjectApiConfig,
+  saveProjectApiConfig,
+  testProjectApiConnection,
+  fetchProjectModels
+} from '../../shared/api/projectApiConfig';
 
 // ========================================================
 // 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
@@ -69,6 +78,23 @@ export default function ProjectSettings({ currentProject, onAiEnabledChange }) {
   const [openaiKeyInput, setOpenaiKeyInput] = useState('');
   const [openaiBaseUrl, setOpenaiBaseUrl] = useState('https://api.openai.com/v1');
   const [showOpenaiInput, setShowOpenaiInput] = useState(false);
+
+  // Cấu hình mô hình chỉ định cho từng nghiệp vụ (Vision, Image Gen, Chat)
+  const [visionModel, setVisionModel] = useState('');
+  const [imageGenModel, setImageGenModel] = useState('');
+  const [chatModel, setChatModel] = useState('');
+
+  // Trạng thái kiểm tra kết nối API
+  const [testingConnection, setTestingConnection] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState(null); // { success: boolean, message: string }
+
+  // Trạng thái tải danh sách model từ API
+  const [fetchingModels, setFetchingModels] = useState(false);
+  const [availableModels, setAvailableModels] = useState({
+    vision: [],
+    image_gen: [],
+    chat: []
+  });
 
   // Trạng thái hiển thị mật khẩu
   const [showPassword, setShowPassword] = useState(false);
@@ -115,6 +141,11 @@ export default function ProjectSettings({ currentProject, onAiEnabledChange }) {
         setOpenaiBaseUrl(data.openai_base_url);
       }
 
+      // Tải cấu hình model chuyên biệt cho dự án
+      setVisionModel(data.vision_model || '');
+      setImageGenModel(data.image_gen_model || '');
+      setChatModel(data.chat_model || '');
+
       // Nếu chưa có key thì tự động mở ô input
       setShowGeminiInput(!data.gemini_has_key);
       setShowOpenaiInput(!data.openai_has_key);
@@ -122,6 +153,100 @@ export default function ProjectSettings({ currentProject, onAiEnabledChange }) {
       setFeedback({ type: 'error', message: err.message || 'Lỗi kết nối máy chủ.' });
     } finally {
       setLoading(false);
+    }
+  };
+
+  /**
+   * Kiểm tra kết nối tới AI Provider với API Key đã nhập hoặc đã lưu trong MySQL.
+   */
+  const handleTestConnection = async () => {
+    setTestingConnection(true);
+    setConnectionStatus(null);
+
+    const activeKey = provider === 'gemini'
+      ? (geminiKeyInput.trim() || undefined)
+      : (openaiKeyInput.trim() || undefined);
+
+    const hasStoredKey = provider === 'gemini' ? geminiHasKey : openaiHasKey;
+    if (!activeKey && !hasStoredKey) {
+      setConnectionStatus({
+        success: false,
+        message: 'Vui lòng nhập API Key trước khi kiểm tra kết nối.'
+      });
+      setTestingConnection(false);
+      return;
+    }
+
+    try {
+      const payload = {
+        provider: provider,
+        api_key: activeKey,
+        base_url: provider === 'openai' ? openaiBaseUrl.trim() : undefined,
+        model: provider === 'gemini' ? (visionModel || undefined) : undefined
+      };
+
+      const response = await testProjectApiConnection(currentProject.id, payload);
+      const resJson = await response.json();
+
+      if (response.ok && resJson.status === 'success') {
+        setConnectionStatus({
+          success: true,
+          message: resJson.message || `Kết nối thành công tới ${provider === 'gemini' ? 'Google Gemini' : 'OpenAI'}! Khóa API và quyền truy cập model đều hợp lệ.`
+        });
+      } else {
+        const errorDetail = resJson.detail || resJson.message || `Lỗi kiểm tra kết nối (${response.status})`;
+        setConnectionStatus({
+          success: false,
+          message: errorDetail
+        });
+      }
+    } catch (err) {
+      setConnectionStatus({
+        success: false,
+        message: `Lỗi kết nối mạng: ${err.message || 'Không thể gửi yêu cầu kiểm tra.'}`
+      });
+    } finally {
+      setTestingConnection(false);
+    }
+  };
+
+  /**
+   * Tải danh sách các mô hình AI khả dụng từ API chính thức của nhà cung cấp.
+   */
+  const handleFetchModels = async () => {
+    setFetchingModels(true);
+    try {
+      const activeKey = provider === 'gemini'
+        ? (geminiKeyInput.trim() || undefined)
+        : (openaiKeyInput.trim() || undefined);
+
+      const payload = {
+        provider: provider,
+        api_key: activeKey,
+        base_url: provider === 'openai' ? openaiBaseUrl.trim() : undefined
+      };
+
+      const response = await fetchProjectModels(currentProject.id, payload);
+      const resJson = await response.json();
+
+      if (response.ok && resJson.status === 'success') {
+        const fetched = resJson.models || { vision: [], image_gen: [], chat: [] };
+        setAvailableModels(fetched);
+        const total = (fetched.vision?.length || 0) + (fetched.image_gen?.length || 0) + (fetched.chat?.length || 0);
+        setFeedback({
+          type: 'success',
+          message: `Đã tải thành công ${total} mô hình khả dụng từ ${provider === 'gemini' ? 'Google AI Studio' : 'OpenAI'}!`
+        });
+      } else {
+        throw new Error(resJson.detail || resJson.message || 'Không thể tải danh sách model từ API.');
+      }
+    } catch (err) {
+      setFeedback({
+        type: 'error',
+        message: `Lỗi khi tải danh sách model: ${err.message}`
+      });
+    } finally {
+      setFetchingModels(false);
     }
   };
 
@@ -171,7 +296,7 @@ export default function ProjectSettings({ currentProject, onAiEnabledChange }) {
   };
 
   /**
-   * Lưu cấu hình API Key mới vào CSDL MySQL của dự án.
+   * Lưu cấu hình API Key và các model chuyên biệt mới vào CSDL MySQL của dự án.
    * @param {React.FormEvent} e Sự kiện gửi form
    */
   const handleSaveConfig = async (e) => {
@@ -184,7 +309,10 @@ export default function ProjectSettings({ currentProject, onAiEnabledChange }) {
       gemini_api_key: geminiKeyInput.trim() || undefined,
       openai_api_key: openaiKeyInput.trim() || undefined,
       openai_base_url: openaiBaseUrl.trim() || 'https://api.openai.com/v1',
-      ai_enabled: aiEnabled
+      ai_enabled: aiEnabled,
+      vision_model: visionModel.trim() || null,
+      image_gen_model: imageGenModel.trim() || null,
+      chat_model: chatModel.trim() || null
     };
 
     try {
@@ -541,6 +669,209 @@ export default function ProjectSettings({ currentProject, onAiEnabledChange }) {
             </div>
           </div>
         )}
+
+        {/* Hàng nút thao tác Kiểm tra kết nối & Tải danh sách Model từ API */}
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center', marginTop: '6px' }}>
+          <button
+            type="button"
+            className="atelier-settings-btn-test"
+            onClick={handleTestConnection}
+            disabled={testingConnection || loading}
+            title="Kiểm tra tính hợp lệ của API Key và quyền gọi model"
+          >
+            <Activity size={14} className={testingConnection ? 'spin' : ''} />
+            <span>{testingConnection ? 'Đang kiểm tra kết nối…' : 'Kiểm Tra Kết Nối'}</span>
+          </button>
+
+          <button
+            type="button"
+            className="atelier-settings-btn-fetch"
+            onClick={handleFetchModels}
+            disabled={fetchingModels || loading}
+            title="Tự động truy vấn danh sách model mới nhất từ nhà cung cấp"
+          >
+            <Sparkles size={14} className={fetchingModels ? 'spin' : ''} />
+            <span>{fetchingModels ? 'Đang tải model…' : 'Tải Danh Sách Model từ API'}</span>
+          </button>
+        </div>
+
+        {/* Hiển thị kết quả kiểm tra kết nối chi tiết */}
+        {connectionStatus && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: '10px',
+              padding: '12px 16px',
+              borderRadius: '10px',
+              fontSize: '0.825rem',
+              background: connectionStatus.success ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+              border: `1px solid ${connectionStatus.success ? 'rgba(16, 185, 129, 0.35)' : 'rgba(239, 68, 68, 0.35)'}`,
+              color: connectionStatus.success ? '#6ee7b7' : '#fca5a5'
+            }}
+          >
+            {connectionStatus.success ? (
+              <CheckCircle2 size={16} style={{ marginTop: '2px', flexShrink: 0 }} />
+            ) : (
+              <AlertCircle size={16} style={{ marginTop: '2px', flexShrink: 0 }} />
+            )}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+              <span style={{ fontWeight: 600 }}>
+                {connectionStatus.success ? 'Trạng thái kết nối: Hoạt động tốt' : 'Trạng thái kết nối: Thất bại'}
+              </span>
+              <span>{connectionStatus.message}</span>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================
+            4. LỰA CHỌN MÔ HÌNH AI PHÂN LOẠI THEO CHỨC NĂNG
+            ======================================================== */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', paddingTop: '10px', borderTop: '1px solid rgba(255, 255, 255, 0.08)' }}>
+          <div>
+            <h4 className="atelier-settings-card-title">
+              <Cpu size={16} color="#c084fc" />
+              <span>Phân Bổ Mô Hình AI Theo Nghiệp Vụ</span>
+            </h4>
+            <p style={{ margin: '4px 0 0', fontSize: '0.775rem', color: 'var(--atl-text-secondary)' }}>
+              Chỉ định mô hình tối ưu cho từng chức năng. Nếu để trống hoặc chọn Mặc định, hệ thống sẽ tự động dùng model ổn định nhất.
+            </p>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
+            {/* Nhóm 1: Mô hình Phân tích ảnh & Nhận diện nhân vật (Vision) */}
+            <div className="atelier-settings-model-card">
+              <div className="atelier-settings-model-card-header">
+                <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#ffffff', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Eye size={14} color="#60a5fa" />
+                  <span>1. Phân Tích Ảnh (Vision)</span>
+                </span>
+                <span className="atelier-settings-badge-type vision">Vision</span>
+              </div>
+              <p style={{ margin: 0, fontSize: '0.74rem', color: 'var(--atl-text-secondary)', lineHeight: '1.3' }}>
+                Bóc tách 6 chỉ số HSV, tìm hõm cổ neck_y và nhận diện phong cách sprite.
+              </p>
+              <select
+                value={visionModel}
+                onChange={(e) => setVisionModel(e.target.value)}
+                className="atelier-settings-select"
+              >
+                <option value="">
+                  {provider === 'gemini'
+                    ? '(Mặc định: gemini-2.5-flash)'
+                    : '(Mặc định: gpt-4o)'}
+                </option>
+                {availableModels.vision && availableModels.vision.length > 0 ? (
+                  availableModels.vision.map((m) => (
+                    <option key={m.id || m} value={m.id || m}>
+                      {m.display_name ? `${m.display_name} (${m.id})` : (m.id || m)}
+                    </option>
+                  ))
+                ) : (
+                  provider === 'gemini' ? (
+                    <>
+                      <option value="gemini-2.5-flash">gemini-2.5-flash (Nhanh & Tiết kiệm)</option>
+                      <option value="gemini-2.5-pro">gemini-2.5-pro (Suy luận chuyên sâu)</option>
+                    </>
+                  ) : (
+                    <>
+                      <option value="gpt-4o">gpt-4o (Thị giác đa phương thức)</option>
+                      <option value="gpt-4o-mini">gpt-4o-mini (Gọn nhẹ & Tốc độ)</option>
+                    </>
+                  )
+                )}
+              </select>
+            </div>
+
+            {/* Nhóm 2: Mô hình Tạo ảnh Sprite Sheet (Image Generation) */}
+            <div className="atelier-settings-model-card">
+              <div className="atelier-settings-model-card-header">
+                <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#ffffff', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <ImageIcon size={14} color="#f472b6" />
+                  <span>2. Tạo Ảnh Sprite (Image Gen)</span>
+                </span>
+                <span className="atelier-settings-badge-type image-gen">Image Gen</span>
+              </div>
+              <p style={{ margin: 0, fontSize: '0.74rem', color: 'var(--atl-text-secondary)', lineHeight: '1.3' }}>
+                Sinh ảnh concept nhân vật và sprite pixel theo prompt.
+              </p>
+              <select
+                value={imageGenModel}
+                onChange={(e) => setImageGenModel(e.target.value)}
+                className="atelier-settings-select"
+              >
+                <option value="">
+                  {provider === 'gemini'
+                    ? '(Mặc định: imagen-3.0-generate-002)'
+                    : '(Mặc định: dall-e-3)'}
+                </option>
+                {availableModels.image_gen && availableModels.image_gen.length > 0 ? (
+                  availableModels.image_gen.map((m) => (
+                    <option key={m.id || m} value={m.id || m}>
+                      {m.display_name ? `${m.display_name} (${m.id})` : (m.id || m)}
+                    </option>
+                  ))
+                ) : (
+                  provider === 'gemini' ? (
+                    <>
+                      <option value="imagen-3.0-generate-002">imagen-3.0-generate-002 (Chuẩn Pixel Art)</option>
+                      <option value="imagen-3.0-fast-generate-001">imagen-3.0-fast-generate-001 (Tốc độ cao)</option>
+                    </>
+                  ) : (
+                    <>
+                      <option value="dall-e-3">dall-e-3 (Chất lượng cao)</option>
+                      <option value="dall-e-2">dall-e-2 (Tiết kiệm)</option>
+                    </>
+                  )
+                )}
+              </select>
+            </div>
+
+            {/* Nhóm 3: Mô hình Trợ lý Hội thoại Studio (AI Chatbot) */}
+            <div className="atelier-settings-model-card">
+              <div className="atelier-settings-model-card-header">
+                <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#ffffff', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <MessageSquare size={14} color="#34d399" />
+                  <span>3. Trợ Lý Hội Thoại (Chatbot)</span>
+                </span>
+                <span className="atelier-settings-badge-type chat">Chatbot</span>
+              </div>
+              <p style={{ margin: 0, fontSize: '0.74rem', color: 'var(--atl-text-secondary)', lineHeight: '1.3' }}>
+                Tư vấn giải thuật hoạt họa, cấu hình xuất Godot 4 và trò chuyện trực tiếp.
+              </p>
+              <select
+                value={chatModel}
+                onChange={(e) => setChatModel(e.target.value)}
+                className="atelier-settings-select"
+              >
+                <option value="">
+                  {provider === 'gemini'
+                    ? '(Mặc định: gemini-2.5-flash)'
+                    : '(Mặc định: gpt-4o-mini)'}
+                </option>
+                {availableModels.chat && availableModels.chat.length > 0 ? (
+                  availableModels.chat.map((m) => (
+                    <option key={m.id || m} value={m.id || m}>
+                      {m.display_name ? `${m.display_name} (${m.id})` : (m.id || m)}
+                    </option>
+                  ))
+                ) : (
+                  provider === 'gemini' ? (
+                    <>
+                      <option value="gemini-2.5-flash">gemini-2.5-flash (Stream mượt mà)</option>
+                      <option value="gemini-2.5-pro">gemini-2.5-pro (Tư duy toán học)</option>
+                    </>
+                  ) : (
+                    <>
+                      <option value="gpt-4o-mini">gpt-4o-mini (Phản hồi nhanh)</option>
+                      <option value="gpt-4o">gpt-4o (Toàn diện)</option>
+                    </>
+                  )
+                )}
+              </select>
+            </div>
+          </div>
+        </div>
 
         {/* Nút lưu cấu hình */}
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', paddingTop: '10px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>

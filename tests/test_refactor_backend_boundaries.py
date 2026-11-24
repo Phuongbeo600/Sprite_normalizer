@@ -105,7 +105,7 @@ class TestRefactorBackendBoundaries(unittest.TestCase):
              patch.object(service, "analyze_tab_animations", return_value={"animation": 3}), \
              patch.object(service, "analyze_tab_constraints", return_value={}) as constraints:
             result = service.analyze_profile(None, "all", "key", "gemini", None, vision_only=True)
-        global_call.assert_called_once_with(None, api_key="key", provider="gemini", base_url=None, include_palette=False)
+        global_call.assert_called_once_with(None, api_key="key", provider="gemini", base_url=None, include_palette=False, model=None)
         self.assertEqual(constraints.call_args.kwargs["direction_data"], {"direction": 2})
         self.assertNotIn("palette_metrics", result["data"])
         self.assertIn("frame_actions_data", result["data"])

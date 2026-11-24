@@ -63,6 +63,16 @@ class ChatService:
     
         effective_key = resolved_key or "local-key"
     
+        # 3. Phân giải mô hình chat: ưu tiên từ request -> cấu hình dự án trong CSDL -> mặc định provider
+        chat_model = request.model
+        if not chat_model and request.project_id:
+            chat_model = AiCredentialsService.resolve_model(
+                provider=provider_name,
+                project_id=request.project_id,
+                model_type="chat",
+                db=db
+            )
+
         # Lấy đối tượng Provider tương ứng thông qua Factory (Đa hình)
         try:
             provider = AiProviderFactory.get_provider(provider_name)
@@ -77,7 +87,10 @@ class ChatService:
             raw_messages = [msg.model_dump() for msg in request.messages]
             # Kích hoạt luồng phát sinh từ từ mô hình AI
             yield from provider.stream_chat(
-                messages=raw_messages, api_key=effective_key, base_url=resolved_base_url,
+                messages=raw_messages,
+                api_key=effective_key,
+                base_url=resolved_base_url,
                 system_instruction=SYSTEM_ASSISTANT_PROMPT,
+                model=chat_model
             )
         return chunks()

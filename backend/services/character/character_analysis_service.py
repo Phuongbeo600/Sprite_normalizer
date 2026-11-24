@@ -185,6 +185,7 @@ class CharacterAnalysisService:
         provider: str = "gemini",
         base_url: Optional[str] = None,
         include_palette: bool = True,
+        model: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         [TAB 1]: Phân tích Toàn cục, Danh tính, Giải phẫu sinh học, Phong cách Pixel Art và Chất liệu từng vùng.
@@ -195,6 +196,7 @@ class CharacterAnalysisService:
         @param {str} provider Nhà cung cấp AI (gemini hoặc openai).
         @param {Optional[str]} base_url Địa chỉ máy chủ proxy tùy chọn.
         @param {bool} include_palette Có kèm số đo màu sắc hay không.
+        @param {Optional[str]} model Tên mô hình AI tùy chọn.
         @returns {Dict[str, Any]} Dữ liệu phân tích toàn cục.
         """
         effective_key, effective_provider, clean_base = cls._resolve_credentials(api_key, provider, base_url)
@@ -202,7 +204,7 @@ class CharacterAnalysisService:
 
         if effective_key:
             ai_provider = AiProviderFactory.get_provider(effective_provider)
-            raw_data = ai_provider.analyze_vision(image, effective_key, prompt, base_url=clean_base)
+            raw_data = ai_provider.analyze_vision(image, effective_key, prompt, base_url=clean_base, model=model)
             result = GlobalVisionAnalysis.model_validate(raw_data).model_dump()
         else:
             result = cls._get_offline_fallback_global()
@@ -219,6 +221,7 @@ class CharacterAnalysisService:
         api_key: Optional[str] = None,
         provider: str = "gemini",
         base_url: Optional[str] = None,
+        model: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         [TAB 2]: Phân tích 3 hướng nhìn tham chiếu chuẩn (Down / Front, Side / Profile, Up / Back).
@@ -227,6 +230,7 @@ class CharacterAnalysisService:
         @param {Optional[str]} api_key Khóa API AI tùy chọn.
         @param {str} provider Nhà cung cấp AI (gemini hoặc openai).
         @param {Optional[str]} base_url Địa chỉ máy chủ proxy tùy chọn.
+        @param {Optional[str]} model Tên mô hình AI tùy chọn.
         @returns {Dict[str, Any]} Dữ liệu phân tích 3 hướng nhìn.
         """
         effective_key, effective_provider, clean_base = cls._resolve_credentials(api_key, provider, base_url)
@@ -236,7 +240,7 @@ class CharacterAnalysisService:
 
         prompt = _build_directions_prompt()
         ai_provider = AiProviderFactory.get_provider(effective_provider)
-        raw_data = ai_provider.analyze_vision(image, effective_key, prompt, base_url=clean_base)
+        raw_data = ai_provider.analyze_vision(image, effective_key, prompt, base_url=clean_base, model=model)
         return DirectionAnalysis.model_validate(raw_data).model_dump()
 
     @classmethod
@@ -246,6 +250,7 @@ class CharacterAnalysisService:
         api_key: Optional[str] = None,
         provider: str = "gemini",
         base_url: Optional[str] = None,
+        model: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         [TAB 3]: Phân tích hệ thống hoạt họa chuyển động Idle và Walk qua các frame tham chiếu.
@@ -254,6 +259,7 @@ class CharacterAnalysisService:
         @param {Optional[str]} api_key Khóa API AI tùy chọn.
         @param {str} provider Nhà cung cấp AI (gemini hoặc openai).
         @param {Optional[str]} base_url Địa chỉ máy chủ proxy tùy chọn.
+        @param {Optional[str]} model Tên mô hình AI tùy chọn.
         @returns {Dict[str, Any]} Dữ liệu phân tích hoạt họa Idle và Walk.
         """
         effective_key, effective_provider, clean_base = cls._resolve_credentials(api_key, provider, base_url)
@@ -263,7 +269,7 @@ class CharacterAnalysisService:
 
         prompt = _build_animations_prompt()
         ai_provider = AiProviderFactory.get_provider(effective_provider)
-        raw_data = ai_provider.analyze_vision(image, effective_key, prompt, base_url=clean_base)
+        raw_data = ai_provider.analyze_vision(image, effective_key, prompt, base_url=clean_base, model=model)
         return AnimationAnalysis.model_validate(raw_data).model_dump()
 
     @classmethod
@@ -275,6 +281,7 @@ class CharacterAnalysisService:
         api_key: Optional[str] = None,
         provider: str = "gemini",
         base_url: Optional[str] = None,
+        model: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         [TAB 4]: Tổng hợp Tính nhất quán (Consistency Analysis) và Các ràng buộc phủ định (Negative Constraints).
@@ -285,6 +292,7 @@ class CharacterAnalysisService:
         @param {Optional[str]} api_key Khóa API AI tùy chọn.
         @param {str} provider Nhà cung cấp AI.
         @param {Optional[str]} base_url Địa chỉ máy chủ proxy.
+        @param {Optional[str]} model Tên mô hình AI tùy chọn.
         @returns {Dict[str, Any]} Dữ liệu nhất quán và ràng buộc phủ định.
         """
         effective_key, effective_provider, clean_base = cls._resolve_credentials(api_key, provider, base_url)
@@ -294,7 +302,7 @@ class CharacterAnalysisService:
 
         prompt = _build_constraints_prompt(global_data)
         ai_provider = AiProviderFactory.get_provider(effective_provider)
-        raw_data = ai_provider.generate_json(prompt, effective_key, base_url=clean_base)
+        raw_data = ai_provider.generate_json(prompt, effective_key, base_url=clean_base, model=model)
         consistency = ConsistencyAnalysis.model_validate(raw_data.get("consistency_analysis", {}))
         negatives = NegativeConstraints.model_validate(raw_data.get("negative_constraints", {}))
         return {
@@ -303,10 +311,11 @@ class CharacterAnalysisService:
         }
 
     @staticmethod
-    def analyze_profile(image, tab_name, eff_key, eff_prov, eff_base, current_profile_json=None, vision_only=False):
+    def analyze_profile(image, tab_name, eff_key, eff_prov, eff_base, current_profile_json=None, vision_only=False, model=None):
         """Điều phối một tab hoặc toàn bộ hồ sơ trong cùng một luồng xử lý.
 
         @param tab_name Tên tab yêu cầu từ bên gọi.
+        @param model Tên mô hình AI tùy chọn.
         @returns Kết quả hồ sơ và nhãn tab theo hợp đồng hiện có.
         """
         tab_clean = tab_name.lower().strip()
@@ -315,20 +324,23 @@ class CharacterAnalysisService:
         if tab_clean == "global":
             result = CharacterAnalysisService.analyze_tab_global(
                 image=image, api_key=eff_key, provider=eff_prov, base_url=eff_base, include_palette=not vision_only,
+                model=model,
             )
             return {"status": "success", "tab": "global", "data": result}
 
         # Tab 2: Phân tích 3 hướng nhìn
         elif tab_clean == "directions":
             result = CharacterAnalysisService.analyze_tab_directions(
-                image=image, api_key=eff_key, provider=eff_prov, base_url=eff_base
+                image=image, api_key=eff_key, provider=eff_prov, base_url=eff_base,
+                model=model,
             )
             return {"status": "success", "tab": "directions", "data": result}
 
         # Tab 3: Phân tích Hoạt họa
         elif tab_clean == "animations":
             result = CharacterAnalysisService.analyze_tab_animations(
-                image=image, api_key=eff_key, provider=eff_prov, base_url=eff_base
+                image=image, api_key=eff_key, provider=eff_prov, base_url=eff_base,
+                model=model,
             )
             return {"status": "success", "tab": "animations", "data": result}
 
@@ -340,24 +352,29 @@ class CharacterAnalysisService:
             a_data = curr_profile.get("animation_analysis", {})
             result = CharacterAnalysisService.analyze_tab_constraints(
                 global_data=g_data, direction_data=d_data, animation_data=a_data,
-                api_key=eff_key, provider=eff_prov, base_url=eff_base
+                api_key=eff_key, provider=eff_prov, base_url=eff_base,
+                model=model,
             )
             return {"status": "success", "tab": "constraints", "data": result}
 
         # Chạy toàn bộ (All tabs tuần tự)
         elif tab_clean == "all":
-            global_res = CharacterAnalysisService.analyze_tab_global( image,
-                api_key=eff_key, provider=eff_prov, base_url=eff_base, include_palette=not vision_only,
+            global_res = CharacterAnalysisService.analyze_tab_global(
+                image, api_key=eff_key, provider=eff_prov, base_url=eff_base, include_palette=not vision_only,
+                model=model,
             )
-            direction_res = CharacterAnalysisService.analyze_tab_directions( image,
-                api_key=eff_key, provider=eff_prov, base_url=eff_base,
+            direction_res = CharacterAnalysisService.analyze_tab_directions(
+                image, api_key=eff_key, provider=eff_prov, base_url=eff_base,
+                model=model,
             )
-            animation_res = CharacterAnalysisService.analyze_tab_animations( image,
-                api_key=eff_key, provider=eff_prov, base_url=eff_base,
+            animation_res = CharacterAnalysisService.analyze_tab_animations(
+                image, api_key=eff_key, provider=eff_prov, base_url=eff_base,
+                model=model,
             )
             constraints_res = CharacterAnalysisService.analyze_tab_constraints(
                 global_data=global_res, direction_data=direction_res, animation_data=animation_res,
-                api_key=eff_key, provider=eff_prov, base_url=eff_base
+                api_key=eff_key, provider=eff_prov, base_url=eff_base,
+                model=model,
             )
 
             full_ai_analysis = {

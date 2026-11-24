@@ -48,10 +48,13 @@ class OpenAiDalleProvider(BaseImageGenProvider):
         negative_prompt: Optional[str] = None,
         aspect_ratio: str = "1:1",
         number_of_images: int = 1,
-        base_url: Optional[str] = None
+        base_url: Optional[str] = None,
+        model: Optional[str] = None,
+        image: Optional[str] = None
     ) -> ImageGenResponse:
         """
-        Gọi OpenAI Images API để sinh ảnh qua mô hình DALL-E 3.
+        Gọi OpenAI Images API để sinh ảnh qua mô hình DALL-E / GPT Image.
+        Hỗ trợ tiếp nhận ảnh mẫu tham chiếu (Image-to-Image / Edits / Reference Conditioning).
 
         @param {str} api_key Khóa OpenAI API.
         @param {str} prompt Lời nhắc mô tả ảnh cần tạo.
@@ -59,14 +62,18 @@ class OpenAiDalleProvider(BaseImageGenProvider):
         @param {str} aspect_ratio Tỉ lệ khung hình ('1:1', '3:4', '4:3', '16:9', '9:16').
         @param {int} number_of_images Số lượng ảnh (DALL-E 3 hỗ trợ n=1 trên mỗi request).
         @param {Optional[str]} base_url Địa chỉ máy chủ OpenAI hoặc Proxy.
+        @param {Optional[str]} model Mô hình tạo ảnh OpenAI cụ thể nếu có.
+        @param {Optional[str]} image Chuỗi Base64 ảnh mẫu tham chiếu nếu có.
         @returns {ImageGenResponse} Danh sách các ảnh đã được tạo kèm metadata.
         """
         clean_base = (base_url or self.DEFAULT_BASE_URL).rstrip("/")
-        url = f"{clean_base}/images/generations"
         headers = {
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json"
         }
+
+        # Mô hình tạo ảnh thực tế được chỉ định hoặc mặc định
+        eff_model = (model or self.DEFAULT_MODEL).strip()
 
         # Ánh xạ kích thước ảnh chuẩn của OpenAI DALL-E 3
         if aspect_ratio in ("3:4", "9:16"):
@@ -81,9 +88,52 @@ class OpenAiDalleProvider(BaseImageGenProvider):
         if negative_prompt:
             final_openai_prompt = f"{prompt}\n\n[NEGATIVE CONSTRAINTS / DO NOT INCLUDE]: {negative_prompt}"
 
-        # DALL-E 3 giới hạn n=1 trên mỗi lượt gọi API
+        # Trường hợp mô hình dall-e-2 và có ảnh mẫu: Gọi endpoint edits (Image-to-Image)
+        if image and eff_model == "dall-e-2":
+            try:
+                raw_bytes = base64.b64decode(image.strip())
+                edit_url = f"{clean_base}/images/edits"
+                edit_headers = {"Authorization": f"Bearer {api_key}"}
+                files = {"image": ("reference.png", raw_bytes, "image/png")}
+                form_data = {
+                    "prompt": final_openai_prompt,
+                    "n": 1,
+                    "size": "512x512" if aspect_ratio == "1:1" else "1024x1024"
+                }
+                edit_resp = requests.post(edit_url, headers=edit_headers, files=files, data=form_data, timeout=60)
+                if edit_resp.status_code == 200:
+                    data = edit_resp.json()
+                    items: List[GeneratedImageItem] = []
+                    for idx, entry in enumerate(data.get("data", [])):
+                        b64_raw = entry.get("b64_json")
+                        if not b64_raw and entry.get("url"):
+                            img_resp = requests.get(entry["url"], timeout=30)
+                            if img_resp.status_code == 200:
+                                b64_raw = base64.b64encode(img_resp.content).decode("utf-8")
+                        if b64_raw:
+                            item_id = f"img_{int(time.time() * 1000)}_{idx + 1}"
+                            items.append(GeneratedImageItem(
+                                id=item_id,
+                                b64_data=b64_raw,
+                                mime_type="image/png",
+                                data_url=f"data:image/png;base64,{b64_raw}",
+                                aspect_ratio=aspect_ratio
+                            ))
+                    if items:
+                        return ImageGenResponse(
+                            status="success",
+                            message=f"Đã tạo thành công ảnh dựa trên ảnh mẫu bằng OpenAI ({eff_model})!",
+                            provider_used="openai",
+                            model_used=eff_model,
+                            images=items
+                        )
+            except Exception:
+                # Nếu endpoint edits thất bại, fallback sang quy trình generations thông thường
+                pass
+
+        url = f"{clean_base}/images/generations"
         payload = {
-            "model": self.DEFAULT_MODEL,
+            "model": eff_model,
             "prompt": final_openai_prompt,
             "n": 1,
             "size": dalle_size
@@ -118,9 +168,9 @@ class OpenAiDalleProvider(BaseImageGenProvider):
                 if items:
                     return ImageGenResponse(
                         status="success",
-                        message=f"Đã tạo thành công ảnh bằng OpenAI ({self.DEFAULT_MODEL})!",
+                        message=f"Đã tạo thành công ảnh bằng OpenAI ({eff_model})!",
                         provider_used="openai",
-                        model_used=self.DEFAULT_MODEL,
+                        model_used=eff_model,
                         images=items
                     )
                 raise ValueError("OpenAI phản hồi thành công nhưng không có dữ liệu ảnh hợp lệ.")

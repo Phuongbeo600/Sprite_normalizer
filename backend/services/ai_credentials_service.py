@@ -140,3 +140,61 @@ class AiCredentialsService:
             pass
 
         return True
+
+    @classmethod
+    def resolve_model(
+        cls,
+        provider: Optional[str] = None,
+        model: Optional[str] = None,
+        project_id: Optional[int] = None,
+        model_type: str = "vision",
+        db: Optional[Session] = None,
+        project_service: Optional[ProjectService] = None,
+    ) -> Optional[str]:
+        """
+        Xác định tên mô hình hiệu dụng theo thứ tự ưu tiên:
+        1. Model truyền trực tiếp từ Client.
+        2. Model lưu trong CSDL của Dự án (vision_model, image_gen_model, chat_model).
+        3. Biến môi trường hệ thống (GEMINI_MODEL hoặc OPENAI_MODEL).
+
+        @param {Optional[str]} provider Nhà cung cấp AI ('gemini' hoặc 'openai').
+        @param {Optional[str]} model Tên mô hình truyền trực tiếp (nếu có).
+        @param {Optional[int]} project_id Mã dự án (nếu có).
+        @param {str} model_type Loại mô hình: 'vision', 'image_gen' hoặc 'chat'.
+        @param {Optional[Session]} db Phiên CSDL tùy chọn.
+        @param {Optional[ProjectService]} project_service Đối tượng ProjectService tùy chọn.
+        @returns {Optional[str]} Tên mô hình hiệu dụng hoặc None nếu để mặc định theo Provider.
+        """
+        # 1. Ưu tiên model truyền trực tiếp
+        if model and model.strip():
+            return model.strip()
+
+        # 2. Ưu tiên model cấu hình trong CSDL dự án
+        if project_id:
+            try:
+                service = project_service or ProjectService()
+                cfg = None
+                if db is not None:
+                    cfg = service.get_api_config(db, project_id)
+                else:
+                    with SessionLocal() as session:
+                        cfg = service.get_api_config(session, project_id)
+
+                if cfg:
+                    key_map = {
+                        "vision": "vision_model",
+                        "image_gen": "image_gen_model",
+                        "chat": "chat_model"
+                    }
+                    col_key = key_map.get(model_type, "vision_model")
+                    saved_model = cfg.get(col_key)
+                    if saved_model and saved_model.strip():
+                        return saved_model.strip()
+            except Exception:
+                pass
+
+        # 3. Biến môi trường hệ thống
+        clean_provider = (provider or os.getenv("AI_PROVIDER", "gemini")).lower().strip()
+        env_var = "OPENAI_MODEL" if clean_provider == "openai" else "GEMINI_MODEL"
+        env_model = os.getenv(env_var)
+        return env_model.strip() if env_model and env_model.strip() else None
