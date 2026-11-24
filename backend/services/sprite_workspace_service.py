@@ -71,87 +71,97 @@ class SpriteWorkspaceService:
         sheet_name = filename or f"sheet_{rows}x{columns}.png"
 
         # Mở ảnh bằng Pillow và tự động cắt thành các ô frame
-        image = Image.open(io.BytesIO(raw_bytes))
-        image = ImageOps.exif_transpose(image)
+        raw_image = Image.open(io.BytesIO(raw_bytes))
+        image = ImageOps.exif_transpose(raw_image)
+        try:
+            is_batch_resized = bool(target_width and target_height and target_width > 0 and target_height > 0)
 
-        is_batch_resized = bool(target_width and target_height and target_width > 0 and target_height > 0)
+            frames_list = []
 
-        frames_list = []
+            for idx, (frame_name, frame_size, png_bytes) in enumerate(
+                SpriteService.sheet_frames(image, rows=rows, columns=columns, auto_anchor=auto_anchor,
+                                           x_cuts=x_cuts, y_cuts=y_cuts),
+                start=1
+            ):
+                if is_batch_resized:
+                    with Image.open(io.BytesIO(png_bytes)) as frame_img:
+                        resized = resize_image(frame_img, width=target_width, height=target_height)
+                        try:
+                            with io.BytesIO() as buf:
+                                resized.save(buf, format="PNG")
+                                final_png_bytes = buf.getvalue()
+                        finally:
+                            resized.close()
+                    final_size = [target_width, target_height]
+                else:
+                    final_png_bytes = png_bytes
+                    final_size = list(frame_size)
 
-        for idx, (frame_name, frame_size, png_bytes) in enumerate(
-            SpriteService.sheet_frames(image, rows=rows, columns=columns, auto_anchor=auto_anchor,
-                                       x_cuts=x_cuts, y_cuts=y_cuts),
-            start=1
-        ):
-            if is_batch_resized:
-                frame_img = Image.open(io.BytesIO(png_bytes))
-                resized = resize_image(frame_img, width=target_width, height=target_height)
-                buf = io.BytesIO()
-                resized.save(buf, format="PNG")
-                final_png_bytes = buf.getvalue()
-                final_size = [target_width, target_height]
+                frames_list.append({
+                    "index": idx,
+                    "name": frame_name,
+                    "bytes": final_png_bytes,
+                    "size": final_size,
+                    "metadata": {
+                        "width": final_size[0],
+                        "height": final_size[1],
+                        "row": (idx - 1) // columns + 1,
+                        "col": (idx - 1) % columns + 1
+                    }
+                })
+
+            # Lưới thủ công có ô khác nhau nên metadata phải dùng canvas đã đệm thực tế.
+            frame_width = target_width if is_batch_resized else (frames_list[0]["size"][0] if x_cuts is not None else image.width // columns)
+            frame_height = target_height if is_batch_resized else (frames_list[0]["size"][1] if y_cuts is not None else image.height // rows)
+
+            # Nếu có ép kích thước: Tự động ghép 15 frame nhỏ thành một tấm Sprite Sheet mới hoàn chỉnh
+            # Lưới thủ công cũng ghép lại các PNG đã đệm để thư viện tải lại và xuất Godot theo lưới đều.
+            if (is_batch_resized or x_cuts is not None) and frames_list:
+                new_sheet_w = columns * frame_width
+                new_sheet_h = rows * frame_height
+                new_sheet_img = Image.new("RGBA", (new_sheet_w, new_sheet_h), (0, 0, 0, 0))
+                try:
+                    for f_idx, frame in enumerate(frames_list):
+                        col_i = f_idx % columns
+                        row_i = f_idx // columns
+                        with Image.open(io.BytesIO(frame["bytes"])) as rf_img:
+                            new_sheet_img.paste(rf_img, (col_i * frame_width, row_i * frame_height))
+
+                    with io.BytesIO() as s_buf:
+                        new_sheet_img.save(s_buf, format="PNG")
+                        final_sheet_bytes = s_buf.getvalue()
+                finally:
+                    new_sheet_img.close()
+
+                if is_batch_resized:
+                    name_stem = sheet_name.rsplit(".", 1)[0]
+                    sheet_name = f"{name_stem}_{target_width}x{target_height}.png"
             else:
-                final_png_bytes = png_bytes
-                final_size = list(frame_size)
+                final_sheet_bytes = raw_bytes
 
-            frames_list.append({
-                "index": idx,
-                "name": frame_name,
-                "bytes": final_png_bytes,
-                "size": final_size,
-                "metadata": {
-                    "width": final_size[0],
-                    "height": final_size[1],
-                    "row": (idx - 1) // columns + 1,
-                    "col": (idx - 1) % columns + 1
-                }
-            })
-
-        # Lưới thủ công có ô khác nhau nên metadata phải dùng canvas đã đệm thực tế.
-        frame_width = target_width if is_batch_resized else (frames_list[0]["size"][0] if x_cuts is not None else image.width // columns)
-        frame_height = target_height if is_batch_resized else (frames_list[0]["size"][1] if y_cuts is not None else image.height // rows)
-
-        # Nếu có ép kích thước: Tự động ghép 15 frame nhỏ thành một tấm Sprite Sheet mới hoàn chỉnh
-        # Lưới thủ công cũng ghép lại các PNG đã đệm để thư viện tải lại và xuất Godot theo lưới đều.
-        if (is_batch_resized or x_cuts is not None) and frames_list:
-            new_sheet_w = columns * frame_width
-            new_sheet_h = rows * frame_height
-            new_sheet_img = Image.new("RGBA", (new_sheet_w, new_sheet_h), (0, 0, 0, 0))
-
-            for f_idx, frame in enumerate(frames_list):
-                col_i = f_idx % columns
-                row_i = f_idx // columns
-                with Image.open(io.BytesIO(frame["bytes"])) as rf_img:
-                    new_sheet_img.paste(rf_img, (col_i * frame_width, row_i * frame_height))
-
-            s_buf = io.BytesIO()
-            new_sheet_img.save(s_buf, format="PNG")
-            final_sheet_bytes = s_buf.getvalue()
-            if is_batch_resized:
-                name_stem = sheet_name.rsplit(".", 1)[0]
-                sheet_name = f"{name_stem}_{target_width}x{target_height}.png"
-        else:
-            final_sheet_bytes = raw_bytes
-
-        metadata = {
-            "rows": rows,
-            "columns": columns,
-            "auto_anchor": auto_anchor,
-            "fps": fps,
-            "original_width": image.width,
-            "original_height": image.height,
-            "frame_width": frame_width,
-            "frame_height": frame_height,
-            "is_batch_resized": is_batch_resized,
-            "frame_count": len(frames_list),
-            "filename": sheet_name
-        }
-        if x_cuts is not None:
-            metadata.update({
-                "x_cuts": x_cuts, "y_cuts": y_cuts,
-                "source_width": image.width, "source_height": image.height,
-                "original_width": new_sheet_w, "original_height": new_sheet_h,
-            })
+            metadata = {
+                "rows": rows,
+                "columns": columns,
+                "auto_anchor": auto_anchor,
+                "fps": fps,
+                "original_width": image.width,
+                "original_height": image.height,
+                "frame_width": frame_width,
+                "frame_height": frame_height,
+                "is_batch_resized": is_batch_resized,
+                "frame_count": len(frames_list),
+                "filename": sheet_name
+            }
+            if x_cuts is not None:
+                metadata.update({
+                    "x_cuts": x_cuts, "y_cuts": y_cuts,
+                    "source_width": image.width, "source_height": image.height,
+                    "original_width": new_sheet_w, "original_height": new_sheet_h,
+                })
+        finally:
+            image.close()
+            if image is not raw_image:
+                raw_image.close()
 
         result = self.repository.save_sliced_pack(
             db=db,

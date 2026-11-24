@@ -101,12 +101,15 @@ def detect_sprite_resolution(file: Annotated[UploadFile, File()]):
     try:
         with Image.open(file.file) as source:
             image, scale = recover_native_sprite(ImageOps.exif_transpose(source))#Thu nhỏ ảnh về đúng kích thước thật mà AI đã phóng to lên
-            return {
-                "width": image.width,
-                "height": image.height,
-                "scale": scale,
-                "png": b64encode(SpriteService.encode_png(image)).decode("ascii") if scale > 1 else None,#ảnh trả về đã chuẩn hoá
-            }
+            try:
+                return {
+                    "width": image.width,
+                    "height": image.height,
+                    "scale": scale,
+                    "png": b64encode(SpriteService.encode_png(image)).decode("ascii") if scale > 1 else None,#ảnh trả về đã chuẩn hoá
+                }
+            finally:
+                image.close()
     except (OSError, ValueError, Image.DecompressionBombError) as error:
         raise HTTPException(status_code=400, detail="Không đọc được lưới pixel của ảnh.") from error
 
@@ -121,7 +124,10 @@ def resize_sprite(
     try:
         with Image.open(file.file) as source:
             image = resize_image(ImageOps.exif_transpose(source), target_width, target_height)
-            return Response(SpriteService.encode_png(image), media_type="image/png") # Response trả về một đối tượng luôn chứ không phải file json
+            try:
+                return Response(SpriteService.encode_png(image), media_type="image/png") # Response trả về một đối tượng luôn chứ không phải file json
+            finally:
+                image.close()
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
     except (OSError, Image.DecompressionBombError) as error:
@@ -280,13 +286,16 @@ async def analyze_character(
             with Image.open(io.BytesIO(contents)) as source:
                 image = ImageOps.exif_transpose(source)
 
-            metrics, message, annotated_b64 = AnatomyService.analyze_sprite( #metrics chứa dữ liệu đầu , cổ, chân ở python đã tính
-                image=image, auto_remove_bg=auto_remove_bg,
-            )
-            if not metrics:
-                return None, message, None, None
-            regions = AnatomyService.measure_anatomy_regions(image, metrics, auto_remove_bg)
-            return metrics, message, annotated_b64, regions
+            try:
+                metrics, message, annotated_b64 = AnatomyService.analyze_sprite( #metrics chứa dữ liệu đầu , cổ, chân ở python đã tính
+                    image=image, auto_remove_bg=auto_remove_bg,
+                )
+                if not metrics:
+                    return None, message, None, None
+                regions = AnatomyService.measure_anatomy_regions(image, metrics, auto_remove_bg)
+                return metrics, message, annotated_b64, regions
+            finally:
+                image.close()
 
         metrics, message, annotated_b64, regions = await run_in_threadpool(_perform_analysis)
 

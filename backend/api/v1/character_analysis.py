@@ -144,10 +144,14 @@ async def generate_reference_style_prompt(
         raise HTTPException(status_code=400, detail="Không đọc được ảnh sprite.") from error
 
     eff_model = AiCredentialsService.resolve_model(provider=eff_provider, model=model, project_id=project_id, model_type="vision")
+
+    def _run_generate_style():
+        with Image.open(io.BytesIO(contents)) as source:
+            with ImageOps.exif_transpose(source).convert("RGBA") as image:
+                return generate_style_prompt(image, metrics, key.strip(), eff_provider, eff_base_url, eff_model)
+
     try:
-        return await run_in_threadpool(
-            generate_style_prompt, image, metrics, key.strip(), eff_provider, eff_base_url, eff_model
-        )
+        return await run_in_threadpool(_run_generate_style)
     except AiProviderError as ape:
         raise HTTPException(status_code=ape.status_code, detail=ape.message)
     except (ValueError, RuntimeError) as error:
@@ -195,16 +199,20 @@ async def analyze_character_tab(
                 raise HTTPException(status_code=409, detail="Chưa cấu hình khóa API cho nhà cung cấp đã chọn.")
 
         contents = await file.read()
-        with Image.open(io.BytesIO(contents)) as source:
-            image = source.convert("RGBA")
         if tab_name.lower().strip() not in {"global", "directions", "animations", "constraints", "all"}:
             raise HTTPException(status_code=400, detail=f"Tab '{tab_name}' không hợp lệ.")
 
         eff_model = AiCredentialsService.resolve_model(provider=eff_prov, model=model, project_id=project_id, model_type="vision")
-        return await run_in_threadpool(
-            CharacterAnalysisService.analyze_profile, image, tab_name, eff_key, eff_prov, eff_base,
-            current_profile_json, vision_only, model=eff_model,
-        )
+
+        def _run_analyze_profile():
+            with Image.open(io.BytesIO(contents)) as source:
+                with source.convert("RGBA") as image:
+                    return CharacterAnalysisService.analyze_profile(
+                        image, tab_name, eff_key, eff_prov, eff_base,
+                        current_profile_json, vision_only, model=eff_model,
+                    )
+
+        return await run_in_threadpool(_run_analyze_profile)
 
     except HTTPException:
         raise

@@ -40,10 +40,10 @@ class SpriteService:
 
     @staticmethod
     def encode_png(image: Image.Image) -> bytes:
-        """Mã hóa ảnh thành PNG trong bộ nhớ."""
-        buffer = io.BytesIO()
-        image.save(buffer, format="PNG")
-        return buffer.getvalue()
+        """Mã hóa ảnh thành PNG trong bộ nhớ và tự động giải phóng buffer."""
+        with io.BytesIO() as buffer:
+            image.save(buffer, format="PNG")
+            return buffer.getvalue()
 
     @classmethod
     def sheet_frames(
@@ -56,17 +56,20 @@ class SpriteService:
         x_cuts: list[int] | None = None,
         y_cuts: list[int] | None = None,
     ):
-        """Trả tên, kích thước và PNG cho mỗi ô của sheet (hỗ trợ tự gọt lề trống)."""
+        """Trả tên, kích thước và PNG cho mỗi ô của sheet (tự động đóng frame để giải phóng RAM)."""
         for index, frame in enumerate(slice_sheet(
             image, rows, columns, auto_anchor=auto_anchor,
             trim_outer_padding=trim_outer_padding, x_cuts=x_cuts, y_cuts=y_cuts,
         ), start=1):
-            yield f"frame_{index:03}.png", frame.size, cls.encode_png(frame)
+            try:
+                yield f"frame_{index:03}.png", frame.size, cls.encode_png(frame)
+            finally:
+                frame.close()
 
     @classmethod
     def resized_sheet_frames(cls, image, rows, columns, target_width, target_height,
                              auto_anchor=False, trim_outer_padding=True, x_cuts=None, y_cuts=None):
-        """Cắt và ép các ô, trả tên, kích thước và PNG để từng API tự định dạng kết quả.
+        """Cắt và ép các ô, trả tên, kích thước và PNG để từng API tự định dạng kết quả (giải phóng RAM từng frame).
 
         @param image Ảnh sheet đã được bên gọi áp dụng hướng EXIF.
         @returns Bộ lặp tên frame, kích thước đích và dữ liệu PNG.
@@ -77,7 +80,10 @@ class SpriteService:
         ):
             with Image.open(io.BytesIO(png)) as frame:
                 resized = resize_sprite(frame, target_width, target_height)
-                yield name, resized.size, cls.encode_png(resized)
+                try:
+                    yield name, resized.size, cls.encode_png(resized)
+                finally:
+                    resized.close()
 
     @classmethod
     def sheet_zip(
@@ -93,19 +99,22 @@ class SpriteService:
         y_cuts: list[int] | None = None,
     ) -> bytes:
         """Đóng gói các PNG theo đúng thứ tự hiển thị (Hỗ trợ ép kích thước Nearest Neighbor và gọt lề trống)."""
-        buffer = io.BytesIO()
-        with ZipFile(buffer, "w") as archive:
-            for name, (w, h), png in cls.sheet_frames(
-                image, rows, columns, auto_anchor=auto_anchor,
-                trim_outer_padding=trim_outer_padding, x_cuts=x_cuts, y_cuts=y_cuts,
-            ):
-                if target_width and target_height and (target_width != w or target_height != h):
-                    frame_img = Image.open(io.BytesIO(png))
-                    resized = resize_sprite(frame_img, width=target_width, height=target_height)
-                    archive.writestr(name, cls.encode_png(resized))
-                else:
-                    archive.writestr(name, png)
-        return buffer.getvalue()
+        with io.BytesIO() as buffer:
+            with ZipFile(buffer, "w") as archive:
+                for name, (w, h), png in cls.sheet_frames(
+                    image, rows, columns, auto_anchor=auto_anchor,
+                    trim_outer_padding=trim_outer_padding, x_cuts=x_cuts, y_cuts=y_cuts,
+                ):
+                    if target_width and target_height and (target_width != w or target_height != h):
+                        with Image.open(io.BytesIO(png)) as frame_img:
+                            resized = resize_sprite(frame_img, width=target_width, height=target_height)
+                            try:
+                                archive.writestr(name, cls.encode_png(resized))
+                            finally:
+                                resized.close()
+                    else:
+                        archive.writestr(name, png)
+            return buffer.getvalue()
     @staticmethod
     def analyze_colors(image: Image.Image) -> dict:
         """Trả báo cáo đo màu cục bộ và đặc tả bảng màu dùng trong Studio tích hợp thuật toán LibreSprite."""
@@ -163,13 +172,14 @@ class SpriteService:
         @param {Optional[int]} ground_y Mốc chân tiếp đất sinh học để tránh lơ lửng do bóng.
         @returns {bytes} Mảng byte hình ảnh PNG đã căn chỉnh hoàn hảo.
         """
-        image = Image.open(io.BytesIO(image_bytes))
-
-        normalizer = SpriteNormalizer(
-            target_width=target_width,
-            target_height=target_height,
-            anchor=anchor
-        )
-        normalized_img = normalizer.normalize_frame(image, ground_y=ground_y)
-
-        return SpriteService.encode_png(normalized_img)
+        with Image.open(io.BytesIO(image_bytes)) as image:
+            normalizer = SpriteNormalizer(
+                target_width=target_width,
+                target_height=target_height,
+                anchor=anchor
+            )
+            normalized_img = normalizer.normalize_frame(image, ground_y=ground_y)
+            try:
+                return SpriteService.encode_png(normalized_img)
+            finally:
+                normalized_img.close()
