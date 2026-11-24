@@ -332,15 +332,18 @@ def export_godot_package(
     try:
         with Image.open(file.file) as source:
             image = ImageOps.exif_transpose(source)
-            zip_bytes = GodotExportService.export_godot_package(
-                image=image,
-                rows=rows,
-                columns=columns,
-                fps=fps,
-                move_speed=move_speed,
-                character_name=character_name,
-                auto_anchor=auto_anchor
-            )
+            try:
+                zip_bytes = GodotExportService.export_godot_package(
+                    image=image,
+                    rows=rows,
+                    columns=columns,
+                    fps=fps,
+                    move_speed=move_speed,
+                    character_name=character_name,
+                    auto_anchor=auto_anchor
+                )
+            finally:
+                image.close()
             clean_filename = f"{character_name.strip() or 'Player'}_godot4.zip"
             return Response(
                 zip_bytes,

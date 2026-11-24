@@ -144,4 +144,10 @@ class AnatomyVisualRenderer:
         draw.line([(0, ground_y), (base.width, ground_y)], fill=(50, 255, 100, 230), width=max(1, line_w + 1))
         draw.text((4, max(0, ground_y - 12)), f"GROUND: y={metrics.ground_y if metrics.ground_y is not None else metrics.visible_y_max}", fill=(80, 255, 120, 255), font=font)
 
-        return Image.alpha_composite(base, overlay)
+        # Hợp nhất lớp vẽ và giải phóng các bề mặt trung gian khỏi RAM
+        composite = Image.alpha_composite(base, overlay)
+        base.close()
+        overlay.close()
+        if clean_img is not image:
+            clean_img.close()
+        return composite

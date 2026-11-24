@@ -67,34 +67,41 @@ class GodotExportService:
         if not raw_frames:
             raise ValueError("Không cắt được frame nào từ ảnh cung cấp.")
 
-        frame_w, frame_h = raw_frames[0].size
+        try:
+            frame_w, frame_h = raw_frames[0].size
 
-        # 2. Ghép các frame đã chuẩn hóa thành một tấm Sprite Sheet mới hoàn hảo
-        sheet_w = frame_w * columns
-        sheet_h = frame_h * rows
-        combined_sheet = Image.new("RGBA", (sheet_w, sheet_h), (0, 0, 0, 0))
+            # 2. Ghép các frame đã chuẩn hóa thành một tấm Sprite Sheet mới hoàn hảo
+            sheet_w = frame_w * columns
+            sheet_h = frame_h * rows
+            combined_sheet = Image.new("RGBA", (sheet_w, sheet_h), (0, 0, 0, 0))
+            try:
+                for idx, f in enumerate(raw_frames):
+                    r = idx // columns
+                    c = idx % columns
+                    combined_sheet.paste(f, (c * frame_w, r * frame_h))
 
-        for idx, f in enumerate(raw_frames):
-            r = idx // columns
-            c = idx % columns
-            combined_sheet.paste(f, (c * frame_w, r * frame_h))
+                with io.BytesIO() as sheet_buffer:
+                    combined_sheet.save(sheet_buffer, format="PNG")
+                    sheet_png_bytes = sheet_buffer.getvalue()
+            finally:
+                combined_sheet.close()
 
-        sheet_buffer = io.BytesIO()
-        combined_sheet.save(sheet_buffer, format="PNG")
-        sheet_png_bytes = sheet_buffer.getvalue()
-
-        # 3. Tính toán thông số hộp va chạm (CollisionShape2D)
-        # Quét Bounding Box của frame đầu tiên để ước lượng tỷ lệ cơ thể
-        normalizer = SpriteNormalizer(target_width=frame_w, target_height=frame_h)
-        bbox = normalizer.get_bounding_box(raw_frames[0])
-        if bbox:
-            _, ymin, _, ymax = bbox
-            char_actual_h = max(10, ymax - ymin)
-            collision_radius = max(6.0, round((frame_w * 0.22), 1))
-            collision_height = max(collision_radius * 2, round(char_actual_h * 0.65, 1))
-        else:
-            collision_radius = max(6.0, round(frame_w * 0.2, 1))
-            collision_height = max(16.0, round(frame_h * 0.5, 1))
+            # 3. Tính toán thông số hộp va chạm (CollisionShape2D)
+            # Quét Bounding Box của frame đầu tiên để ước lượng tỷ lệ cơ thể
+            normalizer = SpriteNormalizer(target_width=frame_w, target_height=frame_h)
+            bbox = normalizer.get_bounding_box(raw_frames[0])
+            if bbox:
+                _, ymin, _, ymax = bbox
+                char_actual_h = max(10, ymax - ymin)
+                collision_radius = max(6.0, round((frame_w * 0.22), 1))
+                collision_height = max(collision_radius * 2, round(char_actual_h * 0.65, 1))
+            else:
+                collision_radius = max(6.0, round(frame_w * 0.2, 1))
+                collision_height = max(16.0, round(frame_h * 0.5, 1))
+        finally:
+            # Giải phóng toàn bộ bộ nhớ của các frame con cắt rời
+            for f in raw_frames:
+                f.close()
 
         # Điểm neo đáy: Sprite đặt tại y = -frame_h / 2 để chân tiếp xúc đúng gốc tọa độ (0, 0)
         sprite_pos_y = -round(frame_h / 2.0, 1)
@@ -129,15 +136,15 @@ class GodotExportService:
         )
 
         # 5. Đóng gói vào tệp ZIP
-        zip_buffer = io.BytesIO()
-        with ZipFile(zip_buffer, "w") as zf:
-            zf.writestr("character_sheet.png", sheet_png_bytes)
-            zf.writestr("character_frames.tres", tres_content)
-            zf.writestr(f"{character_name}.tscn", tscn_content)
-            zf.writestr("player.gd", gd_content)
-            zf.writestr("HUONG_DAN_SU_DUNG.txt", readme_content)
+        with io.BytesIO() as zip_buffer:
+            with ZipFile(zip_buffer, "w") as zf:
+                zf.writestr("character_sheet.png", sheet_png_bytes)
+                zf.writestr("character_frames.tres", tres_content)
+                zf.writestr(f"{character_name}.tscn", tscn_content)
+                zf.writestr("player.gd", gd_content)
+                zf.writestr("HUONG_DAN_SU_DUNG.txt", readme_content)
 
-        return zip_buffer.getvalue()
+            return zip_buffer.getvalue()
 
     @staticmethod
     def _generate_sprite_frames_tres(
