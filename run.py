@@ -33,17 +33,45 @@ def start_app():
     print("🚀 ĐANG KHỞI ĐỘNG HỆ THỐNG SPRITE NORMALIZER...")
     print("=" * 60)
 
+    # Kiểm tra cờ tham số dòng lệnh hoặc biến môi trường APP_ENV để phân tách chế độ chạy
+    is_prod = "--prod" in sys.argv or os.getenv("APP_ENV", "").lower() in ("production", "prod")
+
     # 1. Khởi động Backend FastAPI trên cổng 8000
-    print("[1/2] 🐍 Khởi động Backend FastAPI (Port 8000)...")
-    backend_cmd = [
-        sys.executable,
-        "-m",
-        "uvicorn",
-        "backend.main:app",
-        "--reload",
-        "--port",
-        "8000",
-    ]
+    if is_prod:
+        workers = os.getenv("UVICORN_WORKERS") or os.getenv("WEB_CONCURRENCY") or "2"
+        print(f"[1/2] 🐍 Khởi động Backend FastAPI ở chế độ PRODUCTION ({workers} Workers)...")
+        backend_cmd = [
+            sys.executable,
+            "-m",
+            "uvicorn",
+            "backend.main:app",
+            "--host",
+            os.getenv("UVICORN_HOST", "0.0.0.0"),
+            "--port",
+            os.getenv("UVICORN_PORT", "8000"),
+            "--workers",
+            str(workers),
+            "--limit-concurrency",
+            os.getenv("UVICORN_LIMIT_CONCURRENCY", "100"),
+            "--timeout-keep-alive",
+            os.getenv("UVICORN_TIMEOUT_KEEP_ALIVE", "10"),
+            "--timeout-graceful-shutdown",
+            os.getenv("UVICORN_TIMEOUT_GRACEFUL_SHUTDOWN", "20"),
+        ]
+    else:
+        print("[1/2] 🐍 Khởi động Backend FastAPI ở chế độ DEVELOPMENT (Auto-Reload)...")
+        backend_cmd = [
+            sys.executable,
+            "-m",
+            "uvicorn",
+            "backend.main:app",
+            "--reload",
+            "--host",
+            os.getenv("UVICORN_HOST", "127.0.0.1"),
+            "--port",
+            os.getenv("UVICORN_PORT", "8000"),
+        ]
+
     backend_process = subprocess.Popen(
         backend_cmd,
         cwd=root_dir,

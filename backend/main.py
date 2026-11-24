@@ -8,6 +8,10 @@ Tại sao tồn tại: Thiết lập cấu hình ứng dụng web, kích hoạt 
 # ========================================================
 # 1. THƯ VIỆN NỀN TẢNG PYTHON (Khởi tạo hệ thống & Quản lý vòng đời)
 # ========================================================
+# os: Đọc biến môi trường hệ thống xác định chế độ chạy (Development / Production)
+import os
+# sys: Quản lý đối số dòng lệnh và thông tin hệ điều hành
+import sys
 # asynccontextmanager: Trình quản lý ngữ cảnh bất đồng bộ hỗ trợ vòng đời ứng dụng FastAPI (Lifespan)
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -85,6 +89,58 @@ else:
     app.add_api_route("/", root, methods=["GET"], include_in_schema=False)
 
 
+def get_uvicorn_config() -> dict:
+    """
+    Xác định bộ thông số cấu hình tối ưu cho máy chủ ASGI Uvicorn:
+    - Phân tách rõ ràng giữa môi trường Development (Đơn tiến trình, reload=True)
+      và Production (Đa tiến trình Multi-Worker, reload=False, kiểm soát kết nối).
+    - Hỗ trợ cấu hình số lượng Worker linh hoạt thông qua biến môi trường UVICORN_WORKERS hoặc WEB_CONCURRENCY.
+    - Tích hợp các tham số bảo vệ chống cạn kiệt tài nguyên: limit_concurrency, timeout_keep_alive, timeout_graceful_shutdown.
+    
+    @returns {dict} Từ điển chứa các đối số truyền vào uvicorn.run().
+    """
+    app_env = os.getenv("APP_ENV", "development").lower().strip()
+    is_prod = app_env in ("production", "prod")
+
+    # Cấu hình địa chỉ mạng và cổng lắng nghe
+    host = os.getenv("UVICORN_HOST", "0.0.0.0" if is_prod else "127.0.0.1")
+    port = int(os.getenv("UVICORN_PORT", "8000"))
+
+    if is_prod:
+        # Số Worker tối ưu: Mặc định 2 workers (đảm bảo an toàn RAM khi nạp mô hình dịch thuật và trần kết nối MySQL)
+        workers_env = os.getenv("UVICORN_WORKERS") or os.getenv("WEB_CONCURRENCY")
+        workers = int(workers_env) if workers_env else 2
+
+        # Các thông số bảo vệ quá tải và kết nối bền vững
+        limit_concurrency = int(os.getenv("UVICORN_LIMIT_CONCURRENCY", "100"))
+        timeout_keep_alive = int(os.getenv("UVICORN_TIMEOUT_KEEP_ALIVE", "10"))
+        timeout_graceful_shutdown = int(os.getenv("UVICORN_TIMEOUT_GRACEFUL_SHUTDOWN", "20"))
+
+        return {
+            "app": "backend.main:app",
+            "host": host,
+            "port": port,
+            "workers": workers,
+            "reload": False,
+            "limit_concurrency": limit_concurrency,
+            "timeout_keep_alive": timeout_keep_alive,
+            "timeout_graceful_shutdown": timeout_graceful_shutdown,
+        }
+    else:
+        # Môi trường Development: Đơn Worker và tự động tải lại mã nguồn khi chỉnh sửa
+        return {
+            "app": "backend.main:app",
+            "host": host,
+            "port": port,
+            "workers": 1,
+            "reload": True,
+        }
+
+
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("backend.main:app", host="127.0.0.1", port=8000, reload=True)
+    cfg = get_uvicorn_config()
+    mode_name = "Production (Multi-Worker)" if not cfg.get("reload") else "Development (Auto-Reload)"
+    print(f"\n[Uvicorn Boot] Chế độ vận hành: {mode_name}")
+    print(f"[Uvicorn Boot] Địa chỉ: {cfg['host']}:{cfg['port']} | Workers: {cfg.get('workers', 1)}\n")
+    uvicorn.run(**cfg)

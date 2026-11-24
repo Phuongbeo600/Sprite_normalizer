@@ -1,9 +1,11 @@
 # ========================================================
-# 1. THƯ VIỆN NỀN TẢNG PYTHON (Hệ thống & Đường dẫn tệp)
+# 1. THƯ VIỆN NỀN TẢNG PYTHON (Hệ thống, Thời gian & Đường dẫn tệp)
 # ========================================================
 # os: Đọc và gán biến môi trường hệ thống
 import os
-# threading: Khóa đồng bộ hóa chống Race Condition khi ghi file .env đồng thời
+# time: Lấy dấu thời gian nano giây tạo tên file tạm phân biệt giữa các tiến trình
+import time
+# threading: Khóa đồng bộ hóa chống Race Condition khi ghi file .env đồng thời trong cùng tiến trình
 import threading
 # Path: Quản lý đường dẫn tuyệt đối tới file .env
 from pathlib import Path
@@ -13,7 +15,8 @@ from typing import Dict, Any, Optional
 # ========================================================
 # 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
 # ========================================================
-# (Không có phụ thuộc bên ngoài)
+# dotenv: Nạp lại biến môi trường từ file .env đồng bộ giữa các tiến trình Worker
+from dotenv import load_dotenv
 
 # ========================================================
 # 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (AI Providers)
@@ -57,9 +60,14 @@ class SettingsService:
     def get_settings(cls) -> Dict[str, Any]:
         """
         Lấy thông tin cấu hình hiện tại của hệ thống.
+        Tự động nạp lại biến môi trường từ file .env để đồng bộ trạng thái mới nhất giữa các Worker.
 
         @returns {Dict[str, Any]} Cấu hình nhà cung cấp và các khóa API đã che dấu.
         """
+        # Đồng bộ hóa cấu hình mới nhất từ file .env phòng trường hợp Worker khác vừa cập nhật
+        if cls.ENV_PATH.exists():
+            load_dotenv(dotenv_path=cls.ENV_PATH, override=True)
+
         return {
             "status": "success",
             "provider": os.getenv("AI_PROVIDER", "gemini"),
@@ -133,12 +141,15 @@ class SettingsService:
                 if k not in updated_keys:
                     new_lines.append(f"{k}={v}\n")
 
-            # Ghi nguyên tử (Atomic write) qua file tạm để tránh hỏng dữ liệu khi có sự cố
-            temp_path = cls.ENV_PATH.with_suffix(".tmp")
+            # Ghi nguyên tử (Atomic write) qua file tạm riêng biệt cho từng tiến trình (kèm PID và timestamp)
+            # Điều này ngăn ngừa hoàn toàn hiện tượng nhiều Worker ghi đè hoặc xung đột file tạm
+            temp_path = cls.ENV_PATH.with_name(f".env.{os.getpid()}_{time.time_ns()}.tmp")
             try:
                 with open(temp_path, "w", encoding="utf-8") as f:
                     f.writelines(new_lines)
                 os.replace(temp_path, cls.ENV_PATH)
+                # Nạp lại biến môi trường của tiến trình hiện tại sau khi ghi đè thành công
+                load_dotenv(dotenv_path=cls.ENV_PATH, override=True)
             except Exception:
                 if temp_path.exists():
                     try:
