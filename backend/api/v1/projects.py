@@ -19,8 +19,8 @@ from sqlalchemy.orm import Session
 # ========================================================
 # get_db: Dependency cấp phiên MySQL
 from backend.db import get_db
-# get_current_user_optional: Dependency xác thực người dùng an toàn qua JWT hoặc Fallback
-from backend.core.dependencies import get_current_user_optional
+# get_current_user_optional, check_project_access: Dependency xác thực và kiểm tra quyền sở hữu dự án
+from backend.core.dependencies import get_current_user_optional, check_project_access
 # ProjectService: Dịch vụ nghiệp vụ quản lý dự án
 from backend.services.project_service import ProjectService
 # AiProviderFactory: Khởi tạo provider AI
@@ -99,8 +99,13 @@ def create_project(
 
 
 @projects_router.get("/{project_id}")
-def get_project(project_id: int, db: Session = Depends(get_db)):
-    """Lấy thông tin chi tiết một dự án theo ID."""
+def get_project(
+    project_id: int,
+    current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
+    """Lấy thông tin chi tiết một dự án theo ID (có kiểm tra quyền sở hữu)."""
+    check_project_access(db, project_id, current_user)
     project = project_service.get_project_by_id(db, project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Không tìm thấy dự án.")
@@ -108,8 +113,14 @@ def get_project(project_id: int, db: Session = Depends(get_db)):
 
 
 @projects_router.put("/{project_id}")
-def update_project(project_id: int, name: str = Form(...), db: Session = Depends(get_db)):
-    """Cập nhật tên dự án."""
+def update_project(
+    project_id: int,
+    name: str = Form(...),
+    current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
+    """Cập nhật tên dự án (có kiểm tra quyền sở hữu)."""
+    check_project_access(db, project_id, current_user)
     try:
         success = project_service.update_project(db, project_id, name)
         if not success:
@@ -125,8 +136,13 @@ def update_project(project_id: int, name: str = Form(...), db: Session = Depends
 
 
 @projects_router.delete("/{project_id}")
-def delete_project(project_id: int, db: Session = Depends(get_db)):
-    """Xóa một dự án theo ID."""
+def delete_project(
+    project_id: int,
+    current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
+    """Xóa một dự án theo ID (có kiểm tra quyền sở hữu)."""
+    check_project_access(db, project_id, current_user)
     try:
         success = project_service.delete_project(db, project_id)
         if not success:
@@ -143,14 +159,19 @@ def delete_project(project_id: int, db: Session = Depends(get_db)):
 # CÁC ENDPOINTS CẤU HÌNH API KEY CỦA RIÊNG TỪNG DỰ ÁN
 # ========================================================
 @projects_router.get("/{project_id}/api-config")
-def get_project_api_config(project_id: int, db: Session = Depends(get_db)):
+def get_project_api_config(
+    project_id: int,
+    current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
     """
-    Kiểm tra và lấy trạng thái API Key của dự án từ CSDL MySQL:
+    Kiểm tra và lấy trạng thái API Key của dự án từ CSDL MySQL (có kiểm tra quyền sở hữu):
     - Trả về gemini_has_key / openai_has_key (True/False).
     - Trả về gemini_masked_key / openai_masked_key (dạng AIzaSy...****).
     - Trả về vision_model, image_gen_model, chat_model đã cấu hình.
     - Tuyệt đối không trả về raw key đầy đủ ra client.
     """
+    check_project_access(db, project_id, current_user)
     try:
         config = project_service.get_api_config(db, project_id)
         # Ẩn key thật khi trả về cho client
@@ -179,11 +200,13 @@ def get_project_api_config(project_id: int, db: Session = Depends(get_db)):
 def update_project_api_config(
     project_id: int,
     req: ProjectApiConfigRequest,
+    current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
     """
-    Lưu hoặc cập nhật chìa khóa API Key và các mô hình được chọn vào đúng dự án trong CSDL MySQL.
+    Lưu hoặc cập nhật chìa khóa API Key và các mô hình được chọn vào đúng dự án trong CSDL MySQL (có kiểm tra quyền sở hữu).
     """
+    check_project_access(db, project_id, current_user)
     try:
         project_service.update_api_config(
             db=db,
@@ -212,12 +235,14 @@ def update_project_api_config(
 def test_project_connection(
     project_id: int,
     req: ProjectTestConnectionRequest,
+    current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
     """
-    Kiểm tra nhanh kết nối API Key cho dự án.
+    Kiểm tra nhanh kết nối API Key cho dự án (có kiểm tra quyền sở hữu).
     Ưu tiên khóa API truyền trực tiếp từ client (khi đang nhập), nếu thiếu sẽ đọc khóa đã lưu trong MySQL.
     """
+    check_project_access(db, project_id, current_user)
     try:
         eff_key, eff_prov, eff_base = project_service.resolve_project_credentials(
             db=db,
@@ -257,14 +282,16 @@ def test_project_connection(
 def fetch_project_models(
     project_id: int,
     req: ProjectFetchModelsRequest,
+    current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
     """
-    Tự động truy vấn danh sách model thực tế từ API của nhà cung cấp và phân loại theo chức năng:
+    Tự động truy vấn danh sách model thực tế từ API của nhà cung cấp và phân loại theo chức năng (có kiểm tra quyền sở hữu):
     - vision: Phân tích ảnh nhân vật & trắc lượng phong cách.
     - image_gen: Tạo ảnh Sprite Sheet (Imagen 3 / DALL-E).
     - chat: Trợ lý hội thoại Studio.
     """
+    check_project_access(db, project_id, current_user)
     try:
         eff_key, eff_prov, eff_base = project_service.resolve_project_credentials(
             db=db,
@@ -399,10 +426,15 @@ def fetch_project_models(
 # CÁC ENDPOINTS QUẢN LÝ BẢN PHÂN TÍCH & PROMPT (PRESETS)
 # ========================================================
 @projects_router.get("/{project_id}/character-presets")
-def list_character_presets(project_id: int, db: Session = Depends(get_db)):
+def list_character_presets(
+    project_id: int,
+    current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
     """
-    Lấy danh sách các bản phân tích chỉ số và prompt đã lưu của riêng dự án này.
+    Lấy danh sách các bản phân tích chỉ số và prompt đã lưu của riêng dự án này (có kiểm tra quyền sở hữu).
     """
+    check_project_access(db, project_id, current_user)
     try:
         presets = project_service.get_character_presets(db, project_id)
         return {"status": "success", "data": presets}
@@ -416,11 +448,13 @@ def list_character_presets(project_id: int, db: Session = Depends(get_db)):
 def create_character_preset(
     project_id: int,
     req: SaveCharacterPresetRequest,
+    current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
     """
-    Lưu một bản phân tích chỉ số giải phẫu pixel và Prompt nhân vật vào dự án trong MySQL.
+    Lưu một bản phân tích chỉ số giải phẫu pixel và Prompt nhân vật vào dự án trong MySQL (có kiểm tra quyền sở hữu).
     """
+    check_project_access(db, project_id, current_user)
     try:
         created = project_service.create_character_preset(
             db=db,
@@ -455,11 +489,13 @@ def create_character_preset(
 def get_character_preset_detail(
     project_id: int,
     preset_id: int,
+    current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
     """
-    Lấy chi tiết toàn bộ số đo hình học, hồ sơ phong cách và prompt của một bản ghi.
+    Lấy chi tiết toàn bộ số đo hình học, hồ sơ phong cách và prompt của một bản ghi (có kiểm tra quyền sở hữu).
     """
+    check_project_access(db, project_id, current_user)
     try:
         detail = project_service.get_character_preset_by_id(db, preset_id, project_id)
         if not detail:
@@ -475,11 +511,13 @@ def get_character_preset_detail(
 def delete_character_preset(
     project_id: int,
     preset_id: int,
+    current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
     """
-    Xóa một bản ghi phân tích và prompt khỏi dự án.
+    Xóa một bản ghi phân tích và prompt khỏi dự án (có kiểm tra quyền sở hữu).
     """
+    check_project_access(db, project_id, current_user)
     try:
         success = project_service.delete_character_preset(db, preset_id, project_id)
         if not success:

@@ -33,7 +33,7 @@ user_service = UserService()
 
 @users_router.get("")
 def list_users(
-    admin_role: Optional[str] = Query("admin", description="Quyền người thực hiện fallback"),
+    admin_role: Optional[str] = Query(None, description="Quyền người thực hiện fallback"),
     current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
@@ -42,6 +42,11 @@ def list_users(
     Hỗ trợ xác thực danh tính qua JWT Bearer Token hoặc tham số truy vấn admin_role.
     """
     effective_role = current_user.get("role") if current_user and current_user.get("role") else admin_role
+    if effective_role != "admin":
+        raise HTTPException(
+            status_code=403,
+            detail="Chỉ có Quản trị viên (Admin) mới có quyền truy cập danh sách người dùng."
+        )
     try:
         users = user_service.get_all_users(db, current_user_role=effective_role)
         return {
@@ -57,7 +62,7 @@ def list_users(
 @users_router.delete("/{user_id}")
 def delete_user(
     user_id: int,
-    admin_role: Optional[str] = Query("admin", description="Quyền người thực hiện fallback"),
+    admin_role: Optional[str] = Query(None, description="Quyền người thực hiện fallback"),
     current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
@@ -67,6 +72,16 @@ def delete_user(
     - Chặn tuyệt đối hành vi xóa tài khoản Admin.
     """
     effective_role = current_user.get("role") if current_user and current_user.get("role") else admin_role
+    if effective_role != "admin":
+        raise HTTPException(
+            status_code=403,
+            detail="Chỉ có Quản trị viên (Admin) mới có quyền xóa tài khoản người dùng."
+        )
+    if current_user and current_user.get("id") == user_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Không thể tự xóa tài khoản của chính mình."
+        )
     try:
         success = user_service.delete_user(db, user_id=user_id, current_user_role=effective_role)
         if not success:
@@ -79,6 +94,8 @@ def delete_user(
         raise HTTPException(status_code=403, detail=str(pe))
     except ValueError as ve:
         raise HTTPException(status_code=400, detail=str(ve))
+    except HTTPException:
+        raise
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Lỗi khi xóa người dùng: {str(e)}")

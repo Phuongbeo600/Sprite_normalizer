@@ -7,12 +7,14 @@ from typing import Dict, Any
 # ========================================================
 # 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
 # ========================================================
-# fastapi: Khởi tạo router và xử lý ngoại lệ HTTP
-from fastapi import APIRouter, HTTPException
+# fastapi: Khởi tạo router, dependency injection và xử lý ngoại lệ HTTP
+from fastapi import APIRouter, HTTPException, Depends
 
 # ========================================================
 # 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Services & Schemas)
 # ========================================================
+# require_admin_user: Dependency ràng buộc chỉ Quản trị viên mới được sửa cấu hình .env
+from backend.core.dependencies import require_admin_user
 # Schemas: DTO kiểm tra dữ liệu cấu hình
 from backend.schemas.settings import SettingsResponse, SettingsUpdateRequest, TestApiKeyRequest
 # SettingsService: Dịch vụ cấu hình hệ thống
@@ -36,8 +38,14 @@ def get_settings():
 
 
 @settings_router.post("")
-def save_settings(request: SettingsUpdateRequest):
-    """Lưu và kích hoạt cấu hình nhà cung cấp AI & API key vào .env."""
+def save_settings(
+    request: SettingsUpdateRequest,
+    current_user: Dict[str, Any] = Depends(require_admin_user)
+):
+    """
+    Lưu và kích hoạt cấu hình nhà cung cấp AI & API key vào file .env.
+    RÀNG BUỘC BẢO MẬT: Bắt buộc tài khoản phải có quyền Quản trị viên (Admin).
+    """
     try:
         return SettingsService.save_settings(
             provider=request.provider,
@@ -50,12 +58,16 @@ def save_settings(request: SettingsUpdateRequest):
 
 
 @settings_router.post("/test-key")
-def test_api_key(request: TestApiKeyRequest):
+def test_api_key(
+    request: TestApiKeyRequest,
+    current_user: Dict[str, Any] = Depends(require_admin_user)
+):
     """
     Kiểm tra nhanh kết nối tới Google Gemini hoặc OpenAI ChatGPT
     thông qua tính Đa hình của AI Provider Factory.
     Sử dụng hàm đồng bộ (def) để đẩy lệnh gọi mạng HTTP kiểm tra kết nối sang ThreadPool,
     không làm nghẽn Event Loop chính của hệ thống.
+    RÀNG BUỘC BẢO MẬT: Chỉ Quản trị viên mới được thực hiện kiểm tra khóa API hệ thống.
     """
     result = SettingsService.test_api_key(
         provider=request.provider,

@@ -13,8 +13,10 @@ from typing import Annotated, Optional, Dict, Any, Tuple
 # ========================================================
 # 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
 # ========================================================
-# fastapi: Khởi tạo router và nhận file upload
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException
+# fastapi: Khởi tạo router, nhận file upload và xử lý Dependency Injection
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends
+# sqlalchemy: Phiên làm việc cơ sở dữ liệu
+from sqlalchemy.orm import Session
 # run_in_threadpool: Giữ các tuyến đo có thể phục vụ trong lúc chờ Gemini.
 from fastapi.concurrency import run_in_threadpool
 # pydantic: Định nghĩa schema kiểm tra dữ liệu yêu cầu
@@ -25,6 +27,10 @@ from PIL import Image, ImageOps
 # ========================================================
 # 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Services, Database & Schemas)
 # ========================================================
+# get_db: Dependency cấp phiên MySQL
+from backend.db import get_db, SessionLocal
+# get_current_user_optional, check_project_access: Kiểm soát quyền truy cập và bảo vệ API key dự án
+from backend.core.dependencies import get_current_user_optional, check_project_access
 # AiProviderError: Ngoại lệ chuẩn hóa từ các nhà cung cấp AI
 from backend.providers.base import AiProviderError
 # CharacterAnalysisService: Dịch vụ phân tích nhân vật theo phân hệ Tab
@@ -74,8 +80,14 @@ def _resolve_project_api_key(
 
 
 @character_analysis_router.get("/vision-status")
-def get_vision_status(project_id: Optional[int] = None):
-    """Đọc trạng thái cấu hình AI cục bộ, không gọi nhà cung cấp."""
+def get_vision_status(
+    project_id: Optional[int] = None,
+    current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
+    """Đọc trạng thái cấu hình AI cục bộ, không gọi nhà cung cấp (có kiểm tra quyền sở hữu nếu truyền project_id)."""
+    if project_id is not None:
+        check_project_access(db, project_id, current_user)
     ai_enabled = AiCredentialsService.is_ai_enabled(project_id) #Xem dự án này có cho dùng AI không
     credentials = _resolve_project_api_key(project_id, None, None, None)# Đi tìm bộ thông tin xác thực (API key,provider)
     key, provider, _ = CharacterAnalysisService._resolve_credentials(*credentials)
@@ -99,8 +111,13 @@ async def generate_reference_style_prompt(
     provider: Annotated[Optional[str], Form()] = None,
     base_url: Annotated[Optional[str], Form()] = None,
     model: Annotated[Optional[str], Form()] = None,
+    current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db),
 ) -> ReferenceStylePrompt:
-    """Tạo chỉ dẫn phong cách từ ảnh đã chọn và các số đo của Studio."""
+    """Tạo chỉ dẫn phong cách từ ảnh đã chọn và các số đo của Studio (có kiểm tra quyền sở hữu nếu truyền project_id)."""
+    if project_id is not None:
+        check_project_access(db, project_id, current_user)
+
     if project_id and not AiCredentialsService.is_ai_enabled(project_id):
         raise HTTPException(
             status_code=403,
@@ -150,11 +167,16 @@ async def analyze_character_tab(
     model: Optional[str] = Form(None),
     current_profile_json: Optional[str] = Form(None),
     vision_only: Annotated[bool, Form()] = False,
+    current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db),
 ):
     """
     Phân tích độc lập từng Tab (hoặc toàn bộ) cho Hồ sơ Nhân vật tham chiếu:
-    Tự động đọc API Key từ CSDL MySQL của project nếu có project_id.
+    Tự động đọc API Key từ CSDL MySQL của project nếu có project_id (có kiểm tra quyền sở hữu).
     """
+    if project_id is not None:
+        check_project_access(db, project_id, current_user)
+
     if not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="Tệp tải lên phải là định dạng hình ảnh.")
 
@@ -193,12 +215,19 @@ async def analyze_character_tab(
 
 
 @character_analysis_router.post("/generate-prompt")
-async def generate_prompt_from_profile(request: GeneratePromptFromProfileRequest):
+async def generate_prompt_from_profile(
+    request: GeneratePromptFromProfileRequest,
+    current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db),
+):
     """
     Sinh Prompt tiếng Anh tối ưu khống chế tỷ lệ, phong cách pixel và vật liệu
     cho Nhân vật Mới dựa trên Hồ sơ nhân vật tham chiếu.
     Hỗ trợ đầy đủ ma trận 15 frames hoạt họa Sprite Sheet (3 Hướng × 5 Frames có cả Chân và Tay).
+    RÀNG BUỘC BẢO MẬT: Kiểm tra quyền sở hữu nếu truyền project_id.
     """
+    if request.project_id is not None:
+        check_project_access(db, request.project_id, current_user)
     try:
         concept = request.core_concept or request.character_concept or "Pixel Art Character"# lấy ý tưởng người dùng ở ô nhập promt
         await run_in_threadpool(

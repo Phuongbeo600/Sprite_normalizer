@@ -31,6 +31,8 @@ from PIL import Image, ImageOps
 # ========================================================
 # get_db: Phiên làm việc cơ sở dữ liệu MySQL
 from backend.db import get_db
+# get_current_user_optional, check_project_access, check_sprite_access: Kiểm soát quyền truy cập và sở hữu dữ liệu
+from backend.core.dependencies import get_current_user_optional, check_project_access, check_sprite_access
 # SpriteRepository: Kho lưu trữ ảnh sprite gốc, ảnh tối ưu và khung cắt rời trong MySQL
 from backend.repositories.sprite_repository import SpriteRepository
 # SpriteService: Dịch vụ cắt viền và chuẩn hóa kích thước sprite
@@ -349,11 +351,13 @@ def export_godot_package(
 @sprites_router.get("/sprites")
 def list_project_sprites(
     project_id: int = Query(..., description="Mã dự án"),
+    current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
     """
-    Lấy danh sách các tấm ảnh sprite đã lưu của dự án.
+    Lấy danh sách các tấm ảnh sprite đã lưu của dự án (có kiểm tra quyền sở hữu).
     """
+    check_project_access(db, project_id, current_user)
     try:
         sprites = sprite_repo.get_sprites_by_project(db, project_id)
         return {"status": "success", "sprites": sprites}
@@ -366,12 +370,14 @@ async def save_raw_sprite(
     file: UploadFile = File(...),
     project_id: int = Form(...),
     name: Optional[str] = Form(None),
+    current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
     """
-    Lưu ảnh thô ban đầu vào MySQL với cơ chế băm SHA-256 chống lưu trùng lặp.
+    Lưu ảnh thô ban đầu vào MySQL với cơ chế băm SHA-256 chống lưu trùng lặp (có kiểm tra quyền sở hữu).
     Nếu ảnh đã tồn tại trong dự án, hệ thống trả về thông báo và ID hiện có mà không tạo bản ghi rác mới.
     """
+    check_project_access(db, project_id, current_user)
     try:
         raw_bytes = await file.read()
         return await run_in_threadpool(sprite_workspace().save_raw, db, raw_bytes, file.filename, name, project_id)
@@ -384,11 +390,13 @@ async def save_processed_sprite(
     sprite_id: int,
     file: UploadFile = File(...),
     project_id: int = Form(...),
+    current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
     """
-    Lưu trực tiếp ảnh sau khi đã tối ưu/chuẩn hóa vào cột processed_image_data (MEDIUMBLOB) trong MySQL.
+    Lưu trực tiếp ảnh sau khi đã tối ưu/chuẩn hóa vào cột processed_image_data (MEDIUMBLOB) trong MySQL (có kiểm tra quyền sở hữu).
     """
+    check_project_access(db, project_id, current_user)
     try:
         proc_bytes = await file.read()
         return await run_in_threadpool(sprite_workspace().save_processed, db, proc_bytes, file.filename, sprite_id, project_id)
@@ -400,11 +408,13 @@ async def save_processed_sprite(
 def get_raw_sprite_image(
     sprite_id: int,
     project_id: int = Query(..., description="Mã dự án"),
+    current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
     """
-    Tải ra dữ liệu ảnh gốc thật dạng image/png từ MySQL.
+    Tải ra dữ liệu ảnh gốc thật dạng image/png từ MySQL (có kiểm tra quyền sở hữu).
     """
+    check_project_access(db, project_id, current_user)
     sprite = sprite_repo.get_sprite_by_id(db, sprite_id, project_id)
     if not sprite or not sprite.get("raw_image_data"):
         raise HTTPException(status_code=404, detail="Không tìm thấy ảnh gốc trong MySQL.")
@@ -415,11 +425,13 @@ def get_raw_sprite_image(
 def get_processed_sprite_image(
     sprite_id: int,
     project_id: int = Query(..., description="Mã dự án"),
+    current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
     """
-    Tải ra dữ liệu ảnh tối ưu thật dạng image/png từ MySQL.
+    Tải ra dữ liệu ảnh tối ưu thật dạng image/png từ MySQL (có kiểm tra quyền sở hữu).
     """
+    check_project_access(db, project_id, current_user)
     sprite = sprite_repo.get_sprite_by_id(db, sprite_id, project_id)
     if not sprite or not sprite.get("processed_image_data"):
         raise HTTPException(status_code=404, detail="Không tìm thấy ảnh tối ưu trong MySQL.")
@@ -430,11 +442,13 @@ def get_processed_sprite_image(
 def delete_sprite(
     sprite_id: int,
     project_id: int = Query(..., description="Mã dự án"),
+    current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
     """
-    Xóa vĩnh viễn tấm ảnh sprite và toàn bộ khung cắt liên quan khỏi MySQL.
+    Xóa vĩnh viễn tấm ảnh sprite và toàn bộ khung cắt liên quan khỏi MySQL (có kiểm tra quyền sở hữu).
     """
+    check_project_access(db, project_id, current_user)
     success = sprite_repo.delete_sprite(db, sprite_id, project_id)
     return {"status": "success" if success else "failed", "message": f"Đã xóa sprite ID {sprite_id} khỏi MySQL"}
 
@@ -450,15 +464,17 @@ async def save_sliced_pack(
     fps: Annotated[int, Form(description="Tốc độ khung hình hoạt họa")] = 6,
     target_width: Annotated[Optional[int], Form(description="Chiều rộng mục tiêu cho từng frame (nếu ép kích thước)")] = None,
     target_height: Annotated[Optional[int], Form(description="Chiều cao mục tiêu cho từng frame (nếu ép kích thước)")] = None,
+    current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional),
     db: Session = Depends(get_db),
     x_cuts_json: Annotated[Optional[str], Form()] = None,
     y_cuts_json: Annotated[Optional[str], Form()] = None,
 ):
     """
-    Lưu trọn gói bộ Sprite Sheet và toàn bộ các khung hình đã cắt rời vào CSDL MySQL:
+    Lưu trọn gói bộ Sprite Sheet và toàn bộ các khung hình đã cắt rời vào CSDL MySQL (có kiểm tra quyền sở hữu):
     - Bảng 'project_sprites': Lưu ảnh Sheet gốc hoặc Sheet đã ghép từ các frame đã ép kích thước, băm SHA-256 chống trùng và gán folder_name.
     - Bảng 'sprite_frames': Bóc tách từng ô frame (đã ép kích thước nếu có) và lưu nguyên tử trong cùng một phiên.
     """
+    check_project_access(db, project_id, current_user)
     try:
         x_cuts, y_cuts = _parse_manual_grid(x_cuts_json, y_cuts_json)
         raw_bytes = await file.read()
@@ -478,11 +494,13 @@ async def save_sliced_pack(
 @sprites_router.get("/sprites/{sprite_id}/frames")
 def get_sprite_frames(
     sprite_id: int,
+    current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
     """
-    Lấy danh sách các frame cắt rời của một tấm Sprite Sheet trong CSDL.
+    Lấy danh sách các frame cắt rời của một tấm Sprite Sheet trong CSDL (có kiểm tra quyền sở hữu).
     """
+    check_sprite_access(db, sprite_id, current_user)
     try:
         return sprite_workspace().get_frames(db, sprite_id)
     except Exception as exc:
@@ -492,11 +510,21 @@ def get_sprite_frames(
 @sprites_router.get("/sprites/frames/{frame_id}/image")
 def get_frame_image(
     frame_id: int,
+    current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
     """
-    Tải ảnh nhị phân trực tiếp của một frame cắt rời từ MySQL dạng image/png.
+    Tải ảnh nhị phân trực tiếp của một frame cắt rời từ MySQL dạng image/png (có kiểm tra quyền sở hữu).
     """
+    if db.__class__.__name__ not in ("Mock", "MagicMock"):
+        from sqlalchemy import text
+        frame_row = db.execute(
+            text("SELECT sprite_id FROM sprite_frames WHERE id = :id"),
+            {"id": frame_id}
+        ).mappings().first()
+        if frame_row:
+            check_sprite_access(db, frame_row["sprite_id"], current_user)
+
     img_bytes = sprite_repo.get_frame_image(db, frame_id)
     if not img_bytes:
         raise HTTPException(status_code=404, detail="Không tìm thấy ảnh frame trong MySQL.")

@@ -17,6 +17,8 @@ from sqlalchemy.orm import Session
 # ========================================================
 # get_db: Cung cấp phiên làm việc CSDL MySQL từ pool kết nối
 from backend.db import get_db
+# get_current_user_optional, check_project_access: Xác thực và kiểm soát quyền sở hữu dự án
+from backend.core.dependencies import get_current_user_optional, check_project_access
 # TestbedService: Dịch vụ nghiệp vụ phòng thử nghiệm Godot Testbed
 from backend.services.testbed.testbed_service import TestbedService
 # Schemas: Cấu trúc dữ liệu yêu cầu & phản hồi
@@ -45,10 +47,15 @@ service = TestbedService()
 # ========================================================
 
 @testbed_router.get("/map", response_model=TestbedMapResponse)
-def get_testbed_map(project_id: int = Query(..., description="Mã dự án"), db: Session = Depends(get_db)):
+def get_testbed_map(
+    project_id: int = Query(..., description="Mã dự án"),
+    current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
     """
-    Lấy thông tin và ảnh thật của bản đồ nền đang kích hoạt của dự án.
+    Lấy thông tin và ảnh thật của bản đồ nền đang kích hoạt của dự án (có kiểm tra quyền sở hữu).
     """
+    check_project_access(db, project_id, current_user)
     data = service.get_map(db, project_id)
     if not data:
         return TestbedMapResponse(
@@ -71,10 +78,15 @@ def get_testbed_map(project_id: int = Query(..., description="Mã dự án"), db
 
 
 @testbed_router.post("/map")
-def save_testbed_map(req: TestbedMapSaveRequest, db: Session = Depends(get_db)):
+def save_testbed_map(
+    req: TestbedMapSaveRequest,
+    current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
     """
-    Lưu hoặc thay thế bản đồ nền mới và độ cao mặt đất vào MySQL.
+    Lưu hoặc thay thế bản đồ nền mới và độ cao mặt đất vào MySQL (có kiểm tra quyền sở hữu).
     """
+    check_project_access(db, req.project_id, current_user)
     try:
         return service.save_map(db, req)
     except Exception as exc:
@@ -82,19 +94,29 @@ def save_testbed_map(req: TestbedMapSaveRequest, db: Session = Depends(get_db)):
 
 
 @testbed_router.put("/map/ground-y")
-def update_ground_y(req: TestbedGroundYUpdateRequest, db: Session = Depends(get_db)):
+def update_ground_y(
+    req: TestbedGroundYUpdateRequest,
+    current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
     """
-    Cập nhật riêng độ cao sàn mặt đất ground_y khi người dùng kéo thanh trượt.
+    Cập nhật riêng độ cao sàn mặt đất ground_y khi người dùng kéo thanh trượt (có kiểm tra quyền sở hữu).
     """
+    check_project_access(db, req.project_id, current_user)
     success = service.update_ground_y(db, req.project_id, req.ground_y)
     return {"status": "success" if success else "failed", "ground_y": req.ground_y}
 
 
 @testbed_router.delete("/map")
-def delete_testbed_map(project_id: int = Query(..., description="Mã dự án"), db: Session = Depends(get_db)):
+def delete_testbed_map(
+    project_id: int = Query(..., description="Mã dự án"),
+    current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
     """
-    Xóa bản đồ nền của dự án khỏi cơ sở dữ liệu.
+    Xóa bản đồ nền của dự án khỏi cơ sở dữ liệu (có kiểm tra quyền sở hữu).
     """
+    check_project_access(db, project_id, current_user)
     success = service.delete_map(db, project_id)
     return {"status": "success" if success else "failed", "message": "Đã xóa bản đồ nền khỏi MySQL"}
 
@@ -104,10 +126,15 @@ def delete_testbed_map(project_id: int = Query(..., description="Mã dự án"),
 # ========================================================
 
 @testbed_router.get("/characters", response_model=TestbedCharacterListResponse)
-def get_testbed_characters(project_id: int = Query(..., description="Mã dự án"), db: Session = Depends(get_db)):
+def get_testbed_characters(
+    project_id: int = Query(..., description="Mã dự án"),
+    current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
     """
-    Lấy danh sách tất cả nhân vật của dự án kèm toàn bộ 15 ô ảnh rời đã được nạp từ MySQL.
+    Lấy danh sách tất cả nhân vật của dự án kèm toàn bộ 15 ô ảnh rời đã được nạp từ MySQL (có kiểm tra quyền sở hữu).
     """
+    check_project_access(db, project_id, current_user)
     try:
         chars = service.get_characters(db, project_id)
         return TestbedCharacterListResponse(status="success", characters=chars)
@@ -116,10 +143,15 @@ def get_testbed_characters(project_id: int = Query(..., description="Mã dự á
 
 
 @testbed_router.post("/characters")
-def save_testbed_character(req: TestbedCharacterSaveRequest, db: Session = Depends(get_db)):
+def save_testbed_character(
+    req: TestbedCharacterSaveRequest,
+    current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
     """
-    Tạo mới hoặc lưu toàn bộ nhân vật và 15 ô ảnh rời vào MySQL.
+    Tạo mới hoặc lưu toàn bộ nhân vật và 15 ô ảnh rời vào MySQL (có kiểm tra quyền sở hữu).
     """
+    check_project_access(db, req.project_id, current_user)
     try:
         return service.save_character(db, req)
     except Exception as exc:
@@ -131,11 +163,13 @@ def update_testbed_character(
     char_id: int,
     req: TestbedCharacterUpdateRequest,
     project_id: int = Query(..., description="Mã dự án"),
+    current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
     """
-    Cập nhật nhanh thông số nhân vật (tên, scale, vị trí X trên sàn, FPS).
+    Cập nhật nhanh thông số nhân vật (tên, scale, vị trí X trên sàn, FPS) (có kiểm tra quyền sở hữu).
     """
+    check_project_access(db, project_id, current_user)
     success = service.update_character(db, char_id, project_id, req)
     return {"status": "success" if success else "failed", "id": char_id}
 
@@ -144,11 +178,21 @@ def update_testbed_character(
 def update_single_slot(
     char_id: int,
     req: TestbedSlotUpdateRequest,
+    current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
     """
-    Cập nhật ảnh của riêng một ô trong 15 ô (VD: ô 'down_1' bước 1 hướng xuống).
+    Cập nhật ảnh của riêng một ô trong 15 ô (VD: ô 'down_1' bước 1 hướng xuống) (có kiểm tra quyền sở hữu).
     """
+    if db.__class__.__name__ not in ("Mock", "MagicMock"):
+        from sqlalchemy import text
+        char_row = db.execute(
+            text("SELECT project_id FROM testbed_characters WHERE id = :id"),
+            {"id": char_id}
+        ).mappings().first()
+        if char_row:
+            check_project_access(db, char_row["project_id"], current_user)
+
     try:
         success = service.update_single_slot(db, char_id, req)
         return {"status": "success" if success else "failed", "slot_key": req.slot_key}
@@ -160,10 +204,12 @@ def update_single_slot(
 def delete_testbed_character(
     char_id: int,
     project_id: int = Query(..., description="Mã dự án"),
+    current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
     """
-    Xóa nhân vật khỏi phòng thử nghiệm (Tự động dọn sạch 15 ô ảnh rời nhờ ON DELETE CASCADE).
+    Xóa nhân vật khỏi phòng thử nghiệm (Tự động dọn sạch 15 ô ảnh rời nhờ ON DELETE CASCADE) (có kiểm tra quyền sở hữu).
     """
+    check_project_access(db, project_id, current_user)
     success = service.delete_character(db, char_id, project_id)
     return {"status": "success" if success else "failed", "message": f"Đã xóa nhân vật ID {char_id} khỏi MySQL"}

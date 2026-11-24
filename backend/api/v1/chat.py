@@ -3,8 +3,8 @@
 # ========================================================
 # json: Đóng gói dữ liệu chuỗi phản hồi theo định dạng SSE
 import json
-# typing: Khai báo kiểu trả về cho Generator
-from typing import Generator
+# typing: Khai báo kiểu trả về cho Generator và từ điển tùy chọn
+from typing import Generator, Optional, Dict, Any
 
 # ========================================================
 # 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
@@ -21,6 +21,8 @@ from sqlalchemy.orm import Session
 # ========================================================
 # get_db: Dependency mở phiên làm việc cơ sở dữ liệu
 from backend.db import get_db
+# get_current_user_optional, check_project_access: Kiểm soát quyền truy cập và bảo vệ API key dự án
+from backend.core.dependencies import get_current_user_optional, check_project_access
 # AiCredentialsService: Phân giải thông tin xác thực AI (3 cấp ưu tiên)
 from backend.services.ai_credentials_service import AiCredentialsService
 # AiProviderFactory: Khởi tạo nhà cung cấp AI theo Strategy/Factory Pattern
@@ -42,16 +44,21 @@ chat_router = APIRouter(prefix="/chat", tags=["AI Chatbot"])
 @chat_router.post("/stream")
 def stream_chat_endpoint(
     request: ChatStreamRequest,
+    current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
     """
     Endpoint phát luồng câu trả lời của AI theo chuẩn Server-Sent Events (SSE).
     Tự động hỗ trợ đa nhà cung cấp (Gemini, OpenAI, DeepSeek, Groq, Ollama) thông qua AiProviderFactory.
+    RÀNG BUỘC BẢO MẬT: Kiểm tra quyền sở hữu dự án nếu request gửi kèm project_id.
 
     @param request: Dữ liệu yêu cầu gồm lịch sử tin nhắn, mã dự án, provider, api_key và base_url tùy chọn.
+    @param current_user: Thông tin người dùng hiện tại để kiểm tra quyền truy cập.
     @param db: Phiên làm việc cơ sở dữ liệu MySQL để tra cứu cấu hình dự án.
     @returns: Luồng phản hồi trực tiếp dạng text/event-stream.
     """
+    if request.project_id is not None:
+        check_project_access(db, request.project_id, current_user)
     try:
         chunks = ChatService.prepare_stream(request, db)
     except ChatConfigurationError as error:

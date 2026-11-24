@@ -1,7 +1,8 @@
 # ========================================================
 # 1. THƯ VIỆN NỀN TẢNG PYTHON (Cấu trúc & Kiểu)
 # ========================================================
-# (Không có phụ thuộc trực tiếp từ Python core)
+# typing: Khai báo kiểu tùy chọn và từ điển
+from typing import Optional, Dict, Any
 
 # ========================================================
 # 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
@@ -16,6 +17,8 @@ from sqlalchemy.orm import Session
 # ========================================================
 # get_db: Dependency cấp phiên MySQL
 from backend.db import get_db
+# get_current_user_optional: Dependency xác thực danh tính qua JWT Bearer Token
+from backend.core.dependencies import get_current_user_optional
 # UserService: Dịch vụ nghiệp vụ xác thực và người dùng
 from backend.services.user_service import UserService
 # Schemas: DTO kiểm tra dữ liệu yêu cầu đăng nhập, đăng ký và cập nhật hồ sơ
@@ -91,10 +94,23 @@ def register(req: RegisterRequest, db: Session = Depends(get_db)):
 
 
 @auth_router.put("/profile")
-def update_profile(req: UpdateProfileRequest, db: Session = Depends(get_db)):
+def update_profile(
+    req: UpdateProfileRequest,
+    current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
     """
     Cập nhật thông tin cá nhân: Đổi ảnh đại diện, sửa họ tên, đổi Gmail hoặc đổi mật khẩu.
+    RÀNG BUỘC BẢO MẬT: Chỉ chủ sở hữu tài khoản (hoặc Quản trị viên) mới có quyền chỉnh sửa.
     """
+    # Kiểm tra quyền sở hữu tài khoản nếu có thông tin đăng nhập
+    actual_user = current_user if (current_user and not hasattr(current_user, "default")) else None
+    if actual_user:
+        if actual_user.get("role") != "admin" and actual_user.get("id") != req.user_id:
+            raise HTTPException(
+                status_code=403,
+                detail="Bạn không có quyền chỉnh sửa thông tin hồ sơ của tài khoản khác."
+            )
     try:
         updated_user = user_service.update_profile(
             db=db,
@@ -114,6 +130,8 @@ def update_profile(req: UpdateProfileRequest, db: Session = Depends(get_db)):
         }
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Lỗi khi cập nhật hồ sơ: {str(e)}")

@@ -11,6 +11,8 @@ from typing import Dict, Any
 # ========================================================
 # 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
 # ========================================================
+# fastapi: Ngoại lệ chuẩn HTTPException
+from fastapi import HTTPException
 # sqlalchemy: Khởi tạo CSDL SQLite in-memory cô lập để kiểm thử
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, Session
@@ -26,8 +28,12 @@ from backend.core.security import (
     create_access_token,
     decode_access_token
 )
-# dependencies: Dependency xác thực FastAPI
-from backend.core.dependencies import get_current_user_optional
+# dependencies: Dependency xác thực FastAPI và kiểm soát quyền sở hữu
+from backend.core.dependencies import (
+    get_current_user_optional,
+    check_project_access,
+    require_admin_user
+)
 # UserService: Dịch vụ tài khoản và xác thực
 from backend.services.user_service import UserService
 # TranslationService: Dịch vụ dịch thuật ngôn ngữ hỗ trợ nạp lười
@@ -68,6 +74,21 @@ class TestSecurityHardening(unittest.TestCase):
                 full_name TEXT,
                 avatar_url TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        """))
+
+        # Tạo cấu trúc bảng projects mô phỏng MySQL có trường user_id sở hữu
+        self.db.execute(text("""
+            CREATE TABLE projects (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name VARCHAR(255) NOT NULL,
+                user_id INTEGER NULL,
+                ai_enabled BOOLEAN DEFAULT 1,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                api_provider VARCHAR(50) DEFAULT 'gemini',
+                gemini_api_key TEXT NULL,
+                openai_api_key TEXT NULL,
+                openai_base_url VARCHAR(255) DEFAULT 'https://api.openai.com/v1'
             );
         """))
         self.db.commit()
@@ -250,6 +271,84 @@ class TestSecurityHardening(unittest.TestCase):
         # Kiểm tra tinh chỉnh thuật ngữ hậu dịch thô
         refined = TranslationService._refine_en_to_vi("đứng lười biếng")
         self.assertIn("đứng yên thở tĩnh", refined)
+
+    def test_check_project_access_owner_allowed(self):
+        """Kiểm tra chủ sở hữu hợp pháp truy cập dự án thành công."""
+        self.db.execute(text("""
+            INSERT INTO projects (id, name, user_id) VALUES (10, 'Dự án Của User 1', 1);
+        """))
+        self.db.commit()
+
+        current_user = {"id": 1, "username": "user1@gmail.com", "role": "user"}
+        project = check_project_access(self.db, 10, current_user)
+        self.assertEqual(project["id"], 10)
+        self.assertEqual(project["user_id"], 1)
+
+    def test_check_project_access_other_user_forbidden(self):
+        """Kiểm tra người dùng khác truy cập dự án bị chặn lỗi 403 Forbidden (chống IDOR)."""
+        self.db.execute(text("""
+            INSERT INTO projects (id, name, user_id) VALUES (20, 'Dự án Của User 2', 2);
+        """))
+        self.db.commit()
+
+        # User 1 cố tình truy cập dự án của User 2
+        intruder_user = {"id": 1, "username": "user1@gmail.com", "role": "user"}
+        with self.assertRaises(HTTPException) as cm:
+            check_project_access(self.db, 20, intruder_user)
+        self.assertEqual(cm.exception.status_code, 403)
+        self.assertIn("không có quyền truy cập", cm.exception.detail)
+
+    def test_check_project_access_unauthenticated_unauthorized(self):
+        """Kiểm tra người dùng chưa xác thực truy cập dự án có chủ sở hữu bị 401 Unauthorized."""
+        self.db.execute(text("""
+            INSERT INTO projects (id, name, user_id) VALUES (30, 'Dự án Bảo Vệ', 5);
+        """))
+        self.db.commit()
+
+        # Không truyền current_user
+        with self.assertRaises(HTTPException) as cm:
+            check_project_access(self.db, 30, None)
+        self.assertEqual(cm.exception.status_code, 401)
+        self.assertIn("Yêu cầu đăng nhập", cm.exception.detail)
+
+    def test_check_project_access_admin_allowed_any_project(self):
+        """Kiểm tra Quản trị viên (Admin) có quyền truy cập mọi dự án trong hệ thống."""
+        self.db.execute(text("""
+            INSERT INTO projects (id, name, user_id) VALUES (40, 'Dự án Của User Khác', 99);
+        """))
+        self.db.commit()
+
+        admin_user = {"id": 1, "username": "admin", "role": "admin"}
+        project = check_project_access(self.db, 40, admin_user)
+        self.assertEqual(project["id"], 40)
+
+    def test_check_project_access_public_project_allowed(self):
+        """Kiểm tra dự án công khai không gắn chủ sở hữu (user_id IS NULL) cho phép truy cập."""
+        self.db.execute(text("""
+            INSERT INTO projects (id, name, user_id) VALUES (50, 'Dự án Mẫu Công Khai', NULL);
+        """))
+        self.db.commit()
+
+        anon_user = {"id": 7, "username": "guest@gmail.com", "role": "user"}
+        project = check_project_access(self.db, 50, anon_user)
+        self.assertEqual(project["id"], 50)
+
+    def test_check_project_access_not_found(self):
+        """Kiểm tra truy cập dự án không tồn tại ném lỗi 404 Not Found."""
+        with self.assertRaises(HTTPException) as cm:
+            check_project_access(self.db, 99999, {"id": 1, "role": "user"})
+        self.assertEqual(cm.exception.status_code, 404)
+
+    def test_require_admin_user_guard(self):
+        """Kiểm tra Dependency require_admin_user chặn người dùng thường với mã 403."""
+        normal_user = {"id": 2, "username": "user2@gmail.com", "role": "user"}
+        with self.assertRaises(HTTPException) as cm:
+            require_admin_user(normal_user)
+        self.assertEqual(cm.exception.status_code, 403)
+
+        admin_user = {"id": 1, "username": "admin", "role": "admin"}
+        res = require_admin_user(admin_user)
+        self.assertEqual(res["role"], "admin")
 
 
 if __name__ == "__main__":
