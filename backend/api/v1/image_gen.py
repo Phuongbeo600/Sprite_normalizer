@@ -7,8 +7,8 @@ from typing import Dict, Any, Optional
 # ========================================================
 # 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
 # ========================================================
-# fastapi: Khởi tạo router, xử lý ngoại lệ HTTP, Dependency Injection và tham số truy vấn
-from fastapi import APIRouter, HTTPException, Query, Depends
+# fastapi: Khởi tạo router, xử lý ngoại lệ HTTP, Dependency Injection, Request và tham số truy vấn
+from fastapi import APIRouter, HTTPException, Query, Depends, Request
 # sqlalchemy: Phiên làm việc cơ sở dữ liệu
 from sqlalchemy.orm import Session
 
@@ -19,6 +19,12 @@ from sqlalchemy.orm import Session
 from backend.db import get_db
 # get_current_user_optional, check_project_access: Kiểm soát quyền truy cập và bảo vệ API key dự án
 from backend.core.dependencies import get_current_user_optional, check_project_access
+# load_control: Kiểm soát tần suất Rate Limiting và giới hạn tải đồng thời Concurrency Limiter
+from backend.core.load_control import (
+    check_rate_limit,
+    ai_gen_concurrency,
+    RATE_LIMIT_AI_GEN
+)
 # Schemas: DTO kiểm tra dữ liệu yêu cầu và phản hồi sinh ảnh
 from backend.schemas.image_gen import ImageGenRequest, ImageGenResponse
 # ImageGenService: Dịch vụ tích hợp tạo ảnh AI qua Gemini Imagen 3 hoặc OpenAI DALL-E 3
@@ -53,6 +59,7 @@ def get_image_gen_status(
 @image_gen_router.post("/generate", response_model=ImageGenResponse)
 def generate_image(
     request: ImageGenRequest,
+    http_request: Request = None,
     current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
@@ -60,12 +67,23 @@ def generate_image(
     Tạo ảnh nhân vật / sprite bằng mô hình AI (Google Imagen 3 hoặc OpenAI DALL-E 3).
     Sử dụng hàm đồng bộ (def) để FastAPI tự động chuyển giao tác vụ gọi mạng HTTP kéo dài
     vào Starlette ThreadPool, giải phóng hoàn toàn Event Loop cho các người dùng khác.
-    RÀNG BUỘC BẢO MẬT: Nếu truyền project_id, bắt buộc phải kiểm tra quyền sở hữu dự án để tránh dùng chùa API key.
+    RÀNG BUỘC BẢO MẬT & KIỂM SOÁT TẢI:
+    - Kiểm tra Rate Limiting theo người dùng (10 req/phút).
+    - Giới hạn số lượng tác vụ tạo ảnh đồng thời bằng Semaphore (3 tasks).
+    - Nếu truyền project_id, bắt buộc phải kiểm tra quyền sở hữu dự án để tránh dùng chùa API key.
     """
+    if http_request is not None and hasattr(http_request, "headers"):
+        check_rate_limit(http_request, scope="ai_gen", max_requests=RATE_LIMIT_AI_GEN, current_user=current_user)
+
     if request.project_id is not None:
         check_project_access(db, request.project_id, current_user)
+        # Hoàn trả kết nối CSDL về Connection Pool ngay khi kiểm tra xong quyền sở hữu,
+        # tránh chiếm giữ kết nối MySQL trong lúc chờ API AI tạo ảnh (5-15 giây)
+        if hasattr(db, "close"):
+            db.close()
     try:
-        return ImageGenService.generate_images(request)
+        with ai_gen_concurrency:
+            return ImageGenService.generate_images(request)
     except HTTPException:
         raise
     except ValueError as ve:

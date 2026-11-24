@@ -65,17 +65,22 @@ else:
         query={"charset": "utf8mb4"}, # Dùng bảng mã tiếng việt
     )
 
-# Cấu hình tham số hồ kết nối (Connection Pool) chịu tải cao cho MySQL
+# Cấu hình các tham số Hồ kết nối (Connection Pool) tập trung, tối ưu cho môi trường đa tiến trình Multi-Worker
+DB_POOL_SIZE = int(os.getenv("DB_POOL_SIZE", "10"))           # Duy trì sẵn 10 kết nối thường trực cho mỗi Worker
+DB_MAX_OVERFLOW = int(os.getenv("DB_MAX_OVERFLOW", "10"))     # Cho phép mở rộng thêm tối đa 10 kết nối khi đột biến tải
+DB_POOL_TIMEOUT = int(os.getenv("DB_POOL_TIMEOUT", "30"))     # Thời gian chờ tối đa 30 giây trước khi báo lỗi nghẽn Pool
+DB_POOL_RECYCLE = int(os.getenv("DB_POOL_RECYCLE", "280"))    # Tái tạo kết nối trước 300 giây chống lỗi 'MySQL server has gone away'
+
 engine_kwargs = {
-    "pool_pre_ping": True,
-    "pool_recycle": 280,
+    "pool_pre_ping": True,       # Tự động kiểm tra tính sống còn của kết nối trước khi checkout
+    "pool_recycle": DB_POOL_RECYCLE,
 }
-# Nếu sử dụng MySQL hoặc cơ sở dữ liệu hỗ trợ QueuePool, mở rộng dung lượng hồ kết nối
+# Nếu sử dụng MySQL hoặc cơ sở dữ liệu hỗ trợ QueuePool, áp dụng cấu hình dung lượng hồ kết nối
 if "sqlite" not in str(database_url).lower():
     engine_kwargs.update({
-        "pool_size": 20,       # Duy trì sẵn 20 kết nối thường trực
-        "max_overflow": 20,    # Cho phép mở rộng thêm tối đa 20 kết nối khi lượng truy cập tăng đột biến
-        "pool_timeout": 30     # Thời gian chờ tối đa 30 giây trước khi báo lỗi nghẽn hồ kết nối
+        "pool_size": DB_POOL_SIZE,
+        "max_overflow": DB_MAX_OVERFLOW,
+        "pool_timeout": DB_POOL_TIMEOUT
     })
 
 engine = create_engine(database_url, **engine_kwargs) # Tạo engine kết nối CSDL với code python, pool_pre_ping là nếu không dùng Myspl sẽ tự động đóng
@@ -105,11 +110,18 @@ def init_db():
 def get_db():
     """
     Cung cấp một phiên làm việc (Session) MySQL cho API và tự động đóng phiên khi yêu cầu kết thúc.
+    Tự động hoàn trả kết nối về Connection Pool và rollback nếu có ngoại lệ chưa xử lý.
     
     @yields {Session} Phiên làm việc cơ sở dữ liệu.
     """
-    with SessionLocal() as session:
+    session = SessionLocal()
+    try:
         yield session
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
 
 
 

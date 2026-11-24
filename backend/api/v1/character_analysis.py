@@ -13,8 +13,8 @@ from typing import Annotated, Optional, Dict, Any, Tuple
 # ========================================================
 # 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
 # ========================================================
-# fastapi: Khởi tạo router, nhận file upload và xử lý Dependency Injection
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends
+# fastapi: Khởi tạo router, nhận file upload, Request và xử lý Dependency Injection
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends, Request
 # sqlalchemy: Phiên làm việc cơ sở dữ liệu
 from sqlalchemy.orm import Session
 # run_in_threadpool: Giữ các tuyến đo có thể phục vụ trong lúc chờ Gemini.
@@ -31,6 +31,13 @@ from PIL import Image, ImageOps
 from backend.db import get_db, SessionLocal
 # get_current_user_optional, check_project_access: Kiểm soát quyền truy cập và bảo vệ API key dự án
 from backend.core.dependencies import get_current_user_optional, check_project_access
+# load_control: Kiểm soát tải, Rate Limiting và kiểm tra kích thước tệp sớm
+from backend.core.load_control import (
+    check_rate_limit,
+    ai_gen_concurrency,
+    validate_upload_file_size,
+    RATE_LIMIT_AI_GEN
+)
 # AiProviderError: Ngoại lệ chuẩn hóa từ các nhà cung cấp AI
 from backend.providers.base import AiProviderError
 # CharacterAnalysisService: Dịch vụ phân tích nhân vật theo phân hệ Tab
@@ -111,10 +118,14 @@ async def generate_reference_style_prompt(
     provider: Annotated[Optional[str], Form()] = None,
     base_url: Annotated[Optional[str], Form()] = None,
     model: Annotated[Optional[str], Form()] = None,
+    http_request: Request = None,
     current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional),
     db: Session = Depends(get_db),
 ) -> ReferenceStylePrompt:
     """Tạo chỉ dẫn phong cách từ ảnh đã chọn và các số đo của Studio (có kiểm tra quyền sở hữu nếu truyền project_id)."""
+    if http_request is not None and hasattr(http_request, "headers"):
+        check_rate_limit(http_request, scope="ai_vision", max_requests=RATE_LIMIT_AI_GEN, current_user=current_user)
+
     if project_id is not None:
         check_project_access(db, project_id, current_user)
 
@@ -129,6 +140,11 @@ async def generate_reference_style_prompt(
     if eff_provider not in VISION_PROVIDERS or not (key or "").strip():
         raise HTTPException(status_code=409, detail="Chưa cấu hình khóa API cho nhà cung cấp đã chọn.")
 
+    # TASK-06: Hoàn trả kết nối CSDL về Connection Pool ngay khi kiểm tra quyền và lấy cấu hình xong,
+    # tránh chiếm giữ kết nối MySQL trong suốt thời gian gọi AI Vision phân tích ảnh (3-10 giây).
+    if hasattr(db, "close"):
+        db.close()
+
     try:
         metrics = json.loads(python_metrics_json)
     except ValueError as error:
@@ -138,17 +154,17 @@ async def generate_reference_style_prompt(
 
     try:
         contents = await file.read()
-        with Image.open(io.BytesIO(contents)) as source:
-            image = ImageOps.exif_transpose(source).convert("RGBA")
+        validate_upload_file_size(contents)
     except (OSError, ValueError, Image.DecompressionBombError) as error:
         raise HTTPException(status_code=400, detail="Không đọc được ảnh sprite.") from error
 
     eff_model = AiCredentialsService.resolve_model(provider=eff_provider, model=model, project_id=project_id, model_type="vision")
 
     def _run_generate_style():
-        with Image.open(io.BytesIO(contents)) as source:
-            with ImageOps.exif_transpose(source).convert("RGBA") as image:
-                return generate_style_prompt(image, metrics, key.strip(), eff_provider, eff_base_url, eff_model)
+        with ai_gen_concurrency:
+            with Image.open(io.BytesIO(contents)) as source:
+                with ImageOps.exif_transpose(source).convert("RGBA") as image:
+                    return generate_style_prompt(image, metrics, key.strip(), eff_provider, eff_base_url, eff_model)
 
     try:
         return await run_in_threadpool(_run_generate_style)
@@ -171,6 +187,7 @@ async def analyze_character_tab(
     model: Optional[str] = Form(None),
     current_profile_json: Optional[str] = Form(None),
     vision_only: Annotated[bool, Form()] = False,
+    http_request: Request = None,
     current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional),
     db: Session = Depends(get_db),
 ):
@@ -178,6 +195,9 @@ async def analyze_character_tab(
     Phân tích độc lập từng Tab (hoặc toàn bộ) cho Hồ sơ Nhân vật tham chiếu:
     Tự động đọc API Key từ CSDL MySQL của project nếu có project_id (có kiểm tra quyền sở hữu).
     """
+    if http_request is not None and hasattr(http_request, "headers"):
+        check_rate_limit(http_request, scope="ai_vision", max_requests=RATE_LIMIT_AI_GEN, current_user=current_user)
+
     if project_id is not None:
         check_project_access(db, project_id, current_user)
 
@@ -198,19 +218,26 @@ async def analyze_character_tab(
             if eff_prov not in VISION_PROVIDERS or not (eff_key or "").strip():
                 raise HTTPException(status_code=409, detail="Chưa cấu hình khóa API cho nhà cung cấp đã chọn.")
 
+        # TASK-06: Hoàn trả kết nối CSDL về Connection Pool ngay sau khi tra cứu xong cấu hình dự án,
+        # tránh chiếm giữ kết nối MySQL trong suốt thời gian gọi AI Vision phân tích hồ sơ nhân vật (5-15 giây).
+        if hasattr(db, "close"):
+            db.close()
+
         contents = await file.read()
+        validate_upload_file_size(contents)
         if tab_name.lower().strip() not in {"global", "directions", "animations", "constraints", "all"}:
             raise HTTPException(status_code=400, detail=f"Tab '{tab_name}' không hợp lệ.")
 
         eff_model = AiCredentialsService.resolve_model(provider=eff_prov, model=model, project_id=project_id, model_type="vision")
 
         def _run_analyze_profile():
-            with Image.open(io.BytesIO(contents)) as source:
-                with source.convert("RGBA") as image:
-                    return CharacterAnalysisService.analyze_profile(
-                        image, tab_name, eff_key, eff_prov, eff_base,
-                        current_profile_json, vision_only, model=eff_model,
-                    )
+            with ai_gen_concurrency:
+                with Image.open(io.BytesIO(contents)) as source:
+                    with source.convert("RGBA") as image:
+                        return CharacterAnalysisService.analyze_profile(
+                            image, tab_name, eff_key, eff_prov, eff_base,
+                            current_profile_json, vision_only, model=eff_model,
+                        )
 
         return await run_in_threadpool(_run_analyze_profile)
 
@@ -236,6 +263,11 @@ async def generate_prompt_from_profile(
     """
     if request.project_id is not None:
         check_project_access(db, request.project_id, current_user)
+
+    # TASK-06: Hoàn trả kết nối CSDL về Connection Pool ngay sau khi kiểm tra quyền dự án
+    if hasattr(db, "close"):
+        db.close()
+
     try:
         concept = request.core_concept or request.character_concept or "Pixel Art Character"# lấy ý tưởng người dùng ở ô nhập promt
         await run_in_threadpool(
