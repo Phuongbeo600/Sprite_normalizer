@@ -169,6 +169,134 @@ class TestChatStream(unittest.TestCase):
         self.assertIn('data: {"text": " chào!"}\n\n', events)
         self.assertIn('data: [DONE]\n\n', events)
 
+    @patch("backend.api.v1.chat.AiProviderFactory.get_provider")
+    @patch("backend.api.v1.chat.AiCredentialsService.resolve_credentials")
+    @patch("backend.api.v1.chat.AiCredentialsService.is_ai_enabled")
+    def test_client_disconnect_stops_stream_and_releases_semaphore(self, mock_is_enabled, mock_resolve, mock_get_provider):
+        """Kiểm tra khi client ngắt kết nối (is_disconnected), generator dừng stream và giải phóng Semaphore."""
+        from backend.core.load_control import ai_chat_concurrency
+        mock_is_enabled.return_value = True
+        mock_resolve.return_value = ("valid-key", "gemini", None)
+
+        mock_provider = MagicMock()
+        # Giả lập phát ra 5 token
+        mock_provider.stream_chat.return_value = iter(["Token1", "Token2", "Token3", "Token4", "Token5"])
+        mock_get_provider.return_value = mock_provider
+
+        req = ChatStreamRequest(
+            messages=[ChatMessageItem(role="user", content="Test disconnect")],
+            api_key="valid-key"
+        )
+        mock_db = MagicMock()
+
+        # Giả lập Request HTTP với client ngắt kết nối sau lần đầu
+        mock_http_request = MagicMock()
+        disconnect_calls = [False, True]  # Lần 1: chưa ngắt, Lần 2: đã ngắt kết nối
+
+        async def fake_is_disconnected():
+            return disconnect_calls.pop(0) if disconnect_calls else True
+
+        mock_http_request.is_disconnected = fake_is_disconnected
+
+        # Kiểm tra slot trước khi chạy
+        active_before = ai_chat_concurrency._active_count
+        response = stream_chat_endpoint(request=req, http_request=mock_http_request, db=mock_db)
+
+        async def collect_events(iterator):
+            collected = []
+            async for item in iterator:
+                collected.append(item)
+            return collected
+
+        events = asyncio.run(collect_events(response.body_iterator))
+
+        # Chỉ nhận token 1, sau đó client ngắt nên không nhận token 2, 3, 4, 5
+        self.assertIn('data: {"text": "Token1"}\n\n', events)
+        self.assertNotIn('data: {"text": "Token3"}\n\n', events)
+        # Xác minh slot Semaphore đã được giải phóng hoàn toàn
+        self.assertEqual(ai_chat_concurrency._active_count, active_before)
+
+    @patch("backend.api.v1.chat.AiProviderFactory.get_provider")
+    @patch("backend.api.v1.chat.AiCredentialsService.resolve_credentials")
+    @patch("backend.api.v1.chat.AiCredentialsService.is_ai_enabled")
+    def test_chat_error_redacts_sensitive_api_key(self, mock_is_enabled, mock_resolve, mock_get_provider):
+        """Kiểm tra ngoại lệ trong quá trình stream tự động che giấu API key bảo mật."""
+        mock_is_enabled.return_value = True
+        mock_resolve.return_value = ("AIzaSyD-secret-api-key-1234567890", "gemini", None)
+
+        def failing_generator():
+            yield "Token1"
+            raise RuntimeError("Lỗi kết nối với khóa AIzaSyD-secret-api-key-1234567890 từ Google")
+
+        mock_provider = MagicMock()
+        mock_provider.stream_chat.return_value = failing_generator()
+        mock_get_provider.return_value = mock_provider
+
+        req = ChatStreamRequest(
+            messages=[ChatMessageItem(role="user", content="Hi")],
+            api_key="valid-key"
+        )
+        mock_db = MagicMock()
+        response = stream_chat_endpoint(request=req, db=mock_db)
+
+        async def collect_events(iterator):
+            collected = []
+            async for item in iterator:
+                collected.append(item)
+            return collected
+
+        events = asyncio.run(collect_events(response.body_iterator))
+        error_event = [e for e in events if '"error"' in e]
+        self.assertTrue(len(error_event) > 0)
+        self.assertNotIn("AIzaSyD-secret-api-key-1234567890", error_event[0])
+        self.assertIn("[REDACTED_API_KEY]", error_event[0])
+
+    @patch("backend.api.v1.chat.AiProviderFactory.get_provider")
+    @patch("backend.api.v1.chat.AiCredentialsService.resolve_credentials")
+    @patch("backend.api.v1.chat.AiCredentialsService.is_ai_enabled")
+    def test_context_pruning_limits_history_to_20(self, mock_is_enabled, mock_resolve, mock_get_provider):
+        """Kiểm tra cơ chế Context Pruning cắt tỉa danh sách tin nhắn khi vượt quá 20 lượt."""
+        mock_is_enabled.return_value = True
+        mock_resolve.return_value = ("valid-key", "gemini", None)
+
+        captured_messages = []
+        mock_provider = MagicMock()
+
+        def fake_stream(messages, *args, **kwargs):
+            captured_messages.extend(messages)
+            yield "Done"
+
+        mock_provider.stream_chat.side_effect = fake_stream
+        mock_get_provider.return_value = mock_provider
+
+        # Tạo 35 tin nhắn
+        many_messages = [
+            ChatMessageItem(role="user" if i % 2 == 0 else "assistant", content=f"Tin nhắn {i}")
+            for i in range(35)
+        ]
+        req = ChatStreamRequest(messages=many_messages, api_key="valid-key")
+        mock_db = MagicMock()
+        response = stream_chat_endpoint(request=req, db=mock_db)
+
+        async def drain(iterator):
+            async for _ in iterator:
+                pass
+
+        asyncio.run(drain(response.body_iterator))
+
+        # Xác minh đã cắt tỉa còn 20 tin nhắn
+        self.assertEqual(len(captured_messages), 20)
+        # Tin nhắn đầu tiên được giữ lại làm ngữ cảnh
+        self.assertEqual(captured_messages[0]["content"], "Tin nhắn 0")
+        # Tin nhắn cuối cùng là tin nhắn mới nhất
+        self.assertEqual(captured_messages[-1]["content"], "Tin nhắn 34")
+
+    def test_message_content_length_validation_rejects_too_long(self):
+        """Kiểm tra Pydantic từ chối tin nhắn vượt quá 10.000 ký tự."""
+        from pydantic import ValidationError
+        with self.assertRaises(ValidationError):
+            ChatMessageItem(role="user", content="A" * 10001)
+
 
 if __name__ == "__main__":
     unittest.main()

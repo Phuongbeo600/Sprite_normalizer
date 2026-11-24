@@ -24,12 +24,12 @@ from pydantic import BaseModel, Field
 class ChatMessageItem(BaseModel):
     """Mô hình dữ liệu của một tin nhắn đơn lẻ trong chuỗi hội thoại."""
     role: str = Field(..., description="Vai trò của người gửi: 'user' hoặc 'assistant'")
-    content: str = Field(..., description="Nội dung văn bản của tin nhắn")
+    content: str = Field(..., max_length=10000, description="Nội dung văn bản của tin nhắn (tối đa 10.000 ký tự)")
 
 
 class ChatStreamRequest(BaseModel):
     """Mô hình dữ liệu gửi lên endpoint phát luồng hội thoại AI đa nhà cung cấp."""
-    messages: List[ChatMessageItem] = Field(..., description="Lịch sử các tin nhắn hội thoại")
+    messages: List[ChatMessageItem] = Field(..., max_length=50, description="Lịch sử các tin nhắn hội thoại (tối đa 50 lượt)")
     project_id: Optional[int] = Field(None, description="Mã định danh dự án trong CSDL (nếu có)")
     provider: Optional[str] = Field(None, description="Tên nhà cung cấp AI ('gemini', 'openai', 'deepseek', v.v.)")
     api_key: Optional[str] = Field(None, description="Khóa API truyền trực tiếp từ client (tùy chọn)")

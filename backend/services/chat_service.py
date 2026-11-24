@@ -83,9 +83,23 @@ class ChatService:
             )
 
         def chunks():
-            """Chỉ chuyển đổi lịch sử khi luồng bắt đầu được tiêu thụ."""
+            """Chỉ chuyển đổi và cắt tỉa lịch sử khi luồng bắt đầu được tiêu thụ."""
             raw_messages = [msg.model_dump() for msg in request.messages]
-            # Kích hoạt luồng phát sinh từ từ mô hình AI
+
+            # 1. Cắt tỉa ngữ cảnh (Context Pruning): Giữ tối đa 20 lượt trao đổi gần nhất
+            # Giúp tối ưu hóa tốc độ phản hồi, tiết kiệm token và ngăn ngừa Timeout mạng
+            MAX_CONTEXT_MESSAGES = 20
+            if len(raw_messages) > MAX_CONTEXT_MESSAGES:
+                # Giữ tin nhắn đầu tiên (chứa ngữ cảnh khởi đầu) và các tin nhắn mới nhất
+                raw_messages = [raw_messages[0]] + raw_messages[-(MAX_CONTEXT_MESSAGES - 1):]
+
+            # 2. Giới hạn độ dài nội dung từng tin nhắn đơn lẻ tối đa 8.000 ký tự
+            for msg in raw_messages:
+                content = msg.get("content", "")
+                if len(content) > 8000:
+                    msg["content"] = content[:8000] + "... [nội dung đã được rút gọn]"
+
+            # Kích hoạt luồng phát sinh từ mô hình AI
             yield from provider.stream_chat(
                 messages=raw_messages,
                 api_key=effective_key,
