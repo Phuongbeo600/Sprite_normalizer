@@ -39,9 +39,11 @@ def get_image_gen_status(project_id: Optional[int] = Query(None, description="M�
 
 
 @image_gen_router.post("/generate", response_model=ImageGenResponse)
-async def generate_image(request: ImageGenRequest):
+def generate_image(request: ImageGenRequest):
     """
     Tạo ảnh nhân vật / sprite bằng mô hình AI (Google Imagen 3 hoặc OpenAI DALL-E 3).
+    Sử dụng hàm đồng bộ (def) để FastAPI tự động chuyển giao tác vụ gọi mạng HTTP kéo dài
+    vào Starlette ThreadPool, giải phóng hoàn toàn Event Loop cho các người dùng khác.
     Chỉ thực hiện khi người dùng chủ động bấm nút Tạo ảnh trên giao diện.
     """
     try:

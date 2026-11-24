@@ -65,7 +65,20 @@ else:
         query={"charset": "utf8mb4"}, # Dùng bảng mã tiếng việt
     )
 
-engine = create_engine(database_url, pool_pre_ping=True, pool_recycle=280) # Tạo engine kết nối CSDL với code python, pool_pre_ping là nếu không dùng Myspl sẽ tự động đóng
+# Cấu hình tham số hồ kết nối (Connection Pool) chịu tải cao cho MySQL
+engine_kwargs = {
+    "pool_pre_ping": True,
+    "pool_recycle": 280,
+}
+# Nếu sử dụng MySQL hoặc cơ sở dữ liệu hỗ trợ QueuePool, mở rộng dung lượng hồ kết nối
+if "sqlite" not in str(database_url).lower():
+    engine_kwargs.update({
+        "pool_size": 20,       # Duy trì sẵn 20 kết nối thường trực
+        "max_overflow": 20,    # Cho phép mở rộng thêm tối đa 20 kết nối khi lượng truy cập tăng đột biến
+        "pool_timeout": 30     # Thời gian chờ tối đa 30 giây trước khi báo lỗi nghẽn hồ kết nối
+    })
+
+engine = create_engine(database_url, **engine_kwargs) # Tạo engine kết nối CSDL với code python, pool_pre_ping là nếu không dùng Myspl sẽ tự động đóng
 SessionLocal = sessionmaker(bind=engine) # Đối tượng , phiển dùng riêng cho từng chức năng
 
 

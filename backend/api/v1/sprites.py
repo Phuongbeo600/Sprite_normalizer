@@ -19,6 +19,8 @@ from typing import Annotated, Literal, Optional
 # fastapi: Khởi tạo router, nhận file upload và xử lý HTTP response
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends, Query
 from fastapi.responses import Response
+# run_in_threadpool: Chuyển các tác vụ nặng (CPU-bound và I/O đồng bộ) vào ThreadPool để không chặn Event Loop
+from fastapi.concurrency import run_in_threadpool
 # sqlalchemy: Quản lý phiên làm việc Session với MySQL
 from sqlalchemy.orm import Session
 # PIL (Pillow): Mở ảnh tải lên và áp dụng hướng ảnh theo thông tin EXIF
@@ -248,7 +250,8 @@ async def normalize_sprite(
 
     try:
         contents = await file.read()
-        png_bytes = SpriteService.normalize_image_bytes(
+        png_bytes = await run_in_threadpool(
+            SpriteService.normalize_image_bytes,
             image_bytes=contents,
             target_width=target_width,
             target_height=target_height,
@@ -270,12 +273,20 @@ async def analyze_character(
 
     try:
         contents = await file.read()
-        with Image.open(io.BytesIO(contents)) as source:
-            image = ImageOps.exif_transpose(source)
 
-        metrics, message, annotated_b64 = AnatomyService.analyze_sprite( #metrics chứa dữ liệu đầu , cổ, chân ở python đã tính
-            image=image, auto_remove_bg=auto_remove_bg,
-        )
+        def _perform_analysis():
+            with Image.open(io.BytesIO(contents)) as source:
+                image = ImageOps.exif_transpose(source)
+
+            metrics, message, annotated_b64 = AnatomyService.analyze_sprite( #metrics chứa dữ liệu đầu , cổ, chân ở python đã tính
+                image=image, auto_remove_bg=auto_remove_bg,
+            )
+            if not metrics:
+                return None, message, None, None
+            regions = AnatomyService.measure_anatomy_regions(image, metrics, auto_remove_bg)
+            return metrics, message, annotated_b64, regions
+
+        metrics, message, annotated_b64, regions = await run_in_threadpool(_perform_analysis)
 
         if not metrics:
             raise HTTPException(status_code=400, detail=message)
@@ -284,7 +295,7 @@ async def analyze_character(
             "status": "success",
             "message": message,
             "metrics": asdict(metrics),
-            "region_measurements": AnatomyService.measure_anatomy_regions(image, metrics, auto_remove_bg),
+            "region_measurements": regions,
             "annotated_image": annotated_b64
         }
     except HTTPException:
@@ -363,7 +374,7 @@ async def save_raw_sprite(
     """
     try:
         raw_bytes = await file.read()
-        return sprite_workspace().save_raw(db, raw_bytes, file.filename, name, project_id)
+        return await run_in_threadpool(sprite_workspace().save_raw, db, raw_bytes, file.filename, name, project_id)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Lỗi khi lưu ảnh gốc vào CSDL: {str(exc)}")
 
@@ -380,7 +391,7 @@ async def save_processed_sprite(
     """
     try:
         proc_bytes = await file.read()
-        return sprite_workspace().save_processed(db, proc_bytes, file.filename, sprite_id, project_id)
+        return await run_in_threadpool(sprite_workspace().save_processed, db, proc_bytes, file.filename, sprite_id, project_id)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Lỗi khi lưu ảnh tối ưu: {str(exc)}")
 
@@ -451,7 +462,8 @@ async def save_sliced_pack(
     try:
         x_cuts, y_cuts = _parse_manual_grid(x_cuts_json, y_cuts_json)
         raw_bytes = await file.read()
-        return sprite_workspace().save_sliced_pack(
+        return await run_in_threadpool(
+            sprite_workspace().save_sliced_pack,
             db, raw_bytes, file.filename, project_id, rows, columns, folder_name,
             auto_anchor, fps, target_width, target_height, x_cuts, y_cuts,
         )
@@ -514,16 +526,18 @@ async def batch_resize_sheet(
     try:
         x_cuts, y_cuts = _parse_manual_grid(x_cuts_json, y_cuts_json)
         raw_bytes = await file.read()
-        image = Image.open(io.BytesIO(raw_bytes))
-        image = ImageOps.exif_transpose(image)
 
-        frames_result = [
-            {"name": name, "size": [target_width, target_height], "png": b64encode(png).decode("utf-8")}
-            for name, _size, png in SpriteService.resized_sheet_frames(
-                image, rows, columns, target_width, target_height,
-                auto_anchor=auto_anchor, x_cuts=x_cuts, y_cuts=y_cuts,
-            )
-        ]
+        def _perform_batch_resize():
+            img = ImageOps.exif_transpose(Image.open(io.BytesIO(raw_bytes)))
+            return [
+                {"name": name, "size": [target_width, target_height], "png": b64encode(png).decode("utf-8")}
+                for name, _size, png in SpriteService.resized_sheet_frames(
+                    img, rows, columns, target_width, target_height,
+                    auto_anchor=auto_anchor, x_cuts=x_cuts, y_cuts=y_cuts,
+                )
+            ]
+
+        frames_result = await run_in_threadpool(_perform_batch_resize)
 
         return {
             "status": "success",

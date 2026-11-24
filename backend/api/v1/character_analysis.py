@@ -166,9 +166,9 @@ async def analyze_character_tab(
             )
 
         # Tự động lấy key từ MySQL của dự án nếu cần
-        eff_key, eff_prov, eff_base = _resolve_project_api_key(project_id, api_key, provider, base_url)
+        credentials = await run_in_threadpool(_resolve_project_api_key, project_id, api_key, provider, base_url)
+        eff_key, eff_prov, eff_base = CharacterAnalysisService._resolve_credentials(*credentials)
         if vision_only:
-            eff_key, eff_prov, eff_base = CharacterAnalysisService._resolve_credentials(eff_key, eff_prov, eff_base)
             if eff_prov not in VISION_PROVIDERS or not (eff_key or "").strip():
                 raise HTTPException(status_code=409, detail="Chưa cấu hình khóa API cho nhà cung cấp đã chọn.")
 
@@ -201,7 +201,8 @@ async def generate_prompt_from_profile(request: GeneratePromptFromProfileRequest
     """
     try:
         concept = request.core_concept or request.character_concept or "Pixel Art Character"# lấy ý tưởng người dùng ở ô nhập promt
-        _resolve_project_api_key(
+        await run_in_threadpool(
+            _resolve_project_api_key,
             request.project_id, request.api_key, request.provider, request.base_url
         )
 
@@ -210,7 +211,8 @@ async def generate_prompt_from_profile(request: GeneratePromptFromProfileRequest
             prof_data["metrics"] = request.metrics
 
         # Sử dụng PromptBuilderService để biên dịch ma trận 15 frame hoạt họa
-        compiled = PromptBuilderService.compile_sprite_sheet_prompt(
+        compiled = await run_in_threadpool(
+            PromptBuilderService.compile_sprite_sheet_prompt,
             character_concept=concept,
             profile_data=prof_data,
             frame_actions=request.frame_actions,

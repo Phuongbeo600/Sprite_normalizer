@@ -27,7 +27,7 @@ settings_router = APIRouter(prefix="/settings", tags=["Cấu hình Hệ thống"
 
 
 @settings_router.get("", response_model=SettingsResponse)
-async def get_settings():
+def get_settings():
     """Lấy thông tin cấu hình hiện tại và các API key đã được che dấu."""
     try:
         return SettingsService.get_settings()
@@ -36,7 +36,7 @@ async def get_settings():
 
 
 @settings_router.post("")
-async def save_settings(request: SettingsUpdateRequest):
+def save_settings(request: SettingsUpdateRequest):
     """Lưu và kích hoạt cấu hình nhà cung cấp AI & API key vào .env."""
     try:
         return SettingsService.save_settings(
@@ -50,10 +50,12 @@ async def save_settings(request: SettingsUpdateRequest):
 
 
 @settings_router.post("/test-key")
-async def test_api_key(request: TestApiKeyRequest):
+def test_api_key(request: TestApiKeyRequest):
     """
     Kiểm tra nhanh kết nối tới Google Gemini hoặc OpenAI ChatGPT
     thông qua tính Đa hình của AI Provider Factory.
+    Sử dụng hàm đồng bộ (def) để đẩy lệnh gọi mạng HTTP kiểm tra kết nối sang ThreadPool,
+    không làm nghẽn Event Loop chính của hệ thống.
     """
     result = SettingsService.test_api_key(
         provider=request.provider,
