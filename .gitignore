@@ -157,3 +157,9 @@ data/skills/
 # Toàn bộ thư mục tài liệu dự án (docs/learning/, docs/agent/, PDF, HTML)
 docs/
 
+# ========================================================
+# 8. BỘ DỮ LIỆU GÁN NHÃN THỦ CÔNG CỤC BỘ (Local Labeling Dataset)
+# ========================================================
+# Thư mục 50 ảnh nhân vật sạch phục vụ gán nhãn YOLO cục bộ (không đưa tệp nhị phân lớn lên Git)
+dataset_50_to_label/
+

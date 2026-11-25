@@ -11,6 +11,8 @@
 // ========================================================
 // 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Component và dữ liệu)
 // ========================================================
+// getAuthHeaders: Đính kèm JWT Bearer Token khi lưu tài nguyên vào dự án có chủ sở hữu.
+import { getAuthHeaders } from '../../shared/api/authHeaders.js';
 // gridRequestFields: Đồng bộ đường cắt giữa xem trước, ép kích thước và lưu kho.
 import { gridRequestFields } from './sheetGrid';
 
@@ -58,7 +60,7 @@ export function saveRawSprite(file, projectId, fallbackName, onSaved) {
   form.append('file', file);
   form.append('project_id', projectId);
   form.append('name', file.name || fallbackName);
-  fetch('/api/sprites/save-raw', { method: 'POST', body: form })
+  fetch('/api/sprites/save-raw', { method: 'POST', headers: getAuthHeaders(), body: form })
     .then((res) => (res.ok ? res.json() : null))
     .then((data) => {
       if (data && data.id) {
@@ -80,7 +82,7 @@ export function saveProcessedSprite(blob, projectId, spriteId) {
   const form = new FormData();
   form.append('file', blob, 'processed.png');
   form.append('project_id', projectId);
-  fetch(`/api/sprites/${spriteId}/save-processed`, { method: 'POST', body: form })
+  fetch(`/api/sprites/${spriteId}/save-processed`, { method: 'POST', headers: getAuthHeaders(), body: form })
     .catch((err) => console.error('Lỗi khi lưu ảnh tối ưu vào MySQL:', err));
 }
 
@@ -151,6 +153,7 @@ export async function saveSlicedPackToVault({
 
   const response = await fetch('/api/sprites/save-sliced-pack', {
     method: 'POST',
+    headers: getAuthHeaders(),
     body
   });
 

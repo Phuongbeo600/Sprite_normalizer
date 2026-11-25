@@ -13,9 +13,8 @@ import { Play, Pause } from "lucide-react";
 // ========================================================
 // 3. THÀNH PHẦN NỘI BỘ DỰ ÁN
 // ========================================================
-// Định dạng ngày lưu và dung lượng ảnh.
-
-// Tạo đường dẫn ảnh gốc và ảnh đã xử lý.
+// getAuthHeaders: Đính kèm JWT Bearer Token khi tải danh sách frame thuộc dự án có chủ sở hữu.
+import { getAuthHeaders } from '../../shared/api/authHeaders.js';
 
 
 // ========================================================
@@ -33,7 +32,7 @@ export default function SpriteFramesViewer({ spriteId, frameCount }) {
 
   React.useEffect(() => {
     let cancel = false;
-    fetch(`/api/sprites/${spriteId}/frames`)
+    fetch(`/api/sprites/${spriteId}/frames`, { headers: getAuthHeaders() })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (!cancel && data && data.frames) {

@@ -5,7 +5,8 @@
 // Không dùng thư viện bên ngoài.
 
 // 3. THÀNH PHẦN NỘI BỘ DỰ ÁN
-// Không có phụ thuộc nội bộ.
+// getAuthHeaders: Đính kèm JWT Bearer Token khi truy cập tài nguyên sprite trong kho dự án.
+import { getAuthHeaders } from '../../shared/api/authHeaders.js';
 
 // 4. ĐỊNH DẠNG GIAO DIỆN / CẤU HÌNH
 // Các tham số được truyền từ phòng thử nghiệm.
@@ -33,7 +34,7 @@ export function parseVaultMetadata(metadata) {
  * @returns {Promise<Object>} Phản hồi danh sách tài nguyên.
  */
 export function loadVaultSprites(projectId) {
-  return fetch(`/api/sprites?project_id=${projectId}`)
+  return fetch(`/api/sprites?project_id=${projectId}`, { headers: getAuthHeaders() })
     .then((res) => {
       if (!res.ok) throw new Error('Không thể tải danh sách tài nguyên từ máy chủ.');
       return res.json();
@@ -48,7 +49,7 @@ export function loadVaultSprites(projectId) {
  */
 export async function loadVaultAsset(sprite, projectId) {
   // 1. Tải blob ảnh nhị phân từ MySQL
-  const imgRes = await fetch(`/api/sprites/${sprite.id}/raw?project_id=${projectId}`);
+  const imgRes = await fetch(`/api/sprites/${sprite.id}/raw?project_id=${projectId}`, { headers: getAuthHeaders() });
   if (!imgRes.ok) throw new Error('Không thể tải dữ liệu ảnh nhị phân từ MySQL.');
   const blob = await imgRes.blob();
   const sheetUrl = URL.createObjectURL(blob);
@@ -56,7 +57,7 @@ export async function loadVaultAsset(sprite, projectId) {
   // 2. Tải danh sách 15 frame con nếu có
   let framesData = [];
   try {
-    const framesRes = await fetch(`/api/sprites/${sprite.id}/frames`);
+    const framesRes = await fetch(`/api/sprites/${sprite.id}/frames`, { headers: getAuthHeaders() });
     if (framesRes.ok) {
       const resJson = await framesRes.json();
       framesData = resJson.frames || [];
