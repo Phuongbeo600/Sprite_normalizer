@@ -1,0 +1,34 @@
+/* Nhãn nguồn API dùng chung, phân biệt bằng cả chữ và màu. */
+.image-api-source {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  width: fit-content;
+  padding: 5px 10px;
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-pill);
+  color: var(--text-muted);
+  background: var(--bg-input);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.image-api-source.system { color: var(--text-highlight); }
+.image-api-source.project { color: var(--text-primary); }
+.image-api-source-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+.image-api-status {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  max-width: 100%;
+}
+@media (max-width: 768px) {
+  .image-api-status { align-items: flex-start; }
+}

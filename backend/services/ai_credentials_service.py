@@ -13,7 +13,7 @@ import logging
 # os: Đọc biến môi trường hệ thống
 import os
 # typing: Khai báo kiểu bộ giá trị, tùy chọn, từ điển
-from typing import Optional, Tuple, Dict, Any
+from typing import Optional, Tuple
 
 # ========================================================
 # 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
@@ -49,6 +49,13 @@ class AiCredentialsService:
        - Nếu có `project_id`, tra cứu CSDL MySQL; nếu cờ `ai_enabled` là `False` thì trả về `False`.
     """
 
+    @staticmethod
+    def _scope_value(scope: str, name: str) -> Optional[str]:
+        """Đọc giá trị không rỗng của nghiệp vụ chat hoặc analysis từ môi trường."""
+        if scope not in {"chat", "analysis"}:
+            return None
+        return os.getenv(f"{scope.upper()}_{name}", "").strip() or None
+
     @classmethod
     def resolve_credentials(
         cls,
@@ -58,6 +65,7 @@ class AiCredentialsService:
         base_url: Optional[str] = None,
         db: Optional[Session] = None,
         project_service: Optional[ProjectService] = None,
+        scope: str = "general",
     ) -> Tuple[Optional[str], str, Optional[str]]:
         """
         Xác định thông tin xác thực hiệu lực (API Key, Provider, Base URL) theo đúng thứ tự ưu tiên nghiệp vụ.
@@ -68,11 +76,19 @@ class AiCredentialsService:
         @param {Optional[str]} base_url Địa chỉ máy chủ proxy truyền trực tiếp.
         @param {Optional[Session]} db Phiên CSDL tùy chọn.
         @param {Optional[ProjectService]} project_service Đối tượng ProjectService tùy chọn.
+        @param {str} scope Nghiệp vụ chat, analysis hoặc general để chọn cấu hình môi trường riêng.
         @returns {Tuple[Optional[str], str, Optional[str]]} (api_key, provider, base_url).
         """
-        eff_key = api_key
-        eff_prov = provider
-        eff_base = base_url
+        if scope == "image_gen":
+            config = cls.resolve_image_configuration(project_id, api_key, provider, base_url, db=db, project_service=project_service)
+            return config["api_key"], config["provider"], config["base_url"]
+
+        # Cấu hình nghiệp vụ được ưu tiên trước CSDL; tham số trực tiếp vẫn đứng đầu.
+        scoped_provider = cls._scope_value(scope, "AI_PROVIDER")
+        use_scope = not provider or not scoped_provider or provider.strip().lower() == scoped_provider.lower()
+        eff_key = api_key or (cls._scope_value(scope, "API_KEY") if use_scope else None)
+        eff_prov = provider or scoped_provider
+        eff_base = base_url or (cls._scope_value(scope, "BASE_URL") if use_scope else None)
 
         # 1. Tra cứu CSDL dự án nếu thiếu key và có project_id
         if not eff_key and project_id:
@@ -82,18 +98,18 @@ class AiCredentialsService:
                     eff_key, eff_prov, eff_base = service.resolve_project_credentials(
                         db=db,
                         project_id=project_id,
-                        api_key=api_key,
-                        provider=provider,
-                        base_url=base_url,
+                        api_key=eff_key,
+                        provider=eff_prov,
+                        base_url=eff_base,
                     )
                 else:
                     with SessionLocal() as session:
                         eff_key, eff_prov, eff_base = service.resolve_project_credentials(
                             db=session,
                             project_id=project_id,
-                            api_key=api_key,
-                            provider=provider,
-                            base_url=base_url,
+                            api_key=eff_key,
+                            provider=eff_prov,
+                            base_url=eff_base,
                         )
             except Exception as exc:
                 logging.warning(f"Không thể đọc cấu hình API Key từ CSDL dự án {project_id}: {exc}")
@@ -114,6 +130,7 @@ class AiCredentialsService:
         project_id: Optional[int],
         db: Optional[Session] = None,
         project_service: Optional[ProjectService] = None,
+        scope: str = "general",
     ) -> bool:
         """
         Kiểm tra cờ kích hoạt AI của một dự án (mặc định True nếu không cấu hình hoặc không có project_id).
@@ -121,8 +138,17 @@ class AiCredentialsService:
         @param {Optional[int]} project_id Mã dự án.
         @param {Optional[Session]} db Phiên CSDL tùy chọn.
         @param {Optional[ProjectService]} project_service Đối tượng ProjectService tùy chọn.
+        @param {str} scope Nghiệp vụ được phép dùng khóa máy chủ để vượt cờ AI của dự án.
         @returns {bool} True nếu tính năng AI đang được bật, ngược lại False.
         """
+        # Khóa máy chủ cho nghiệp vụ hiện tại cho phép dùng AI dù cờ dự án đang tắt.
+        env_keys = [cls._scope_value(scope, "API_KEY")]
+        fallback_provider = (cls._scope_value(scope, "AI_PROVIDER") or os.getenv("AI_PROVIDER", "gemini")).strip().lower()
+        env_keys.append(os.getenv("OPENAI_API_KEY" if fallback_provider == "openai" else "GEMINI_API_KEY", ""))
+        if scope != "image_gen" and any(key and key.strip() and not any(marker in key.lower() for marker in (
+            "your-", "your_", "cua_ban", "của_bạn", "placeholder",
+        )) for key in env_keys):
+            return True
         if not project_id:
             return True
 
@@ -150,6 +176,7 @@ class AiCredentialsService:
         model_type: str = "vision",
         db: Optional[Session] = None,
         project_service: Optional[ProjectService] = None,
+        scope: str = "general",
     ) -> Optional[str]:
         """
         Xác định tên mô hình hiệu dụng theo thứ tự ưu tiên:
@@ -163,11 +190,26 @@ class AiCredentialsService:
         @param {str} model_type Loại mô hình: 'vision', 'image_gen' hoặc 'chat'.
         @param {Optional[Session]} db Phiên CSDL tùy chọn.
         @param {Optional[ProjectService]} project_service Đối tượng ProjectService tùy chọn.
+        @param {str} scope Nghiệp vụ chat, analysis hoặc general để chọn mô hình riêng.
         @returns {Optional[str]} Tên mô hình hiệu dụng hoặc None nếu để mặc định theo Provider.
         """
         # 1. Ưu tiên model truyền trực tiếp
         if model and model.strip():
             return model.strip()
+
+        if scope == "image_gen":
+            try:
+                return cls.resolve_image_configuration(project_id, provider=provider, db=db, project_service=project_service)["model"]
+            except Exception as exc:
+                # Model là tùy chọn: khi không đọc được CSDL, giữ mặc định của provider.
+                logging.warning("Không thể đọc mô hình tạo ảnh của dự án: %s", type(exc).__name__)
+                return None
+
+        # Mô hình nghiệp vụ đi cùng khóa và địa chỉ nghiệp vụ, trước cấu hình dự án.
+        scoped_provider = cls._scope_value(scope, "AI_PROVIDER")
+        scoped_model = cls._scope_value(scope, "MODEL")
+        if scoped_model and (not provider or not scoped_provider or provider.strip().lower() == scoped_provider.lower()):
+            return scoped_model
 
         # 2. Ưu tiên model cấu hình trong CSDL dự án
         if project_id:
@@ -198,3 +240,65 @@ class AiCredentialsService:
         env_var = "OPENAI_MODEL" if clean_provider == "openai" else "GEMINI_MODEL"
         env_model = os.getenv(env_var)
         return env_model.strip() if env_model and env_model.strip() else None
+
+    @classmethod
+    def resolve_image_configuration(
+        cls, project_id=None, api_key=None, provider=None, base_url=None, model=None,
+        db=None, project_service=None,
+    ) -> dict:
+        """Phân giải tạo ảnh: tham số trực tiếp, key dự án, rồi mặc định hệ thống.
+
+        @param project_id Mã dự án cần đọc cấu hình riêng.
+        @param api_key, provider, base_url, model Các giá trị ghi đè trực tiếp.
+        @param db, project_service Phiên CSDL và dịch vụ dự án tùy chọn.
+        @returns Bộ cấu hình nội bộ có khóa bí mật, mô hình và nguồn cấu hình.
+        """
+        config = {}
+        if project_id:
+            service = project_service or ProjectService()
+            if db is not None:
+                config = service.get_api_config(db, project_id) or {}
+            else:
+                with SessionLocal() as session:
+                    config = service.get_api_config(session, project_id) or {}
+
+        # Chỉ key đã lưu của provider đang chọn mới được coi là cấu hình riêng.
+        system_provider = (os.getenv("IMAGE_GEN_PROVIDER") or os.getenv("AI_PROVIDER", "gemini")).strip().lower()
+        project_provider = (provider or config.get("api_provider") or system_provider).strip().lower()
+        project_key = (config.get(f"_{project_provider}_raw_key") or "").strip()
+        source = "request" if api_key and api_key.strip() else "project" if project_key else "system"
+        effective_provider = (provider or (project_provider if project_key else system_provider)).strip().lower()
+        matches_system = effective_provider == system_provider
+        legacy_key = "OPENAI_API_KEY" if effective_provider == "openai" else "GEMINI_API_KEY"
+        system_key = (os.getenv("IMAGE_GEN_API_KEY", "").strip() if matches_system else "") or os.getenv(legacy_key, "").strip()
+        key = (api_key or "").strip() or project_key or system_key
+
+        # Không ghép key dự án với địa chỉ hay model của một provider hệ thống khác.
+        if source in {"request", "project"}:
+            resolved_base = base_url or (config.get("openai_base_url") if project_key else None)
+            resolved_model = model or (config.get("image_gen_model") if project_key else None)
+        else:
+            resolved_base = base_url or (os.getenv("IMAGE_GEN_BASE_URL") if matches_system else None)
+            resolved_model = model or (os.getenv("IMAGE_GEN_MODEL") if matches_system else None)
+        if effective_provider == "openai" and not resolved_base:
+            resolved_base = os.getenv("OPENAI_BASE_URL") if source == "system" else None
+            resolved_base = resolved_base or "https://api.openai.com/v1"
+        clean_model = resolved_model.strip() if resolved_model and resolved_model.strip() else None
+        # Không đưa khóa nhập nhầm vào model xuống giao diện hoặc thông báo lỗi.
+        if clean_model and (clean_model.startswith(("sk-", "AIza")) or clean_model == key):
+            raise ValueError(
+                "Cấu hình model tạo ảnh không hợp lệ: IMAGE_GEN_MODEL phải là tên model, không phải API key. "
+                "Hãy nhập API key vào IMAGE_GEN_API_KEY."
+            )
+        if effective_provider == "gemini" and key and key.startswith("sk-"):
+            raise ValueError(
+                "IMAGE_GEN_PROVIDER đang là gemini nhưng key có dạng OpenAI. "
+                "Nếu dùng OpenAI hoặc dịch vụ tương thích, hãy đặt IMAGE_GEN_PROVIDER=openai "
+                "và IMAGE_GEN_BASE_URL theo dịch vụ của bạn."
+            )
+        return {
+            "api_key": key or None, "provider": effective_provider,
+            "base_url": resolved_base.strip() if resolved_base else None,
+            "model": clean_model,
+            "config_source": source if key else "missing",
+        }

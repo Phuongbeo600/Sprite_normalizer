@@ -12,6 +12,8 @@
 // 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Thành phần giao diện và dữ liệu)
 // ========================================================
 // Không dùng thành phần nội bộ.
+// getAuthHeaders: Đính kèm JWT để backend xác minh quyền truy cập dự án.
+import { getAuthHeaders } from '../../shared/api/authHeaders.js';
 
 // ========================================================
 // 4. ĐỊNH DẠNG GIAO DIỆN VÀ MÀU SẮC
@@ -30,7 +32,7 @@ export async function requestAnalysis(file, url, fields = {}) {
   const body = new FormData(); // form đóng gói ảnh thành nhị phân
   body.append('file', file); // thêm ảnh được nạp vào form
   Object.entries(fields).forEach(([name, value]) => body.append(name, value));
-  const response = await fetch(url, { method: 'POST', body });
+  const response = await fetch(url, { method: 'POST', headers: getAuthHeaders(), body });
   const payload = await response.json();
   if (!response.ok) throw new Error(payload.detail || 'Không xử lý được ảnh.');
   return payload;
@@ -44,7 +46,7 @@ export async function requestAnalysis(file, url, fields = {}) {
  * @returns {Promise<Response>} Phản hồi chưa đọc của máy chủ.
  */
 export function requestVisionStatus(query, signal) {
-  return fetch(`/api/character-profile/vision-status${query}`, { signal });
+  return fetch(`/api/character-profile/vision-status${query}`, { signal, headers: getAuthHeaders() });
 }
 
 /**
@@ -60,7 +62,7 @@ export function requestVisionStatus(query, signal) {
 export function requestProfilePrompt({ projectId, profileData, metrics, newCharConfig }) {
   return fetch('/api/character-profile/generate-prompt', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
     body: JSON.stringify({
       project_id: projectId || null,
       profile_data: profileData,
@@ -89,7 +91,7 @@ export function requestProfilePrompt({ projectId, profileData, metrics, newCharC
 export function requestSavePreset(projectId, payload) {
   return fetch(`/api/projects/${projectId}/character-presets`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
     body: JSON.stringify(payload),
   });
 }

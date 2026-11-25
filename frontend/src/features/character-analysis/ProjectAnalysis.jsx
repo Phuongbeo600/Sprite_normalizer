@@ -64,7 +64,7 @@ export default function ProjectAnalysis({
   isAiEnabled = true,
 }) {
   const {
-    reference, annotatedUrl, showOverlay, setShowOverlay, metrics, analysisError, colorError, localAction, workspaceMode, setWorkspaceMode, activeProfileTab, setActiveProfileTab, profileData, setProfileData, visionStatus, isGeneratingStyle, profileError, generatedProfilePrompt, savingPreset, saveSuccessMsg, loadedPresetConfig, handleReferenceChange, handleLocalMeasure, handleGenerateReferenceStyle, handleSavePreset, tabStatuses, palette, pixelReport, referenceStyle, providerLabel, resultProviderLabel, pythonMeasurements, progress, hasMeasured
+    reference, annotatedUrl, showOverlay, setShowOverlay, metrics, analysisError, colorError, localAction, workspaceMode, setWorkspaceMode, activeProfileTab, setActiveProfileTab, profileData, setProfileData, visionStatus, visionError, isGeneratingStyle, profileError, generatedProfilePrompt, savingPreset, saveSuccessMsg, loadedPresetConfig, handleReferenceChange, handleLocalMeasure, handleGenerateReferenceStyle, handleSavePreset, tabStatuses, palette, pixelReport, referenceStyle, providerLabel, resultProviderLabel, pythonMeasurements, progress, hasMeasured
   } = useAnalysisSession({ currentProject, loadedPresetData, isActive });
 
   return (
@@ -238,7 +238,7 @@ export default function ProjectAnalysis({
               <p style={{ margin: 0, fontSize: '0.78rem', color: '#94a3b8' }}>
                 {visionStatus === 'checking' && 'Đang kiểm tra cấu hình kết nối AI…'}
                 {visionStatus === 'missing' && `Chưa cấu hình API Key ${providerLabel} cho dự án này.`}
-                {visionStatus === 'error' && 'Không đọc được cấu hình AI. Hãy kiểm tra kết nối mạng.'}
+                {visionStatus === 'error' && visionError}
               </p>
             )}
 

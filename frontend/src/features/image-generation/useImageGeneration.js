@@ -98,14 +98,18 @@ export function useImageGeneration({ currentProject, incomingPrompt, incomingNeg
   // Kiểm tra cấu hình API hiện hành (hoàn toàn ngoại tuyến, không tốn token)
   const fetchApiStatus = async () => {
     setCheckingConfig(true);
+    setConfigStatus(null);
+    setErrorMsg('');
     try {
       const resp = await requestImageGenerationStatus(currentProject?.id);
-      if (resp.ok) {
-        const data = await resp.json();
-        setConfigStatus(data);
+      if (!resp.ok) {
+        const data = await resp.json().catch(() => ({}));
+        throw new Error(data.detail || `Không đọc được cấu hình tạo ảnh (HTTP ${resp.status}).`);
       }
+      const data = await resp.json();
+      setConfigStatus(data);
     } catch (e) {
-      console.warn('Không thể kiểm tra cấu hình API tạo ảnh:', e);
+      setErrorMsg(e.message || 'Không thể kiểm tra cấu hình API tạo ảnh.');
     } finally {
       setCheckingConfig(false);
     }

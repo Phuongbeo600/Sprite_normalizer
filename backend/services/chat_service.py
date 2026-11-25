@@ -5,7 +5,9 @@
 # Dịch vụ không phụ thuộc HTTP.
 
 # 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Thông tin xác thực và nhà cung cấp)
+# AiCredentialsService: Phân giải cấu hình khóa và mô hình theo nghiệp vụ Chatbox.
 from backend.services.ai_credentials_service import AiCredentialsService
+# AiProviderFactory: Khởi tạo nhà cung cấp phù hợp với cấu hình đã phân giải.
 from backend.providers.factory import AiProviderFactory
 
 # 4. ĐỊNH DẠNG GIAO DIỆN / CẤU HÌNH
@@ -38,7 +40,7 @@ class ChatService:
     def prepare_stream(request, db):
         """Xác thực cấu hình trước khi mở luồng, trả bộ lặp nội dung trì hoãn."""
         # 1. Kiểm tra trạng thái cờ bật/tắt AI của dự án
-        if not AiCredentialsService.is_ai_enabled(project_id=request.project_id, db=db):
+        if not AiCredentialsService.is_ai_enabled(project_id=request.project_id, db=db, scope="chat"):
             raise ChatConfigurationError(
                 status_code=403,
                 detail="Tính năng AI đang bị tắt trong dự án này. Vui lòng bật lại trong Cài đặt dự án."
@@ -50,7 +52,8 @@ class ChatService:
             api_key=request.api_key,
             provider=request.provider,
             base_url=request.base_url,
-            db=db
+            db=db,
+            scope="chat",
         )
     
         # Nếu dùng máy chủ nội bộ (Ollama Local) thì không bắt buộc phải có API key thật
@@ -64,14 +67,14 @@ class ChatService:
         effective_key = resolved_key or "local-key"
     
         # 3. Phân giải mô hình chat: ưu tiên từ request -> cấu hình dự án trong CSDL -> mặc định provider
-        chat_model = request.model
-        if not chat_model and request.project_id:
-            chat_model = AiCredentialsService.resolve_model(
-                provider=provider_name,
-                project_id=request.project_id,
-                model_type="chat",
-                db=db
-            )
+        chat_model = AiCredentialsService.resolve_model(
+            provider=provider_name,
+            model=request.model,
+            project_id=request.project_id,
+            model_type="chat",
+            db=db,
+            scope="chat",
+        )
 
         # Lấy đối tượng Provider tương ứng thông qua Factory (Đa hình)
         try:

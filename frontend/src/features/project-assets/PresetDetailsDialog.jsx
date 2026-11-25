@@ -19,6 +19,8 @@ import { ArrowRight, Check, Copy, X } from "lucide-react";
 
 
 import AssetDetailModal from './AssetDetailModal';
+// PresetReferenceImage: Cho xem ảnh gốc đi cùng prompt đã lưu.
+import PresetReferenceImage from './PresetReferenceImage';
 
 // ========================================================
 // 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC
@@ -61,6 +63,7 @@ export default function PresetDetailsDialog({
         </div>
 
         {/* Prompt mô tả ảnh cần tạo */}
+        <PresetReferenceImage image={selectedPreset.reference_image} name={selectedPreset.sprite_name} detail />
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
             <strong style={{ fontSize: '0.8rem', color: '#34d399' }}>Positive Prompt (Mô tả chi tiết tạo ảnh)</strong>

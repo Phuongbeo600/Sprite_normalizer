@@ -41,6 +41,10 @@ class TestAiCredentialsService(unittest.TestCase):
 
     def setUp(self):
         """Khởi tạo SQLite in-memory giả lập bảng projects."""
+        # Cô lập khóa máy chủ để kết quả không phụ thuộc tệp .env cá nhân.
+        env_patch = patch.dict(os.environ, {}, clear=True)
+        env_patch.start()
+        self.addCleanup(env_patch.stop)
         self.engine = create_engine("sqlite:///:memory:")
         self.Session = sessionmaker(bind=self.engine)
         self.db = self.Session()
@@ -155,7 +159,6 @@ class TestAiCredentialsService(unittest.TestCase):
         self.assertEqual(p1, "gemini")
 
         # ImageGenService.resolve_credentials
-        k2, p2, b2 = ImageGenService.resolve_credentials(project_id=1)
         # Giả lập SessionLocal để ImageGenService dùng db SQLite
         with patch("backend.services.ai_credentials_service.SessionLocal", return_value=self.db):
             k3, p3, b3 = ImageGenService.resolve_credentials(project_id=1)

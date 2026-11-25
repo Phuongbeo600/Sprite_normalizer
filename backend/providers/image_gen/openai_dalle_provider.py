@@ -3,6 +3,10 @@
 # ========================================================
 # base64: Chuyển đổi nhị phân sang chuỗi Base64
 import base64
+# io: Đọc và chuẩn hóa ảnh tham chiếu thành PNG trong bộ nhớ.
+import io
+# binascii: Bắt lỗi chuỗi Base64 không hợp lệ trước khi gọi API.
+import binascii
 # time: Tạo mã định danh duy nhất theo timestamp mili-giây
 import time
 # typing: Định nghĩa các kiểu dữ liệu mảng, từ điển, tùy chọn
@@ -13,6 +17,8 @@ from typing import List, Optional, Dict, Any
 # ========================================================
 # requests: Thực hiện các cuộc gọi HTTP REST API tới OpenAI hoặc Proxy
 import requests
+# Pillow: Xác minh ảnh thật và giữ đúng định dạng PNG khi gửi multipart.
+from PIL import Image, UnidentifiedImageError
 
 # ========================================================
 # 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Providers & Schemas)
@@ -88,48 +94,9 @@ class OpenAiDalleProvider(BaseImageGenProvider):
         if negative_prompt:
             final_openai_prompt = f"{prompt}\n\n[NEGATIVE CONSTRAINTS / DO NOT INCLUDE]: {negative_prompt}"
 
-        # Trường hợp mô hình dall-e-2 và có ảnh mẫu: Gọi endpoint edits (Image-to-Image)
-        if image and eff_model == "dall-e-2":
-            try:
-                raw_bytes = base64.b64decode(image.strip())
-                edit_url = f"{clean_base}/images/edits"
-                edit_headers = {"Authorization": f"Bearer {api_key}"}
-                files = {"image": ("reference.png", raw_bytes, "image/png")}
-                form_data = {
-                    "prompt": final_openai_prompt,
-                    "n": 1,
-                    "size": "512x512" if aspect_ratio == "1:1" else "1024x1024"
-                }
-                edit_resp = requests.post(edit_url, headers=edit_headers, files=files, data=form_data, timeout=60)
-                if edit_resp.status_code == 200:
-                    data = edit_resp.json()
-                    items: List[GeneratedImageItem] = []
-                    for idx, entry in enumerate(data.get("data", [])):
-                        b64_raw = entry.get("b64_json")
-                        if not b64_raw and entry.get("url"):
-                            img_resp = requests.get(entry["url"], timeout=30)
-                            if img_resp.status_code == 200:
-                                b64_raw = base64.b64encode(img_resp.content).decode("utf-8")
-                        if b64_raw:
-                            item_id = f"img_{int(time.time() * 1000)}_{idx + 1}"
-                            items.append(GeneratedImageItem(
-                                id=item_id,
-                                b64_data=b64_raw,
-                                mime_type="image/png",
-                                data_url=f"data:image/png;base64,{b64_raw}",
-                                aspect_ratio=aspect_ratio
-                            ))
-                    if items:
-                        return ImageGenResponse(
-                            status="success",
-                            message=f"Đã tạo thành công ảnh dựa trên ảnh mẫu bằng OpenAI ({eff_model})!",
-                            provider_used="openai",
-                            model_used=eff_model,
-                            images=items
-                        )
-            except Exception:
-                # Nếu endpoint edits thất bại, fallback sang quy trình generations thông thường
-                pass
+        # Khi có ảnh, mọi model đều đi qua edits; dịch vụ đích quyết định khả năng hỗ trợ.
+        # Không chuyển ngầm sang generations nếu chỉnh ảnh thất bại.
+        reference_png = self._reference_png(image) if image and image.strip() else None
 
         url = f"{clean_base}/images/generations"
         payload = {
@@ -140,7 +107,16 @@ class OpenAiDalleProvider(BaseImageGenProvider):
         }
 
         try:
-            resp = requests.post(url, json=payload, headers=headers, timeout=60)
+            if reference_png is not None:
+                edit_url = f"{clean_base}/images/edits"
+                edit_headers = {"Authorization": f"Bearer {api_key}"}
+                files = {"image": ("reference.png", reference_png, "image/png")}
+                # requests tự tạo multipart boundary; không đặt Content-Type JSON cho ảnh.
+                if eff_model == "dall-e-2":
+                    payload["size"] = "512x512" if aspect_ratio == "1:1" else "1024x1024"
+                resp = requests.post(edit_url, headers=edit_headers, files=files, data=payload, timeout=60)
+            else:
+                resp = requests.post(url, json=payload, headers=headers, timeout=60)
             if resp.status_code == 200:
                 data = resp.json()
                 items: List[GeneratedImageItem] = []
@@ -175,10 +151,15 @@ class OpenAiDalleProvider(BaseImageGenProvider):
                     )
                 raise ValueError("OpenAI phản hồi thành công nhưng không có dữ liệu ảnh hợp lệ.")
 
-            elif resp.status_code == 400:
-                err_text = resp.text
+            elif resp.status_code in (400, 404, 422):
+                err_text = resp.text.replace(api_key, "[REDACTED_API_KEY]") if api_key else resp.text
                 if "content_policy_violation" in err_text:
                     raise ValueError("Prompt bị OpenAI từ chối do vi phạm chính sách an toàn nội dung.")
+                if reference_png is not None:
+                    raise ValueError(
+                        f"Không thể tạo ảnh từ ảnh mẫu với model '{eff_model}' (HTTP {resp.status_code}). "
+                        f"Hãy kiểm tra dịch vụ/model có hỗ trợ API chỉnh ảnh /images/edits. Chi tiết: {err_text[:200]}"
+                    )
                 raise ValueError(f"Yêu cầu không hợp lệ tới OpenAI: {err_text[:200]}")
             elif resp.status_code == 401:
                 raise ValueError("Khóa OpenAI API Key không hợp lệ. Vui lòng kiểm tra lại trong phần Cài đặt.")
@@ -188,6 +169,22 @@ class OpenAiDalleProvider(BaseImageGenProvider):
                 raise RuntimeError(f"OpenAI API báo lỗi ({resp.status_code}): {resp.text[:200]}")
 
         except requests.exceptions.Timeout:
-            raise RuntimeError("Quá thời gian chờ phản hồi (Timeout 60s) từ OpenAI DALL-E API.")
+            raise RuntimeError("Quá thời gian chờ phản hồi (Timeout 60s) từ API tạo ảnh.")
         except requests.exceptions.RequestException as e:
-            raise RuntimeError(f"Lỗi kết nối mạng tới máy chủ OpenAI ({clean_base}): {str(e)}")
+            raise RuntimeError(f"Lỗi kết nối mạng tới máy chủ OpenAI ({clean_base}): {str(e).replace(api_key, '[REDACTED_API_KEY]') if api_key else str(e)}")
+
+    @staticmethod
+    def _reference_png(image: str) -> bytes:
+        """Xác minh ảnh Base64 hoặc Data URL rồi trả PNG để gửi đúng MIME.
+
+        @param image Ảnh tham chiếu nhận từ giao diện hoặc yêu cầu API trực tiếp.
+        @returns Nội dung PNG nhị phân, giữ kích thước và kênh trong suốt.
+        """
+        encoded = image.split(",", 1)[1] if image.startswith("data:") and "," in image else image
+        try:
+            raw = base64.b64decode("".join(encoded.split()), validate=True)
+            with Image.open(io.BytesIO(raw)) as source, io.BytesIO() as buffer:
+                source.convert("RGBA").save(buffer, format="PNG")
+                return buffer.getvalue()
+        except (binascii.Error, ValueError, OSError, UnidentifiedImageError, Image.DecompressionBombError) as exc:
+            raise ValueError("Ảnh mẫu không hợp lệ hoặc không đọc được. Hãy tải lại ảnh PNG, JPEG hoặc WebP.") from exc

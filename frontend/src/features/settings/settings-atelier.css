@@ -22,6 +22,28 @@
   color: var(--atl-text-primary, #f5f3ff);
 }
 
+/* Nguồn cấu hình tạo ảnh: đặt gần ô key, không hiển thị khóa hệ thống. */
+.atelier-settings-source-card {
+  padding: 18px 22px;
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+}
+.atelier-settings-source-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.atelier-settings-source-heading h3 { margin: 0; font-size: 0.95rem; }
+.atelier-settings-source-card p {
+  margin: 10px 0 0;
+  font-size: 0.8rem;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+
 /* ============================================================================
    2. THANH TIÊU ĐỀ CÀI ĐẶT (HEADER BANNER)
    ============================================================================ */
@@ -309,106 +331,4 @@
 .atelier-settings-btn-test:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-}
-
-.atelier-settings-btn-fetch {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 8px 16px;
-  border-radius: 8px;
-  font-size: 0.82rem;
-  font-weight: 600;
-  cursor: pointer;
-  background: rgba(168, 85, 247, 0.15);
-  border: 1px solid rgba(168, 85, 247, 0.35);
-  color: #c084fc;
-  transition: all 0.2s ease;
-}
-
-.atelier-settings-btn-fetch:hover:not(:disabled) {
-  background: rgba(168, 85, 247, 0.28);
-  border-color: #c084fc;
-  color: #ffffff;
-  box-shadow: 0 0 12px rgba(168, 85, 247, 0.3);
-}
-
-.atelier-settings-btn-fetch:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.atelier-settings-select {
-  width: 100%;
-  padding: 10px 14px;
-  border-radius: 8px;
-  background: rgba(10, 7, 20, 0.95);
-  border: 1px solid rgba(168, 85, 247, 0.25);
-  color: #ffffff;
-  font-size: 0.84rem;
-  outline: none;
-  cursor: pointer;
-  box-sizing: border-box;
-  transition: all 0.18s ease;
-}
-
-.atelier-settings-select:focus {
-  border-color: #c084fc;
-  box-shadow: 0 0 0 3px rgba(192, 132, 252, 0.15);
-}
-
-.atelier-settings-select option {
-  background: #140d27;
-  color: #f5f3ff;
-  padding: 8px;
-}
-
-.atelier-settings-model-card {
-  padding: 14px 16px;
-  border-radius: 10px;
-  background: rgba(12, 8, 24, 0.7);
-  border: 1px solid rgba(168, 85, 247, 0.18);
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  transition: border-color 0.2s ease;
-}
-
-.atelier-settings-model-card:hover {
-  border-color: rgba(168, 85, 247, 0.35);
-}
-
-.atelier-settings-model-card-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.atelier-settings-badge-type {
-  font-size: 0.7rem;
-  padding: 2px 8px;
-  border-radius: 6px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.atelier-settings-badge-type.vision {
-  background: rgba(59, 130, 246, 0.18);
-  color: #60a5fa;
-  border: 1px solid rgba(59, 130, 246, 0.3);
-}
-
-.atelier-settings-badge-type.image-gen {
-  background: rgba(236, 72, 153, 0.18);
-  color: #f472b6;
-  border: 1px solid rgba(236, 72, 153, 0.3);
-}
-
-.atelier-settings-badge-type.chat {
-  background: rgba(16, 185, 129, 0.18);
-  color: #34d399;
-  border: 1px solid rgba(16, 185, 129, 0.3);
 }

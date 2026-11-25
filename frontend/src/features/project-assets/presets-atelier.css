@@ -229,3 +229,24 @@
   flex-direction: column;
   gap: 16px;
 }
+/* Ảnh tham chiếu được lưu trong hồ sơ; giữ nguyên tỷ lệ và nét sprite. */
+.atelier-preset-reference {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 160px;
+  margin-bottom: 16px;
+  padding: 12px;
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-input);
+}
+.atelier-preset-reference.detail { height: 260px; margin-bottom: 0; }
+.atelier-preset-reference img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  image-rendering: pixelated;
+}

@@ -46,7 +46,7 @@ test('tạo ảnh giữ payload một ảnh vuông, đồng bộ prompt và thê
   assert.equal(session.value.prompt, 'Mage');
   await session.value.handleGenerateImage(); session.render();
   assert.deepEqual(JSON.parse(calls[1][1].body), { prompt: 'Mage', negative_prompt: 'blur', project_id: 7,
-    aspect_ratio: '1:1', number_of_images: 1, style_preset: null });
+    aspect_ratio: '1:1', number_of_images: 1, style_preset: null, image: null });
   await session.value.handleGenerateImage(); session.render();
   assert.equal(session.value.generatedGallery[0].id, 2);
   assert.equal(session.value.generatedGallery[1].id, 1);

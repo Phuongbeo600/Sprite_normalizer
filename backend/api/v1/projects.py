@@ -464,6 +464,7 @@ def create_character_preset(
             metrics_data=req.metrics_data,
             profile_data=req.profile_data,
             frame_actions_data=req.frame_actions_data,
+            reference_image=req.reference_image,
             new_character_concept=req.new_character_concept,
             outfit_and_colors=req.outfit_and_colors,
             weapons_and_props=req.weapons_and_props,

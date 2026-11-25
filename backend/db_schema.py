@@ -48,6 +48,12 @@ def ensure_preset_columns(conn_or_session):
     except Exception:
         pass
 
+    # Ảnh tham chiếu gốc được giữ nguyên dưới dạng Data URL, bản ghi cũ nhận NULL.
+    try:
+        conn_or_session.execute(text("ALTER TABLE project_character_presets ADD COLUMN reference_image LONGTEXT NULL;"))
+    except Exception:
+        pass
+
 
 def ensure_user_columns(conn_or_session):
     """
@@ -181,6 +187,7 @@ def bootstrap_schema(conn):
             metrics_data JSON NULL,
             profile_data JSON NULL,
             frame_actions_data JSON NULL,
+            reference_image LONGTEXT NULL,
             new_character_concept VARCHAR(255) NOT NULL,
             outfit_and_colors TEXT NULL,
             weapons_and_props TEXT NULL,

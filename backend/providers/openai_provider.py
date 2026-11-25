@@ -3,6 +3,10 @@
 # ========================================================
 # json: Phân tích cú pháp dữ liệu JSON từ API phản hồi
 import json
+# colorsys: Chuyển màu RGB sang HSV cho mô tả ảnh thuần văn bản.
+import colorsys
+# urlparse: Nhận diện chính xác tên miền máy chủ DeepSeek.
+from urllib.parse import urlparse
 # typing: Khai báo kiểu dữ liệu
 from typing import Dict, Any, Optional, Tuple, List, Generator
 
@@ -19,6 +23,8 @@ from PIL import Image
 # ========================================================
 # BaseAiProvider, AiProviderError: Lớp cơ sở trừu tượng và ngoại lệ chuẩn hóa
 from .base import BaseAiProvider, AiProviderError
+# HeuristicAnalyzer: Tái sử dụng phép đo hình học và hõm cổ cục bộ.
+from backend.core.metrics.heuristic_analyzer import HeuristicAnalyzer
 
 # ========================================================
 # 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
@@ -40,7 +46,37 @@ class OpenAiProvider(BaseAiProvider):
     @classmethod
     def _models_for_base(cls, base_url: str) -> Tuple[str, ...]:#cls class trỏ luôn vào biến hiện tại
         """Giữ thứ tự model tương thích với proxy đã cấu hình."""
+        if urlparse(base_url).hostname == "api.deepseek.com":
+            return ("deepseek-chat",)
         return (cls.DEFAULT_MODEL,) if base_url.lower() == cls.DEFAULT_BASE_URL else cls.PROXY_MODELS
+
+    @staticmethod
+    def _describe_image_metrics(image: Image.Image) -> str:
+        """Chuyển ảnh thành số đo hình học và HSV, không suy diễn danh tính nhân vật."""
+        metrics = HeuristicAnalyzer.analyze(image)
+        geometry = {
+            "canvas_width": image.width,
+            "canvas_height": image.height,
+            "neck_y": metrics.neck_y if metrics else None,
+            "visible_width": metrics.visible_width if metrics else 0,
+            "visible_height": metrics.visible_height if metrics else 0,
+        }
+        # Thu nhỏ bản sao để giới hạn chi phí thống kê; bỏ các điểm ảnh trong suốt.
+        sample = image.convert("RGBA")
+        sample.thumbnail((128, 128), Image.Resampling.NEAREST)
+        colors = sample.getcolors(128 * 128) or []
+        visible = sorted(((count, rgba) for count, rgba in colors if rgba[3] > 10), reverse=True)
+        swatches = []
+        for count, (r, g, b, _) in visible[:16]:
+            h, s, v = colorsys.rgb_to_hsv(r / 255, g / 255, b / 255)
+            swatches.append({"RGB": [r, g, b], "HSV": [round(h * 360, 2), round(s, 4), round(v, 4)], "pixels": count})
+        return (
+            "Máy chủ chỉ nhận văn bản; các số đo sau được trích xuất từ ảnh tải lên. "
+            "Không có dữ liệu thị giác trực tiếp: không bịa danh tính, trang phục hay chuyển động; "
+            "giữ trường chưa biết là null hoặc mô tả rõ giới hạn theo schema JSON. "
+            "neck_y là ước lượng hình học, không phải mốc giải phẫu đã được xác nhận.\n"
+            + json.dumps({"geometry": geometry, "sampled_colors": swatches}, ensure_ascii=False)
+        )
 
     @staticmethod
     def _parse_and_raise_error(resp: requests.Response, target_model: str, clean_key: str):
@@ -190,6 +226,10 @@ class OpenAiProvider(BaseAiProvider):
                 ]
             }
         ]
+
+        # DeepSeek nhận số đo của chính ảnh tải lên thay cho nội dung đa phương thức.
+        if urlparse(clean_base).hostname == "api.deepseek.com":
+            messages = [{"role": "user", "content": prompt.strip() + "\n\n" + self._describe_image_metrics(image)}]
 
         return self._execute_chat_completions(
             clean_key=clean_key,

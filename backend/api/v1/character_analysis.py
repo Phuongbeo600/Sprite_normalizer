@@ -83,6 +83,7 @@ def _resolve_project_api_key(
         provider=provider,
         base_url=base_url,
         project_service=project_service,
+        scope="analysis",
     )
 
 
@@ -95,11 +96,11 @@ def get_vision_status(
     """Đọc trạng thái cấu hình AI cục bộ, không gọi nhà cung cấp (có kiểm tra quyền sở hữu nếu truyền project_id)."""
     if project_id is not None:
         check_project_access(db, project_id, current_user)
-    ai_enabled = AiCredentialsService.is_ai_enabled(project_id) #Xem dự án này có cho dùng AI không
+    ai_enabled = AiCredentialsService.is_ai_enabled(project_id, scope="analysis") #Xem dự án này có cho dùng AI không
     credentials = _resolve_project_api_key(project_id, None, None, None)# Đi tìm bộ thông tin xác thực (API key,provider)
     key, provider, _ = CharacterAnalysisService._resolve_credentials(*credentials)
     ready = provider in VISION_PROVIDERS and bool((key or "").strip()) and ai_enabled
-    active_model = AiCredentialsService.resolve_model(provider=provider, project_id=project_id, model_type="vision")
+    active_model = AiCredentialsService.resolve_model(provider=provider, project_id=project_id, model_type="vision", scope="analysis")
     return {
         "provider": provider,
         "ready": ready,
@@ -129,7 +130,7 @@ async def generate_reference_style_prompt(
     if project_id is not None:
         check_project_access(db, project_id, current_user)
 
-    if project_id and not AiCredentialsService.is_ai_enabled(project_id):
+    if project_id and not AiCredentialsService.is_ai_enabled(project_id, scope="analysis"):
         raise HTTPException(
             status_code=403,
             detail="Tính năng AI đang bị tắt trong Cài đặt dự án. Vui lòng bật lại công tắc AI trước khi thực hiện."
@@ -158,7 +159,7 @@ async def generate_reference_style_prompt(
     except (OSError, ValueError, Image.DecompressionBombError) as error:
         raise HTTPException(status_code=400, detail="Không đọc được ảnh sprite.") from error
 
-    eff_model = AiCredentialsService.resolve_model(provider=eff_provider, model=model, project_id=project_id, model_type="vision")
+    eff_model = AiCredentialsService.resolve_model(provider=eff_provider, model=model, project_id=project_id, model_type="vision", scope="analysis")
 
     def _run_generate_style():
         with ai_gen_concurrency:
@@ -205,7 +206,7 @@ async def analyze_character_tab(
         raise HTTPException(status_code=400, detail="Tệp tải lên phải là định dạng hình ảnh.")
 
     try:
-        if vision_only and project_id and not AiCredentialsService.is_ai_enabled(project_id):
+        if vision_only and project_id and not AiCredentialsService.is_ai_enabled(project_id, scope="analysis"):
             raise HTTPException(
                 status_code=403,
                 detail="Tính năng AI đang bị tắt trong Cài đặt dự án."
@@ -228,7 +229,7 @@ async def analyze_character_tab(
         if tab_name.lower().strip() not in {"global", "directions", "animations", "constraints", "all"}:
             raise HTTPException(status_code=400, detail=f"Tab '{tab_name}' không hợp lệ.")
 
-        eff_model = AiCredentialsService.resolve_model(provider=eff_prov, model=model, project_id=project_id, model_type="vision")
+        eff_model = AiCredentialsService.resolve_model(provider=eff_prov, model=model, project_id=project_id, model_type="vision", scope="analysis")
 
         def _run_analyze_profile():
             with ai_gen_concurrency:

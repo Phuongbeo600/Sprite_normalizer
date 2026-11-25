@@ -25,9 +25,6 @@ import {
 // ========================================================
 // streamChatApi: Hàm gọi endpoint SSE phát luồng thời gian thực
 import { useStreamingChat } from './useStreamingChat';
-// getProjectApiConfig: Đọc cấu hình model chat của dự án
-import { getProjectApiConfig } from '../../shared/api/projectApiConfig';
-
 // ========================================================
 // 4. ĐỊNH DẠNG GIAO DIỆN VÀ MÀU SẮC (Stylesheets)
 // ========================================================
@@ -51,34 +48,15 @@ const QUICK_SUGGESTIONS = [
  * @returns {React.ReactElement} Giao diện bong bóng chat và cửa sổ trò chuyện.
  */
 export default function ChatWidget({ currentProject }) {
-  const { messages, inputText, isStreaming, selectedProvider, errorMessage, setErrorMessage, setInputText, setSelectedProvider, handleSendMessage, handleStopStreaming, handleClearChat } = useStreamingChat({ currentProject });
+  const { messages, inputText, isStreaming, errorMessage, setErrorMessage, setInputText, handleSendMessage, handleStopStreaming, handleClearChat } = useStreamingChat({ currentProject });
 
   // Trạng thái mở/đóng cửa sổ chat
   const [isOpen, setIsOpen] = useState(false);
-  // Mô hình chat thực tế được cấu hình trong dự án
-  const [activeChatModel, setActiveChatModel] = useState('');
-
-  // Tự động tải tên model chat đang được cấu hình cho dự án khi mở khung chat
-  useEffect(() => {
-    if (currentProject?.id && isOpen) {
-      getProjectApiConfig(currentProject.id)
-        .then((res) => (res.ok ? res.json() : null))
-        .then((resJson) => {
-          if (resJson?.data?.chat_model) {
-            setActiveChatModel(resJson.data.chat_model);
-          } else {
-            setActiveChatModel('');
-          }
-        })
-        .catch(() => {});
-    }
-  }, [currentProject?.id, isOpen]);
   // Danh sách lịch sử tin nhắn trong phiên làm việc
   // Nội dung ô nhập liệu
   // Cờ báo hiệu AI đang phát luồng câu trả lời
   // Trạng thái kích thước mở rộng to (chiếm gần nửa màn hình nhưng không che hết)
   const [isExpanded, setIsExpanded] = useState(true);
-  // Lựa chọn nhà cung cấp AI ('auto' | 'gemini' | 'openai') - Mặc định 'auto' ưu tiên Cài đặt dự án
   // Thông báo lỗi nếu xảy ra sự cố kết nối
 
   // Tham chiếu DOM tới đáy khung chat để tự động cuộn
@@ -129,25 +107,12 @@ export default function ChatWidget({ currentProject }) {
                 <h4>Trợ Lý Studio</h4>
                 <span>
                   <Sparkles size={11} color="var(--accent-purple)" />
-                  {activeChatModel ? `Model: ${activeChatModel}` : 'Phản hồi thời gian thực'}
+                  Phản hồi thời gian thực
                 </span>
               </div>
             </div>
 
             <div className="chat-header-actions">
-              {/* Lựa chọn nhà cung cấp AI */}
-              <select
-                className="chat-header-select"
-                value={selectedProvider}
-                onChange={(e) => setSelectedProvider(e.target.value)}
-                disabled={isStreaming}
-                title="Chọn nhà cung cấp AI"
-              >
-                <option value="auto">⚡ Cài đặt dự án</option>
-                <option value="openai">OpenAI / DeepSeek</option>
-                <option value="gemini">Google Gemini</option>
-              </select>
-
               {/* Nút phóng to / thu nhỏ khung chat */}
               <button
                 className="chat-icon-btn"

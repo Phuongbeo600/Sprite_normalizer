@@ -64,6 +64,7 @@ class ImageGenService:
             api_key=api_key,
             provider=provider,
             base_url=base_url,
+            scope="image_gen",
         )
 
     @classmethod
@@ -74,11 +75,12 @@ class ImageGenService:
         @param {Optional[int]} project_id Mã dự án (nếu có).
         @returns {Dict[str, Any]} Thông tin nhà cung cấp và trạng thái có sẵn key hay chưa.
         """
-        key, provider, base_url = cls.resolve_credentials(project_id=project_id)
+        config = AiCredentialsService.resolve_image_configuration(project_id=project_id)
+        key, provider, base_url = config["api_key"], config["provider"], config["base_url"]
         has_key = bool(key and key.strip())
-        masked_key = SettingsService.mask_api_key(key) if has_key else ""
-        ai_enabled = AiCredentialsService.is_ai_enabled(project_id)
-        active_model = AiCredentialsService.resolve_model(provider=provider, project_id=project_id, model_type="image_gen")
+        masked_key = SettingsService.mask_api_key(key) if has_key and config["config_source"] == "project" else ""
+        ai_enabled = AiCredentialsService.is_ai_enabled(project_id, scope="image_gen")
+        active_model = config["model"]
 
         return {
             "status": "success",
@@ -88,7 +90,8 @@ class ImageGenService:
             "ready": has_key and ai_enabled,
             "ai_enabled": ai_enabled,
             "base_url": base_url if provider == "openai" else None,
-            "model": active_model
+            "model": active_model,
+            "config_source": config["config_source"],
         }
 
     @classmethod
@@ -101,19 +104,21 @@ class ImageGenService:
         @returns {ImageGenResponse} Danh sách các ảnh đã được tạo kèm metadata.
         """
         # 1. Kiểm tra công tắc AI của dự án
-        if request.project_id and not AiCredentialsService.is_ai_enabled(request.project_id):
+        if request.project_id and not AiCredentialsService.is_ai_enabled(request.project_id, scope="image_gen"):
             raise ValueError(
                 "Tính năng AI hiện đang bị tắt trong 'Cài đặt dự án'. "
                 "Vui lòng bật lại công tắc AI trước khi thực hiện tạo ảnh!"
             )
 
         # 2. Trích xuất thông tin xác thực hiệu lực
-        key, provider, base_url = cls.resolve_credentials(
+        config = AiCredentialsService.resolve_image_configuration(
             project_id=request.project_id,
             api_key=request.api_key,
             provider=request.provider,
-            base_url=request.base_url
+            base_url=request.base_url,
+            model=request.model,
         )
+        key, provider, base_url = config["api_key"], config["provider"], config["base_url"]
 
         if not key or not key.strip():
             provider_name = "Google Gemini" if provider == "gemini" else "OpenAI"
@@ -142,13 +147,7 @@ class ImageGenService:
             full_prompt = f"{hidden_reference_instruction}{full_prompt}"
 
         # 4. Giải quyết model tạo ảnh: ưu tiên từ request -> cấu hình project trong CSDL
-        selected_model = request.model
-        if not selected_model and request.project_id:
-            selected_model = AiCredentialsService.resolve_model(
-                provider=provider,
-                project_id=request.project_id,
-                model_type="image_gen"
-            )
+        selected_model = config["model"]
 
         # 5. Ủy quyền cho Provider chuyên trách thông qua Factory (Áp dụng Strategy Pattern)
         clean_neg_prompt = request.negative_prompt.strip() if request.negative_prompt else None

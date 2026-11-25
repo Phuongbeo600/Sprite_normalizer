@@ -50,11 +50,18 @@ class CharacterPresetRepository(BaseRepository):
         """
         sql = text("""
             SELECT id, project_id, name, sprite_name, new_character_concept,
-                   target_direction, stature_rule, metrics_data, created_at
+                   target_direction, stature_rule, metrics_data, reference_image, created_at
             FROM project_character_presets
             ORDER BY id DESC
         """)
-        rows = db.execute(sql).mappings()
+        try:
+            rows = db.execute(sql).mappings()
+        except Exception:
+            # Bổ sung cột còn thiếu để danh sách hồ sơ cũ vẫn đọc được.
+            db.rollback()
+            ensure_preset_columns(db)
+            db.commit()
+            rows = db.execute(sql).mappings()
         return [deserialize_preset_record(dict(r), json_keys=["metrics_data"]) for r in rows]
 
     def get_all_by_project(self, db: Session, project_id: int) -> List[Dict[str, Any]]:
@@ -67,12 +74,19 @@ class CharacterPresetRepository(BaseRepository):
         """
         sql = text("""
             SELECT id, project_id, name, sprite_name, new_character_concept,
-                   target_direction, stature_rule, metrics_data, created_at
+                   target_direction, stature_rule, metrics_data, reference_image, created_at
             FROM project_character_presets
             WHERE project_id = :project_id
             ORDER BY id DESC
         """)
-        rows = db.execute(sql, {"project_id": project_id}).mappings()
+        try:
+            rows = db.execute(sql, {"project_id": project_id}).mappings()
+        except Exception:
+            # Bổ sung cột còn thiếu trước khi đọc ảnh thu nhỏ theo dự án.
+            db.rollback()
+            ensure_preset_columns(db)
+            db.commit()
+            rows = db.execute(sql, {"project_id": project_id}).mappings()
         return [deserialize_preset_record(dict(r), json_keys=["metrics_data"]) for r in rows]
 
     def get_by_id(self, db: Session, entity_id: int, project_id: Optional[int] = None) -> Optional[Dict[str, Any]]:
@@ -89,7 +103,7 @@ class CharacterPresetRepository(BaseRepository):
                 SELECT id, project_id, name, sprite_name, metrics_data, profile_data,
                        frame_actions_data, new_character_concept, outfit_and_colors, weapons_and_props,
                        stature_rule, target_direction, positive_prompt, negative_prompt,
-                       technical_notes, created_at
+                       technical_notes, reference_image, created_at
                 FROM project_character_presets
                 WHERE id = :preset_id AND project_id = :project_id
             """
@@ -99,7 +113,7 @@ class CharacterPresetRepository(BaseRepository):
                 SELECT id, project_id, name, sprite_name, metrics_data, profile_data,
                        frame_actions_data, new_character_concept, outfit_and_colors, weapons_and_props,
                        stature_rule, target_direction, positive_prompt, negative_prompt,
-                       technical_notes, created_at
+                       technical_notes, reference_image, created_at
                 FROM project_character_presets
                 WHERE id = :preset_id
             """
@@ -149,12 +163,12 @@ class CharacterPresetRepository(BaseRepository):
                 project_id, name, sprite_name, metrics_data, profile_data,
                 frame_actions_data, new_character_concept, outfit_and_colors, weapons_and_props,
                 stature_rule, target_direction, positive_prompt, negative_prompt,
-                technical_notes
+                technical_notes, reference_image
             ) VALUES (
                 :project_id, :name, :sprite_name, :metrics_data, :profile_data,
                 :frame_actions_data, :new_character_concept, :outfit_and_colors, :weapons_and_props,
                 :stature_rule, :target_direction, :positive_prompt, :negative_prompt,
-                :technical_notes
+                :technical_notes, :reference_image
             )
         """
         insert_params = {
@@ -172,6 +186,7 @@ class CharacterPresetRepository(BaseRepository):
             "positive_prompt": positive,
             "negative_prompt": negative,
             "technical_notes": notes,
+            "reference_image": kwargs.get("reference_image"),
         }
 
         try:

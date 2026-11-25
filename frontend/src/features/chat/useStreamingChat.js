@@ -13,7 +13,6 @@ export function useStreamingChat({ currentProject }) {
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
-  const [selectedProvider, setSelectedProvider] = useState('auto');
   const [errorMessage, setErrorMessage] = useState(null);
   const abortControllerRef = useRef(null);
 
@@ -41,13 +40,12 @@ export function useStreamingChat({ currentProject }) {
     const controller = new AbortController();
     abortControllerRef.current = controller;
 
-    // 3. Gọi hàm phát luồng SSE (nếu là 'auto' thì truyền null để Backend tự tra cứu CSDL dự án)
-    const providerToSend = selectedProvider === 'auto' ? null : selectedProvider;
+    // 3. Gọi luồng SSE với cấu hình Chatbox mặc định từ máy chủ.
 
     await streamChatApi({
       messages: newHistory,
       projectId: currentProject?.id || null,
-      provider: providerToSend,
+      provider: null,
       signal: controller.signal,
       onChunk: (chunkText) => {
         setMessages((prev) => {
@@ -94,5 +92,5 @@ export function useStreamingChat({ currentProject }) {
     setErrorMessage(null);
   };
 
-  return { messages, inputText, isStreaming, selectedProvider, errorMessage, setErrorMessage, setInputText, setSelectedProvider, handleSendMessage, handleStopStreaming, handleClearChat };
+  return { messages, inputText, isStreaming, errorMessage, setErrorMessage, setInputText, handleSendMessage, handleStopStreaming, handleClearChat };
 }

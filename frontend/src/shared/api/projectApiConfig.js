@@ -3,6 +3,8 @@
 // 2. THƯ VIỆN BÊN NGOÀI
 
 // 3. THÀNH PHẦN NỘI BỘ DỰ ÁN
+// getAuthHeaders: Xác thực quyền đọc và thay đổi key riêng của dự án.
+import { getAuthHeaders } from './authHeaders.js';
 
 // 4. ĐỊNH DẠNG GIAO DIỆN VÀ MÀU SẮC
 
@@ -23,7 +25,7 @@ function projectApiConfigUrl(projectId) {
  * @returns {Promise<Response>} Phản hồi cấu hình để từng nơi gọi xử lý lỗi.
  */
 export function getProjectApiConfig(projectId) {
-  return fetch(projectApiConfigUrl(projectId));
+  return fetch(projectApiConfigUrl(projectId), { headers: getAuthHeaders() });
 }
 
 /**
@@ -36,7 +38,7 @@ export function getProjectApiConfig(projectId) {
 export function saveProjectApiConfig(projectId, payload) {
   return fetch(projectApiConfigUrl(projectId), {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
     body: JSON.stringify(payload)
   });
 }
@@ -51,22 +53,7 @@ export function saveProjectApiConfig(projectId, payload) {
 export function testProjectApiConnection(projectId, payload) {
   return fetch('/api/projects/' + projectId + '/test-connection', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  });
-}
-
-/**
- * Tải danh sách các model AI khả dụng trực tiếp từ API của nhà cung cấp.
- *
- * @param {number} projectId Mã dự án.
- * @param {Object} payload Tham số truy vấn (provider, api_key, base_url).
- * @returns {Promise<Response>} Phản hồi chứa danh sách model đã phân loại theo chức năng.
- */
-export function fetchProjectModels(projectId, payload) {
-  return fetch('/api/projects/' + projectId + '/fetch-models', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
     body: JSON.stringify(payload)
   });
 }

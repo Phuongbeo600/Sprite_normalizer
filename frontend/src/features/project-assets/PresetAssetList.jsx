@@ -7,6 +7,8 @@ import { Eye, Trash2, RefreshCw, ArrowRight, Clock } from "lucide-react";
 // 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Định dạng và tài nguyên dùng chung)
 import { PixelChest } from "../../shared/ui/PixelArtIcons";
 import { formatDate } from "./formatAssets";
+// PresetReferenceImage: Ảnh đã lưu cùng hồ sơ, không phụ thuộc tệp cục bộ.
+import PresetReferenceImage from './PresetReferenceImage';
 
 // 4. ĐỊNH DẠNG GIAO DIỆN / CẤU HÌNH (Kế thừa từ trang kho tài nguyên)
 
@@ -40,6 +42,7 @@ export default function PresetAssetList({ handleDeletePreset, handleLoadPresetTo
                 return (
                   <div key={preset.id} className="atelier-assets-card">
                     <div>
+                      <PresetReferenceImage image={preset.reference_image} name={preset.sprite_name} />
                       {/* Tiêu đề & Ngày lưu */}
                       <div className="atelier-assets-card-header">
                         <h3 className="atelier-assets-card-title">{preset.name}</h3>

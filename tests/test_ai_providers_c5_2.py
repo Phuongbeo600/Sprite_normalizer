@@ -286,7 +286,7 @@ class TestImageGenService(unittest.TestCase):
         self.assertIn("Tính năng AI hiện đang bị tắt", str(ctx.exception))
 
     @patch("backend.services.ai_credentials_service.AiCredentialsService.is_ai_enabled", return_value=True)
-    @patch.object(ImageGenService, "resolve_credentials", return_value=(None, "gemini", None))
+    @patch("backend.services.ai_credentials_service.AiCredentialsService.resolve_image_configuration", return_value={"api_key": None, "provider": "gemini", "base_url": None, "model": None})
     def test_missing_key_raises_error(self, mock_resolve, mock_ai_enabled):
         """Bắt buộc báo lỗi khi chưa cấu hình API Key."""
         req = ImageGenRequest(project_id=1, prompt="mage")
@@ -295,7 +295,7 @@ class TestImageGenService(unittest.TestCase):
         self.assertIn("Chưa cấu hình API Key", str(ctx.exception))
 
     @patch("backend.services.ai_credentials_service.AiCredentialsService.is_ai_enabled", return_value=True)
-    @patch.object(ImageGenService, "resolve_credentials", return_value=("test-key-123", "gemini", None))
+    @patch("backend.services.ai_credentials_service.AiCredentialsService.resolve_image_configuration", return_value={"api_key": "test-key-123", "provider": "gemini", "base_url": None, "model": None})
     @patch.object(GeminiImagenProvider, "generate_images")
     def test_orchestration_delegates_to_provider(self, mock_gemini_gen, mock_resolve, mock_ai_enabled):
         """Kiểm tra điều phối ghép style_preset và ủy quyền thành công sang GeminiImagenProvider."""
@@ -330,7 +330,7 @@ class TestImageGenService(unittest.TestCase):
         )
 
     @patch("backend.services.ai_credentials_service.AiCredentialsService.is_ai_enabled", return_value=True)
-    @patch("backend.services.image_gen_service.ImageGenService.resolve_credentials", return_value=("test-key-123", "gemini", None))
+    @patch("backend.services.ai_credentials_service.AiCredentialsService.resolve_image_configuration", return_value={"api_key": "test-key-123", "provider": "gemini", "base_url": None, "model": None})
     @patch("backend.providers.image_gen.GeminiImagenProvider.generate_images")
     def test_orchestration_with_reference_image_injects_hidden_prompt(self, mock_gemini_gen, mock_res, mock_ai_on):
         """Kiểm tra truyền ảnh mẫu tham chiếu sẽ tự động tiêm prompt ẩn yêu cầu AI căn cứ vào ảnh mẫu."""

@@ -160,12 +160,12 @@ class ProjectService:
         """Lấy chi tiết một bản ghi phân tích & prompt."""
         return self.preset_repository.get_by_id(db, preset_id, project_id)
 
-    def create_character_preset(self, db: Session, project_id: int, **kwargs) -> Dict[str, Any]:
+    def create_character_preset(self, db: Session, project_id: int, reference_image: Optional[str] = None, **kwargs) -> Dict[str, Any]:
         """Lưu một bản phân tích & prompt mới vào dự án."""
         project = self.repository.get_by_id(db, project_id)
         if not project:
             raise ValueError(f"Không tìm thấy dự án với ID = {project_id}")
-        return self.preset_repository.create(db, project_id=project_id, **kwargs)
+        return self.preset_repository.create(db, project_id=project_id, reference_image=reference_image, **kwargs)
 
     def delete_character_preset(self, db: Session, preset_id: int, project_id: int) -> bool:
         """Xóa một bản ghi phân tích & prompt khỏi dự án."""

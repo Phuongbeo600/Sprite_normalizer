@@ -7,12 +7,13 @@
 // 4. ĐỊNH DẠNG GIAO DIỆN / CẤU HÌNH (Không sử dụng)
 
 /** Dựng bản ghi hồ sơ, giữ nguyên thứ tự ưu tiên dữ liệu hiện tại và bản đã nạp. */
-export function buildPresetPayload({ newCharData, reference, metrics, profileData, generatedProfilePrompt }) {
+export function buildPresetPayload({ newCharData, reference, metrics, profileData, generatedProfilePrompt, referenceImage = null }) {
   const posPrompt = newCharData.positive_prompt || generatedProfilePrompt?.positive_prompt;
   const negPrompt = newCharData.negative_prompt || generatedProfilePrompt?.negative_prompt;
   return {
       name: newCharData.name || `${newCharData.new_character_concept} (Bản lưu Studio)`,
       sprite_name: reference?.name || 'sprite_sample.png',
+      reference_image: referenceImage || reference?.dataUrl || null,
       metrics_data: metrics,
       profile_data: profileData,
       frame_actions_data: newCharData.frame_actions_data || profileData?.frame_actions_data || null,

@@ -52,6 +52,8 @@ def get_image_gen_status(
         check_project_access(db, project_id, current_user)
     try:
         return ImageGenService.get_status(project_id=project_id)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Không thể kiểm tra cấu hình tạo ảnh: {str(e)}")
 

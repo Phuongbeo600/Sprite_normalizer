@@ -15,7 +15,6 @@ import json
 # logging: Ghi nhận nhật ký hoạt động và cảnh báo lỗi
 import logging
 # os: Đọc biến môi trường hệ thống
-import os
 # typing: Định nghĩa các kiểu từ điển, danh sách, tùy chọn
 from typing import Dict, Any, Optional, Tuple
 
@@ -182,7 +181,7 @@ class CharacterAnalysisService:
         cls,
         image: Image.Image,
         api_key: Optional[str] = None,
-        provider: str = "gemini",
+        provider: Optional[str] = None,
         base_url: Optional[str] = None,
         include_palette: bool = True,
         model: Optional[str] = None,
@@ -200,6 +199,7 @@ class CharacterAnalysisService:
         @returns {Dict[str, Any]} Dữ liệu phân tích toàn cục.
         """
         effective_key, effective_provider, clean_base = cls._resolve_credentials(api_key, provider, base_url)
+        model = AiCredentialsService.resolve_model(provider=effective_provider, model=model, scope="analysis")
         prompt = _build_global_prompt()
 
         if effective_key:
@@ -219,7 +219,7 @@ class CharacterAnalysisService:
         cls,
         image: Image.Image,
         api_key: Optional[str] = None,
-        provider: str = "gemini",
+        provider: Optional[str] = None,
         base_url: Optional[str] = None,
         model: Optional[str] = None,
     ) -> Dict[str, Any]:
@@ -234,6 +234,7 @@ class CharacterAnalysisService:
         @returns {Dict[str, Any]} Dữ liệu phân tích 3 hướng nhìn.
         """
         effective_key, effective_provider, clean_base = cls._resolve_credentials(api_key, provider, base_url)
+        model = AiCredentialsService.resolve_model(provider=effective_provider, model=model, scope="analysis")
 
         if not effective_key:
             return cls._get_offline_fallback_directions()
@@ -248,7 +249,7 @@ class CharacterAnalysisService:
         cls,
         image: Image.Image,
         api_key: Optional[str] = None,
-        provider: str = "gemini",
+        provider: Optional[str] = None,
         base_url: Optional[str] = None,
         model: Optional[str] = None,
     ) -> Dict[str, Any]:
@@ -263,6 +264,7 @@ class CharacterAnalysisService:
         @returns {Dict[str, Any]} Dữ liệu phân tích hoạt họa Idle và Walk.
         """
         effective_key, effective_provider, clean_base = cls._resolve_credentials(api_key, provider, base_url)
+        model = AiCredentialsService.resolve_model(provider=effective_provider, model=model, scope="analysis")
 
         if not effective_key:
             return cls._get_offline_fallback_animations()
@@ -279,7 +281,7 @@ class CharacterAnalysisService:
         direction_data: Dict[str, Any],
         animation_data: Dict[str, Any],
         api_key: Optional[str] = None,
-        provider: str = "gemini",
+        provider: Optional[str] = None,
         base_url: Optional[str] = None,
         model: Optional[str] = None,
     ) -> Dict[str, Any]:
@@ -296,6 +298,7 @@ class CharacterAnalysisService:
         @returns {Dict[str, Any]} Dữ liệu nhất quán và ràng buộc phủ định.
         """
         effective_key, effective_provider, clean_base = cls._resolve_credentials(api_key, provider, base_url)
+        model = AiCredentialsService.resolve_model(provider=effective_provider, model=model, scope="analysis")
 
         if not effective_key:
             return cls._get_offline_fallback_constraints(global_data)
@@ -414,4 +417,5 @@ class CharacterAnalysisService:
             api_key=api_key,
             provider=provider,
             base_url=base_url,
+            scope="analysis",
         )

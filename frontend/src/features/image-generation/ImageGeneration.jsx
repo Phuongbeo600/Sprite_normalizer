@@ -17,6 +17,8 @@ import { Sparkles, RefreshCw, AlertCircle, CheckCircle2, Trash2, Wand2, ShieldAl
 import { GeneratedImageGallery, GeneratedImagePreview } from './GeneratedImageResults';
 import { QUICK_STYLE_TAGS } from '../../constants/imageGeneration';
 import { useImageGeneration } from './useImageGeneration';
+// ImageApiSource: Phân biệt nguồn mặc định hệ thống và key riêng dự án.
+import ImageApiSource from '../../shared/components/ImageApiSource';
 
 // ========================================================
 // 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Tệp định dạng)
@@ -138,12 +140,12 @@ export default function ImageGeneration({
             <span>Phòng Rèn Ảnh AI (AI Image Forge)</span>
           </h2>
           <p className="atelier-gen-title-subtext">
-            Khởi tạo nhân vật Pixel Art &amp; Sprite Sheet độ phân giải cao bằng Google Imagen 3 hoặc OpenAI DALL-E 3.
+            Tạo nhân vật Pixel Art và Sprite Sheet bằng dịch vụ tạo ảnh đã cấu hình.
           </p>
         </div>
 
         {/* Trạng thái kết nối API Key hiện hành (0 Token) */}
-        <div>
+        <div className="image-api-status">
           {checkingConfig ? (
             <span className="atelier-gen-api-badge loading">
               <RefreshCw size={14} className="spin" /> Đang kiểm tra cấu hình...
@@ -152,15 +154,12 @@ export default function ImageGeneration({
             <div className="atelier-gen-api-badge connected">
               <CheckCircle2 size={15} />
               <span>
-                Đã kết nối: <strong>{configStatus.provider === 'gemini' ? 'Google Gemini' : 'OpenAI'}</strong>
+                Đã cấu hình: <strong>{configStatus.provider === 'gemini' ? 'Google Gemini' : 'API tương thích OpenAI'}</strong>
                 {configStatus.model && (
                   <span style={{ marginLeft: '6px', color: '#c084fc', fontWeight: 600 }}>
                     • Model: {configStatus.model}
                   </span>
                 )}
-              </span>
-              <span style={{ opacity: 0.75, fontSize: '0.7rem' }}>
-                ({configStatus.masked_key || 'Đã nạp key'})
               </span>
             </div>
           ) : (
@@ -178,6 +177,7 @@ export default function ImageGeneration({
               )}
             </div>
           )}
+          {!checkingConfig && configStatus && <ImageApiSource config={configStatus} />}
         </div>
       </div>
 

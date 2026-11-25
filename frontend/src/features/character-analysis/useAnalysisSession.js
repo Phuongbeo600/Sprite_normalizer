@@ -7,6 +7,8 @@ import { useState, useEffect, useRef } from "react";
 import { requestAnalysis, requestSavePreset, requestVisionStatus } from './analysisApi';
 import { collectPythonMeasurements } from './collectPythonMeasurements';
 import { buildPresetPayload } from './presetPayload';
+// Ảnh tham chiếu được mã hóa để lưu MySQL và khôi phục thành File khi mở lại hồ sơ.
+import { encodePresetReference, restorePresetReference } from './presetReferenceImage';
 
 // 4. ĐỊNH DẠNG GIAO DIỆN / CẤU HÌNH (Không sử dụng)
 
@@ -43,6 +45,7 @@ export function useAnalysisSession({ currentProject, loadedPresetData, isActive 
     negative_constraints: null,
   });
   const [visionStatus, setVisionStatus] = useState('checking');
+  const [visionError, setVisionError] = useState('');
   const [visionProvider, setVisionProvider] = useState(null);
   const [isGeneratingStyle, setIsGeneratingStyle] = useState(false);
   const [profileError, setProfileError] = useState('');
@@ -74,6 +77,11 @@ export function useAnalysisSession({ currentProject, loadedPresetData, isActive 
       setAnalysisError('');
       setColorError('');
       setProfileError('');
+      try {
+        setReference(restorePresetReference(loadedPresetData.reference_image, loadedPresetData.sprite_name || 'sprite_sample.png'));
+      } catch (error) {
+        setProfileError(error.message);
+      }
       setMetrics(loadedPresetData.metrics_data || null);
       const savedProfile = loadedPresetData.profile_data || {};
       setProfileData({
@@ -139,17 +147,24 @@ export function useAnalysisSession({ currentProject, loadedPresetData, isActive 
     const controller = new AbortController();
     const query = projectId ? `?project_id=${encodeURIComponent(projectId)}` : '';
     setVisionStatus('checking');
+    setVisionError('');
     requestVisionStatus(query, controller.signal)
       .then(async (response) => {
-        if (!response.ok) throw new Error('Không đọc được cấu hình AI.');
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.detail || `Không đọc được cấu hình AI (HTTP ${response.status}).`);
+        }
         const data = await response.json();
         if (!controller.signal.aborted) {
           setVisionProvider(data.provider);
           setVisionStatus(data.ready ? 'ready' : 'missing');
         }
       })
-      .catch(() => {
-        if (!controller.signal.aborted) setVisionStatus('error');
+      .catch((error) => {
+        if (!controller.signal.aborted) {
+          setVisionStatus('error');
+          setVisionError(error.message || 'Không kết nối được máy chủ. Hãy kiểm tra kết nối mạng.');
+        }
       });
     return () => controller.abort();
   }, [isActive, workspaceMode, projectId]);
@@ -222,7 +237,6 @@ export function useAnalysisSession({ currentProject, loadedPresetData, isActive 
     if (!currentProject?.id || savingPreset) return;
 
     const posPrompt = newCharData.positive_prompt || generatedProfilePrompt?.positive_prompt;
-    const negPrompt = newCharData.negative_prompt || generatedProfilePrompt?.negative_prompt;
 
     if (!posPrompt) {
       alert('Chưa có câu Prompt để lưu. Vui lòng kiểm tra lại cấu hình nhân vật.');
@@ -232,9 +246,9 @@ export function useAnalysisSession({ currentProject, loadedPresetData, isActive 
     setSavingPreset(true);
     setSaveSuccessMsg('');
 
-    const payload = buildPresetPayload({ newCharData, reference, metrics, profileData, generatedProfilePrompt });
-
     try {
+      const referenceImage = await encodePresetReference(reference);
+      const payload = buildPresetPayload({ newCharData, reference, metrics, profileData, generatedProfilePrompt, referenceImage });
       const response = await requestSavePreset(currentProject.id, payload);
 
       if (!response.ok) {
@@ -279,5 +293,5 @@ export function useAnalysisSession({ currentProject, loadedPresetData, isActive 
     (profileData?.manual_region_measurements && Object.keys(profileData.manual_region_measurements?.measurements || {}).length > 0)
   );
 
-  return { reference, annotatedUrl, showOverlay, setShowOverlay, metrics, analysisError, colorError, localAction, workspaceMode, setWorkspaceMode, activeProfileTab, setActiveProfileTab, profileData, setProfileData, visionStatus, isGeneratingStyle, profileError, generatedProfilePrompt, savingPreset, saveSuccessMsg, loadedPresetConfig, handleReferenceChange, handleLocalMeasure, handleGenerateReferenceStyle, handleSavePreset, tabStatuses, palette, pixelReport, referenceStyle, providerLabel, resultProviderLabel, pythonMeasurements, progress, hasMeasured };
+  return { reference, annotatedUrl, showOverlay, setShowOverlay, metrics, analysisError, colorError, localAction, workspaceMode, setWorkspaceMode, activeProfileTab, setActiveProfileTab, profileData, setProfileData, visionStatus, visionError, isGeneratingStyle, profileError, generatedProfilePrompt, savingPreset, saveSuccessMsg, loadedPresetConfig, handleReferenceChange, handleLocalMeasure, handleGenerateReferenceStyle, handleSavePreset, tabStatuses, palette, pixelReport, referenceStyle, providerLabel, resultProviderLabel, pythonMeasurements, progress, hasMeasured };
 }

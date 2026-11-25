@@ -12,6 +12,8 @@
 // 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Internal modules)
 // ========================================================
 // (Không có phụ thuộc nội bộ)
+// getAuthHeaders: Gửi cùng phiên xác thực với phân hệ phân tích nhân vật.
+import { getAuthHeaders } from './authHeaders.js';
 
 // ========================================================
 // 4. ĐỊNH DẠNG GIAO DIỆN VÀ MÀU SẮC (Stylesheets)
@@ -45,11 +47,12 @@ export async function streamChatApi({
   onDone,
 }) {
   try {
+    const headers = { 'Content-Type': 'application/json', ...getAuthHeaders() };
+    // Gửi JWT của phiên đăng nhập để backend kiểm tra quyền sở hữu dự án.
+    // Tài khoản mẫu hoặc dữ liệu lưu trữ lỗi không được dùng để giả mạo danh tính.
     const response = await fetch('/api/chat/stream', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify({
         messages,
         project_id: projectId,

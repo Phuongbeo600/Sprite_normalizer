@@ -63,6 +63,13 @@ class TestCharacterProfileService(unittest.TestCase):
 
     def setUp(self):
         """Khởi tạo ảnh RGBA mẫu 32x48 pixel làm sprite tham chiếu kiểm thử và thiết lập chế độ ngoại tuyến."""
+        # Cô lập cả cấu hình nghiệp vụ để kiểm thử ngoại tuyến không dùng khóa thật trong .env.
+        analysis_env = patch.dict(os.environ, {
+            "ANALYSIS_API_KEY": "", "ANALYSIS_AI_PROVIDER": "",
+            "ANALYSIS_BASE_URL": "", "ANALYSIS_MODEL": "",
+        })
+        analysis_env.start()
+        self.addCleanup(analysis_env.stop)
         self.old_gemini_key = os.environ.pop("GEMINI_API_KEY", None)
         self.old_openai_key = os.environ.pop("OPENAI_API_KEY", None)
         self.sample_image = Image.new("RGBA", (32, 48), color=(0, 0, 0, 0))
