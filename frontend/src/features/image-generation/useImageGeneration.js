@@ -120,19 +120,6 @@ export function useImageGeneration({ currentProject, incomingPrompt, incomingNeg
   }, [currentProject?.id]);
 
   /**
-   * Thêm từ khóa phong cách gợi ý vào prompt
-   * @param {string} tagText Chuỗi từ khóa phong cách
-   */
-  const handleApplyStyleTag = (tagText) => {
-    setPrompt((prev) => {
-      const trimmed = prev.trim();
-      if (!trimmed) return tagText;
-      if (trimmed.includes(tagText)) return trimmed;
-      return `${trimmed}, ${tagText}`;
-    });
-  };
-
-  /**
    * Gửi yêu cầu sinh ảnh tới backend (Chỉ kích hoạt khi người dùng bấm nút)
    */
   const handleGenerateImage = async () => {
@@ -199,7 +186,6 @@ export function useImageGeneration({ currentProject, incomingPrompt, incomingNeg
     setGeneratedGallery,
     modalImage,
     setModalImage,
-    handleApplyStyleTag,
     handleGenerateImage
   };
 }

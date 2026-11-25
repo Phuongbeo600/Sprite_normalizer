@@ -99,13 +99,13 @@ export default function Sidebar({
               {/* Nhóm 1: Công cụ sáng tạo & Xử lý */}
               <div className="sidebar-nav-section-label">CÔNG CỤ SÁNG TẠO</div>
 
-              {/* Mục 1: Phân tích & Prompt */}
+              {/* Mục 1: Phân tích & Đo đạc Sprite */}
               <button
                 className={`minimal-nav-item ${activeTab === 'analysis' ? 'active' : ''}`}
                 onClick={() => onSelectTab('analysis')}
               >
                 <ScanSearch size={18} />
-                <span>Phân tích &amp; Prompt</span>
+                <span>Phân tích Sprite</span>
               </button>
 
               {/* Mục 2: Tạo ảnh AI */}

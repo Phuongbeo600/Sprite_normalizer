@@ -43,7 +43,6 @@ const REGION_LABELS = { head: 'Đầu', neck: 'Cổ', torso: 'Thân trên' };
  * @param {Object|null} props.palette Dữ liệu bảng màu.
  * @param {string} props.analysisError Thông báo lỗi đo hình học.
  * @param {string} props.colorError Thông báo lỗi phân tích màu.
- * @param {Function} props.onOpenPrompt Hàm chuyển sang tab Sinh Prompt.
  * @param {Object|null} props.manualRegions Số đo khoanh vùng thủ công.
  * @param {Function} props.onManualReport Hàm nhận báo cáo đo thủ công.
  * @returns {React.ReactElement} Giao diện tab Đo đạc Sprite Atelier.
@@ -61,7 +60,6 @@ export default function TabReferenceView({
   palette,
   analysisError,
   colorError,
-  onOpenPrompt,
   onTransferToWorkspace,
   manualRegions,
   onManualReport,
@@ -70,7 +68,6 @@ export default function TabReferenceView({
   const measurements = Object.entries(regions?.measurements || {});
   const manualCount = Object.keys(manualRegions?.measurements || {}).length;
   const swatches = palette?.dominant_colors?.slice(0, 12) || [];
-  const ready = manualCount > 0 || measurements.length > 0 || palette?.total_colors > 0;
   const busy = Boolean(localAction);
 
   /**
@@ -435,22 +432,6 @@ export default function TabReferenceView({
             </details>
           )}
         </section>
-
-        {/* Nút Chuyển Tiếp Sang Sinh Prompt */}
-        {ready && (
-          <div className="atelier-ref-next-bar">
-            <button
-              type="button"
-              className="atelier-btn-primary-action"
-              style={{ width: '100%', maxWidth: '300px' }}
-              onClick={onOpenPrompt}
-              disabled={busy}
-            >
-              <span>Dùng kết quả chuyển sang Sinh Prompt</span>
-              <ArrowRight size={15} />
-            </button>
-          </div>
-        )}
       </div>
     </div>
   );

@@ -8,14 +8,13 @@ import React from 'react';
 // 2. THƯ VIỆN BÊN NGOÀI
 // ========================================================
 // lucide-react: Bộ biểu tượng cho biểu mẫu, trạng thái và thông báo.
-import { Sparkles, RefreshCw, AlertCircle, CheckCircle2, Trash2, Wand2, ShieldAlert, Lock, ArrowRight, Image as ImageIcon } from "lucide-react";
+import { Sparkles, RefreshCw, AlertCircle, CheckCircle2, Trash2, Wand2, Lock, ArrowRight } from "lucide-react";
 
 // ========================================================
 // 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Thành phần giao diện và dữ liệu)
 // ========================================================
 // Thành phần hiển thị bộ sưu tập và ảnh phóng to.
 import { GeneratedImageGallery, GeneratedImagePreview } from './GeneratedImageResults';
-import { QUICK_STYLE_TAGS } from '../../constants/imageGeneration';
 import { useImageGeneration } from './useImageGeneration';
 // ImageApiSource: Phân biệt nguồn mặc định hệ thống và key riêng dự án.
 import ImageApiSource from '../../shared/components/ImageApiSource';
@@ -56,12 +55,6 @@ export default function ImageGeneration({
     checkingConfig,
     prompt,
     setPrompt,
-    negativePrompt,
-    setNegativePrompt,
-    referenceImage,
-    referenceImageName,
-    handleUploadReferenceImage,
-    handleClearReferenceImage,
     generating,
     errorMsg,
     successMsg,
@@ -69,7 +62,6 @@ export default function ImageGeneration({
     setGeneratedGallery,
     modalImage,
     setModalImage,
-    handleApplyStyleTag,
     handleGenerateImage
   } = useImageGeneration({ currentProject, incomingPrompt, incomingNegativePrompt, incomingImage });
 
@@ -223,57 +215,6 @@ export default function ImageGeneration({
       <div className="atelier-gen-workspace-grid">
         {/* CỘT TRÁI: Ô NHẬP PROMPT & THẺ PHONG CÁCH */}
         <div className="atelier-gen-card">
-          {/* KHUNG ĐÍNH KÈM ẢNH MẪU THAM CHIẾU (REFERENCE SPRITE) */}
-          <div className={`atelier-gen-reference-box ${referenceImage ? 'has-image' : ''}`}>
-            {referenceImage ? (
-              <>
-                <div className="atelier-gen-ref-thumb-wrapper">
-                  <img src={referenceImage} alt="Ảnh mẫu tham chiếu" className="atelier-gen-ref-thumb" />
-                </div>
-                <div className="atelier-gen-ref-info">
-                  <span className="atelier-gen-ref-title">
-                    <Sparkles size={14} color="#facc15" />
-                    <span>Ảnh mẫu tham chiếu (Reference Sprite)</span>
-                  </span>
-                  <span className="atelier-gen-ref-desc">
-                    {referenceImageName || 'Đã nạp ảnh mẫu'} — AI sẽ dựa vào tỷ lệ, màu sắc & phong cách của ảnh này kết hợp cùng prompt.
-                  </span>
-                </div>
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                  <label className="atelier-gen-btn-ref-action" title="Thay thế ảnh mẫu khác">
-                    <span>Đổi ảnh</span>
-                    <input type="file" accept="image/*" onChange={handleUploadReferenceImage} style={{ display: 'none' }} />
-                  </label>
-                  <button
-                    type="button"
-                    className="atelier-gen-btn-ref-remove"
-                    onClick={handleClearReferenceImage}
-                    title="Gỡ ảnh mẫu để tạo ảnh thuần text"
-                  >
-                    <Trash2 size={12} />
-                    <span>Bỏ ảnh</span>
-                  </button>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="atelier-gen-ref-info">
-                  <span className="atelier-gen-ref-title">
-                    <ImageIcon size={14} color="#c084fc" />
-                    <span>Đính kèm ảnh mẫu tham chiếu (Tùy chọn)</span>
-                  </span>
-                  <span className="atelier-gen-ref-desc">
-                    Tải lên ảnh sprite mẫu để AI căn cứ vào hình dáng & phong cách khi tạo sprite mới.
-                  </span>
-                </div>
-                <label className="atelier-gen-btn-ref-action" title="Tải ảnh mẫu từ máy tính">
-                  <span>+ Chọn ảnh mẫu</span>
-                  <input type="file" accept="image/*" onChange={handleUploadReferenceImage} style={{ display: 'none' }} />
-                </label>
-              </>
-            )}
-          </div>
-
           <div className="atelier-gen-card-header">
             <label className="atelier-gen-card-title">
               <Wand2 size={16} color="#c084fc" />
@@ -298,56 +239,6 @@ export default function ImageGeneration({
             rows={5}
             className="atelier-gen-textarea"
           />
-
-          {/* Gợi ý thẻ phong cách nhanh */}
-          <div>
-            <span className="atelier-gen-tags-label">
-              Từ khóa chuyên dụng cho rèn đúc Sprite Game:
-            </span>
-            <div className="atelier-gen-tags-grid">
-              {QUICK_STYLE_TAGS.map((tag) => (
-                <button
-                  key={tag.id}
-                  type="button"
-                  className="atelier-gen-tag-chip"
-                  onClick={() => handleApplyStyleTag(tag.text)}
-                >
-                  {tag.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Ô NHẬP LỆNH CẤM / LOẠI TRỪ (NEGATIVE PROMPT) */}
-          <div className="atelier-gen-negative-box">
-            <div className="atelier-gen-card-header">
-              <label className="atelier-gen-card-title" style={{ color: '#fda4af', fontSize: '0.8rem' }}>
-                <ShieldAlert size={15} color="#f43f5e" />
-                <span>Lệnh cấm / Chi tiết cần loại trừ (Negative Prompt):</span>
-              </label>
-              {negativePrompt && (
-                <button
-                  type="button"
-                  className="atelier-gen-btn-clear"
-                  onClick={() => setNegativePrompt('')}
-                  title="Xóa lệnh cấm"
-                >
-                  <Trash2 size={11} /> Xóa
-                </button>
-              )}
-            </div>
-
-            <textarea
-              value={negativePrompt}
-              onChange={(e) => setNegativePrompt(e.target.value)}
-              placeholder="Các chi tiết cấm vẽ: blurry, 3D render, photorealistic, background scenery, noise, extra limbs, distorted grid, gradient background..."
-              rows={3}
-              className="atelier-gen-negative-textarea"
-            />
-            <span className="atelier-gen-hint">
-              * Ngăn AI không vẽ khối 3D, bóng nhòe hay phông nền phức tạp để bảo đảm ảnh sprite phẳng, dễ tách viền.
-            </span>
-          </div>
 
           {/* NÚT BẮT ĐẦU TẠO ẢNH CHÍNH (Đã chuyển vào trong ô Prompt rộng rãi) */}
           <button

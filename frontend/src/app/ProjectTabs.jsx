@@ -62,12 +62,13 @@ export default function ProjectTabs({
           </span>
         </div>
 
-        {/* Mục 1: Phân tích & Prompt (Studio) */}
+        {/* Mục 1: Phân tích & Đo đạc Sprite */}
         <div hidden={activeTab !== 'analysis'}>
           <ProjectAnalysis
             currentProject={currentProject}
             loadedPresetData={loadedPresetData}
             isActive={activeTab === 'analysis'}
+            onSelectTab={onSelectTab}
             onSendPromptToImageGen={onSendPromptToImageGen}
             onTransferToWorkspace={onTransferToWorkspace}
             isAiEnabled={isAiEnabled}
