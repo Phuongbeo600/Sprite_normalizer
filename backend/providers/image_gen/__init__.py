@@ -14,6 +14,7 @@
 from .base import BaseImageGenProvider
 from .gemini_imagen_provider import GeminiImagenProvider
 from .openai_dalle_provider import OpenAiDalleProvider
+from .cloudflare_workers_ai_provider import CloudflareWorkersAiProvider
 from .factory import ImageGenProviderFactory
 
 # ========================================================
@@ -25,5 +26,6 @@ __all__ = [
     "BaseImageGenProvider",
     "GeminiImagenProvider",
     "OpenAiDalleProvider",
+    "CloudflareWorkersAiProvider",
     "ImageGenProviderFactory"
 ]

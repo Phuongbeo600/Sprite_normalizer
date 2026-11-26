@@ -56,25 +56,41 @@ export function collectPythonMeasurements({ palette, pixelReport, metrics, profi
       ground_y: metrics.ground_y,
     };
   }
-  for (const [name, regions] of [
-    ['automatic_regions', profileData.region_measurements],
-    ['manual_regions', profileData.manual_region_measurements],
-  ]) {
-    const entries = Object.entries(regions?.measurements || {});
+  if (profileData?.region_measurements?.measurements) {
+    const entries = Object.entries(profileData.region_measurements.measurements);
     if (entries.length) {
-      report[name] = {
-        image_size_px: regions.image_size_px,
+      report.automatic_regions = {
+        image_size_px: profileData.region_measurements.image_size_px,
         measurements: Object.fromEntries(
           entries.map(([part, measurement]) => [
             part,
             {
-              type: measurement.polygon ? 'cross_section' : 'reference_segment',
+              type: 'cross_section',
               width_px: measurement.width_px,
             },
           ])
         ),
       };
     }
+  }
+  const manual = profileData?.manual_region_measurements;
+  if (manual?.measurements && Object.keys(manual.measurements).length) {
+    report.manual_anatomy = {
+      schema_version: manual.schema_version || 'point_to_point_v1',
+      image_size_px: manual.image_size_px,
+      raw_anatomy_metrics: manual.raw_anatomy_metrics,
+      measurements: Object.fromEntries(
+        Object.entries(manual.measurements).map(([metric, entry]) => [
+          metric,
+          {
+            status: entry.status,
+            value_px: entry.value_px,
+            occluded: Boolean(entry.occluded),
+            points: entry.points,
+          },
+        ])
+      ),
+    };
   }
   return report;
 }

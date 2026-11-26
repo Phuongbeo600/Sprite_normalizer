@@ -12,7 +12,7 @@ from typing import Optional
 # 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
 # ========================================================
 # PIL (Pillow): Mở và xuất định dạng ảnh
-from PIL import Image
+from PIL import Image, ImageOps
 
 # ========================================================
 # 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Core Normalizer)
@@ -74,12 +74,25 @@ class SpriteService:
         @param image Ảnh sheet đã được bên gọi áp dụng hướng EXIF.
         @returns Bộ lặp tên frame, kích thước đích và dữ liệu PNG.
         """
-        for name, _size, png in cls.sheet_frames(
-            image, rows, columns, auto_anchor=auto_anchor,
-            trim_outer_padding=trim_outer_padding, x_cuts=x_cuts, y_cuts=y_cuts,
-        ):
+        yield from cls.resize_frames(
+            cls.sheet_frames(image, rows, columns, auto_anchor=auto_anchor,
+                             trim_outer_padding=trim_outer_padding, x_cuts=x_cuts, y_cuts=y_cuts),
+            target_width, target_height,
+        )
+
+    @classmethod
+    def resize_frames(cls, frames, target_width, target_height, keep_ratio=False):
+        """Ép danh sách frame đã cắt; dùng chung với ép sheet hàng loạt."""
+        for name, _size, png in frames:
             with Image.open(io.BytesIO(png)) as frame:
-                resized = resize_sprite(frame, target_width, target_height)
+                if keep_ratio:
+                    # Pillow đệm trong suốt, neo đáy giữa và lấy mẫu Nearest Neighbor.
+                    with frame.convert("RGBA") as rgba:
+                        resized = ImageOps.pad(rgba, (target_width, target_height),
+                                               method=Image.Resampling.NEAREST,
+                                               color=(0, 0, 0, 0), centering=(0.5, 1.0))
+                else:
+                    resized = resize_sprite(frame, target_width, target_height)
                 try:
                     yield name, resized.size, cls.encode_png(resized)
                 finally:

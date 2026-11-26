@@ -15,6 +15,7 @@ import { Play, Pause } from "lucide-react";
 // ========================================================
 // getAuthHeaders: Đính kèm JWT Bearer Token khi tải danh sách frame thuộc dự án có chủ sở hữu.
 import { getAuthHeaders } from '../../shared/api/authHeaders.js';
+import ProtectedAssetImage from './ProtectedAssetImage';
 
 
 // ========================================================
@@ -87,7 +88,7 @@ export default function SpriteFramesViewer({ spriteId, frameCount }) {
           marginBottom: '10px',
           border: '1px solid #7c3aed'
         }}>
-          <img
+          <ProtectedAssetImage
             src={frames[activeFrameIdx].image_url}
             alt={frames[activeFrameIdx].frame_name}
             style={{ maxHeight: '90px', imageRendering: 'pixelated' }}
@@ -121,7 +122,7 @@ export default function SpriteFramesViewer({ spriteId, frameCount }) {
               backgroundColor: '#07050e'
             }}
           >
-            <img
+            <ProtectedAssetImage
               src={f.image_url}
               alt={f.frame_name}
               style={{ maxWidth: '38px', maxHeight: '38px', objectFit: 'contain', imageRendering: 'pixelated' }}

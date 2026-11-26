@@ -6,8 +6,8 @@ import React, { useState } from 'react';
 // ========================================================
 // 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
 // ========================================================
-// lucide-react: Biểu tượng cho ảnh mẫu, bảng màu, thước đo, mắt ẩn hiện, đũa phép và tải
-import { Eye, EyeOff, FolderOpen, LoaderCircle, Palette, Ruler, Crop, Sparkles, ArrowRight, AlertTriangle, CheckCircle2 } from "lucide-react";
+// lucide-react: Biểu tượng cho ảnh mẫu, bảng màu, thước đo, khoanh vùng và tải
+import { FolderOpen, LoaderCircle, Palette, Ruler, Crop, ArrowRight, AlertTriangle, CheckCircle2 } from "lucide-react";
 
 // ========================================================
 // 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Components & Dữ liệu)
@@ -16,6 +16,8 @@ import { Eye, EyeOff, FolderOpen, LoaderCircle, Palette, Ruler, Crop, Sparkles, 
 import SpriteMeasurementEditor from './SpriteMeasurementEditor';
 // PaletteMetricsSection: Các chỉ số đo màu chi tiết
 import PaletteMetricsSection from './PaletteMetricsSection';
+// ALL_ANATOMY_METRICS: Danh sách 11 thông số đo thủ công hiển thị tại Tab Phân tích
+import { ALL_ANATOMY_METRICS } from '../manualAnatomyConfig';
 // PixelArtIcons: Biểu tượng tinh thể thạch anh ma thuật pixel art
 import { PixelCrystal } from '../../../shared/ui/PixelArtIcons';
 
@@ -32,16 +34,12 @@ const REGION_LABELS = { head: 'Đầu', neck: 'Cổ', torso: 'Thân trên' };
  * 
  * @param {Object} props Thuộc tính truyền vào component.
  * @param {Object|null} props.reference Tệp ảnh tham chiếu đang chọn.
- * @param {string|null} props.annotatedUrl URL ảnh có vẽ lớp phủ giải phẫu.
- * @param {boolean} props.showOverlay Trạng thái bật/tắt lớp phủ.
- * @param {Function} props.onToggleOverlay Hàm đổi trạng thái lớp phủ.
- * @param {Function} props.onMeasure Hàm gọi đo đạc Python (size / colors).
+ * @param {Function} props.onMeasure Hàm gọi phân tích màu sắc Python (colors).
  * @param {string|null} props.localAction Thao tác đo đang thực thi.
- * @param {Object|null} props.metrics Số đo hình học nhân vật.
- * @param {Object|null} props.regions Số đo các vùng tự động.
+ * @param {Object|null} props.metrics Số đo hình học nhân vật (nếu nạp từ preset cũ).
+ * @param {Object|null} props.regions Số đo các vùng (nếu nạp từ preset cũ).
  * @param {Object|null} props.pixelReport Báo cáo thông số pixel art.
  * @param {Object|null} props.palette Dữ liệu bảng màu.
- * @param {string} props.analysisError Thông báo lỗi đo hình học.
  * @param {string} props.colorError Thông báo lỗi phân tích màu.
  * @param {Object|null} props.manualRegions Số đo khoanh vùng thủ công.
  * @param {Function} props.onManualReport Hàm nhận báo cáo đo thủ công.
@@ -49,16 +47,12 @@ const REGION_LABELS = { head: 'Đầu', neck: 'Cổ', torso: 'Thân trên' };
  */
 export default function TabReferenceView({
   reference,
-  annotatedUrl,
-  showOverlay,
-  onToggleOverlay,
   onMeasure,
   localAction,
   metrics,
   regions,
   pixelReport,
   palette,
-  analysisError,
   colorError,
   onTransferToWorkspace,
   manualRegions,
@@ -66,7 +60,8 @@ export default function TabReferenceView({
 }) {
   const [editingMeasurements, setEditingMeasurements] = useState(false);
   const measurements = Object.entries(regions?.measurements || {});
-  const manualCount = Object.keys(manualRegions?.measurements || {}).length;
+  const manualEntries = Object.values(manualRegions?.measurements || {});
+  const manualCount = manualEntries.filter((entry) => entry?.status === 'measured' || entry?.occluded).length;
   const swatches = palette?.dominant_colors?.slice(0, 12) || [];
   const busy = Boolean(localAction);
 
@@ -118,7 +113,7 @@ export default function TabReferenceView({
         <div className="atelier-ref-preview-stage">
           {reference ? (
             <img
-              src={showOverlay && annotatedUrl ? annotatedUrl : reference.url}
+              src={reference.url}
               alt={reference.name}
             />
           ) : (
@@ -133,29 +128,6 @@ export default function TabReferenceView({
             </div>
           )}
         </div>
-
-        {/* Thanh Điều Khiển Bật/Tắt Lớp Phủ Giải Phẫu */}
-        <div className="atelier-ref-card-controls">
-          <label className={`atelier-ref-toggle-chip ${showOverlay && annotatedUrl ? 'active' : ''}`}>
-            <input
-              type="checkbox"
-              checked={showOverlay}
-              disabled={!annotatedUrl}
-              onChange={onToggleOverlay}
-            />
-            {showOverlay ? <Eye size={15} /> : <EyeOff size={15} />}
-            <span>Lớp phủ giải phẫu nhân vật</span>
-          </label>
-        </div>
-
-        {/* Chú giải vùng màu giải phẫu */}
-        {showOverlay && annotatedUrl && (
-          <div className="atelier-ref-legend-bar" aria-label="Chú giải lớp phủ">
-            <span className="atelier-legend-item-head">■ Đầu (Head)</span>
-            <span className="atelier-legend-item-torso">■ Thân (Torso)</span>
-            <span className="atelier-legend-item-legs">■ Chân (Legs)</span>
-          </div>
-        )}
       </section>
 
       {/* ================================================================ */}
@@ -169,44 +141,54 @@ export default function TabReferenceView({
               <Ruler size={16} />
               <span>Kích thước &amp; Tỷ lệ giải phẫu</span>
             </h4>
-            <button
-              className="atelier-btn-secondary-action"
-              style={{ width: 'auto', padding: '5px 12px', fontSize: '0.75rem' }}
-              type="button"
-              disabled={!reference || busy}
-              onClick={() => setEditingMeasurements(true)}
-            >
-              <Crop size={13} />
-              <span>Khoanh vùng đo{manualCount > 0 ? ` (${manualCount})` : ''}</span>
-            </button>
           </div>
 
           <button
             className="atelier-btn-secondary-action"
             type="button"
             disabled={!reference || busy}
-            onClick={() => onMeasure('size')}
+            onClick={() => setEditingMeasurements(true)}
           >
-            {localAction === 'size' ? (
-              <>
-                <LoaderCircle size={14} className="atelier-ws-spinner-icon" />
-                <span>Đang tính toán giải phẫu Python…</span>
-              </>
-            ) : (
-              <>
-                <Sparkles size={14} color="#c084fc" />
-                <span>Đo kích thước tự động (Python)</span>
-              </>
-            )}
+            <Crop size={14} color="#c084fc" />
+            <span>Đo đoạn thẳng thủ công{manualCount > 0 ? ` (${manualCount}/11)` : ''}</span>
           </button>
 
           {manualCount > 0 && (
-            <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--atl-emerald, #10b981)', fontWeight: 600 }}>
-              ✓ Đã đo {manualCount} bộ phận thủ công. Bộ máy tạo Prompt sẽ ưu tiên các số đo này.
-            </p>
+            <div style={{ marginTop: '4px' }}>
+              <p style={{ margin: '0 0 6px', fontSize: '0.75rem', color: 'var(--atl-emerald, #10b981)', fontWeight: 600 }}>
+                ✓ Kết quả đo thủ công ({manualCount}/11 thông số — ưu tiên đưa vào Prompt Template):
+              </p>
+              <div className="atelier-readings-grid">
+                {ALL_ANATOMY_METRICS.map((metric) => {
+                  const entry = manualRegions?.measurements?.[metric.key];
+                  if (!entry || (entry.status !== 'measured' && !entry.occluded)) return null;
+                  const isOccluded = Boolean(entry.occluded);
+                  return (
+                    <div className="atelier-reading-box" key={metric.key}>
+                      <span className="atelier-reading-label" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                        <span
+                          style={{
+                            width: '8px',
+                            height: '8px',
+                            borderRadius: '9999px',
+                            backgroundColor: `var(${metric.colorVar})`,
+                            flexShrink: 0,
+                          }}
+                        />
+                        {metric.label}
+                      </span>
+                      <span
+                        className="atelier-reading-value"
+                        style={isOccluded ? { color: 'var(--atl-gold)' } : undefined}
+                      >
+                        {isOccluded ? 'Che khuất' : `${entry.value_px} px`}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           )}
-
-          {analysisError && <p className="atelier-ws-error" role="alert">{analysisError}</p>}
 
           {metrics ? (
             <>
@@ -255,11 +237,11 @@ export default function TabReferenceView({
                 </div>
               )}
             </>
-          ) : (
+          ) : manualCount === 0 ? (
             <p style={{ margin: 0, fontSize: '0.78rem', color: '#94a3b8' }}>
-              Bấm nút "Đo kích thước tự động" hoặc khoanh vùng thủ công để phân tích tỷ lệ vóc dáng.
+              Bấm nút "Đo đoạn thẳng thủ công" để đo 11 thông số tỷ lệ vóc dáng trực tiếp trên ảnh.
             </p>
-          )}
+          ) : null}
         </section>
 
         {/* THẺ 2: MÀU SẮC & PHONG CÁCH PIXEL ART */}

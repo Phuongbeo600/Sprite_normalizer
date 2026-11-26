@@ -28,6 +28,29 @@ class GeneratedImageItem(BaseModel):
     mime_type: str = Field("image/png", description="Định dạng MIME của ảnh")
     data_url: str = Field(..., description="Chuỗi Data URL (data:image/png;base64,...) dùng hiển thị ngay trên thẻ img")
     aspect_ratio: str = Field("1:1", description="Tỉ lệ khung hình đã chọn")
+    post_processing: Optional["ImagePostProcessingResult"] = None
+    saved_sprite_id: Optional[int] = Field(None, description="Mã định danh bản ghi sprite đã lưu vào MySQL (nếu có)")
+    saved_to_project: bool = Field(False, description="Cờ xác nhận ảnh đã được lưu vào Kho Tài Nguyên dự án")
+
+
+class ProcessedFrame(GeneratedImageItem):
+    """Frame theo thứ tự hàng, tọa độ hàng/cột bắt đầu từ 0."""
+    name: str
+    width: int
+    height: int
+    row: int
+    column: int
+
+
+class ImagePostProcessingResult(BaseModel):
+    status: str
+    message: str
+    failed_step: Optional[str] = None
+    rows: int = 3
+    columns: int = 5
+    frames: List[ProcessedFrame] = Field(default_factory=list)
+    sheet_b64_data: Optional[str] = Field(None, description="Chuỗi Base64 của tấm Sprite Sheet đã ghép sau hậu xử lý")
+    sheet_data_url: Optional[str] = Field(None, description="Chuỗi Data URL của tấm Sprite Sheet đã ghép sau hậu xử lý")
 
 
 class ImageGenRequest(BaseModel):
@@ -35,6 +58,7 @@ class ImageGenRequest(BaseModel):
     Schema yêu cầu sinh ảnh AI từ văn bản prompt.
     Tự động liên kết khóa API từ Cài đặt dự án hoặc Cài đặt hệ thống.
     """
+    native_size_wh: Optional[tuple[int, int]] = Field(None, description="grid.native_size_wh từ Tab Phân tích: (rộng, cao) pixel thật")
     prompt: str = Field(..., description="Văn bản mô tả nhân vật / sprite cần sinh")
     image: Optional[str] = Field(None, description="Ảnh mẫu tham chiếu (chuỗi Base64 hoặc Data URL)")
     negative_prompt: Optional[str] = Field(None, description="Các chi tiết cần loại trừ (nếu mô hình hỗ trợ)")
@@ -46,6 +70,10 @@ class ImageGenRequest(BaseModel):
     model: Optional[str] = Field(None, description="Mô hình AI tạo ảnh cụ thể")
     api_key: Optional[str] = Field(None, description="Ghi đè khóa API nếu người dùng truyền trực tiếp")
     base_url: Optional[str] = Field(None, description="Ghi đè máy chủ proxy nếu dùng OpenAI")
+    metrics: Optional[Dict[str, Any]] = Field(None, description="Số đo giải phẫu tự động từ Tab Phân tích")
+    region_measurements: Optional[Dict[str, Any]] = Field(None, description="Báo cáo lát cắt tự động từ Tab Phân tích")
+    manual_region_measurements: Optional[Dict[str, Any]] = Field(None, description="Báo cáo đo đoạn thẳng thủ công (Point-to-Point) từ Tab Phân tích")
+    color_count: Optional[int] = Field(None, ge=1, description="Số lượng màu tối đa đo được từ Ảnh 1 (chỉ truyền số lượng, không truyền mã màu)")
 
 
 class ImageGenResponse(BaseModel):
@@ -55,3 +83,23 @@ class ImageGenResponse(BaseModel):
     provider_used: str = Field(..., description="Nhà cung cấp đã phục vụ yêu cầu: 'gemini' hoặc 'openai'")
     model_used: str = Field(..., description="Tên mô hình AI đã thực thi (vd: imagen-3.0-generate-002, dall-e-3)")
     images: List[GeneratedImageItem] = Field(default_factory=list, description="Danh sách các ảnh đã được tạo")
+
+
+class LocalEnhancerStatusResponse(BaseModel):
+    """Schema trạng thái tiến trình AI Local (Hunyuan PromptEnhancer 7B) trên cổng 8080."""
+    running: bool = Field(..., description="Máy chủ AI Local đang chạy hoặc đang nạp mô hình")
+    ready: bool = Field(..., description="Máy chủ đã sẵn sàng tiếp nhận yêu cầu nâng cao prompt")
+    managed_by_backend: bool = Field(..., description="Tiến trình đang được Backend tự động quản lý vòng đời")
+    port: int = Field(8080, description="Cổng TCP của máy chủ llama-server cục bộ")
+    model_name: str = Field("Hunyuan PromptEnhancer 7B (Q4_K_M)", description="Tên mô hình GGUF cục bộ")
+    message: str = Field("", description="Thông báo trạng thái hiển thị cho người dùng")
+
+
+class PromptEnhanceRequest(BaseModel):
+    """Schema yêu cầu gợi ý và nâng cao mô tả nhân vật qua luồng SSE từ AI Local."""
+    prompt: str = Field(..., min_length=1, max_length=2000, description="Mô tả nhân vật thô do người dùng nhập")
+    style_preset: Optional[str] = Field(None, description="Phong cách tham khảo tùy chọn nếu có")
+    auto_start: bool = Field(True, description="Tự động khởi chạy mô hình AI Local nếu đang tắt")
+
+
+GeneratedImageItem.model_rebuild()

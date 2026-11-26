@@ -47,11 +47,8 @@ export default function ProjectAnalysis({
 }) {
   const {
     reference,
-    annotatedUrl,
-    showOverlay,
-    setShowOverlay,
+    referenceSize,
     metrics,
-    analysisError,
     colorError,
     localAction,
     profileData,
@@ -64,11 +61,24 @@ export default function ProjectAnalysis({
   } = useAnalysisSession({ currentProject, loadedPresetData, isActive });
 
   /**
-   * Chuyển sang tab Tạo ảnh AI và đính kèm ảnh tham chiếu hiện tại nếu đã nạp.
+   * Chuyển sang tab Tạo ảnh AI và đính kèm ảnh tham chiếu cùng kích thước ảnh mẫu gốc (W × H)
+   * và số đo giải phẫu (nếu có) để hậu xử lý ép frame đúng bằng độ phân giải ảnh mẫu đưa vào.
    */
   const handleGoToImageGen = () => {
     if (reference?.file && onSendPromptToImageGen) {
-      onSendPromptToImageGen('', '', reference.file);
+      const measuredColorCount = palette?.total_colors ?? pixelReport?.palette?.total_colors ?? null;
+      const uploadedImageSize =
+        referenceSize ||
+        profileData?.manual_region_measurements?.image_size_px ||
+        (metrics?.canvas_width && metrics?.canvas_height ? [metrics.canvas_width, metrics.canvas_height] : null);
+      const anatomyPayload = {
+        native_size_wh: uploadedImageSize,
+        metrics: metrics || null,
+        region_measurements: profileData.region_measurements || null,
+        manual_region_measurements: profileData.manual_region_measurements || null,
+        color_count: measuredColorCount && measuredColorCount > 0 ? measuredColorCount : null,
+      };
+      onSendPromptToImageGen('', '', reference.file, anatomyPayload);
       return;
     }
     if (onSelectTab) {
@@ -95,7 +105,7 @@ export default function ProjectAnalysis({
         <div className="atelier-analysis-header-actions">
           {reference ? (
             <span className="atelier-analysis-file-badge" title={reference.name}>
-              {reference.name}
+              {reference.name}{referenceSize ? ` (${referenceSize[0]} × ${referenceSize[1]} px)` : ''}
             </span>
           ) : (
             <span className="atelier-analysis-file-badge" style={{ color: '#94a3b8', borderColor: 'rgba(255,255,255,0.1)' }}>
@@ -145,9 +155,6 @@ export default function ProjectAnalysis({
       {/* ================================================================ */}
       <TabReferenceView
         reference={reference}
-        annotatedUrl={annotatedUrl}
-        showOverlay={showOverlay}
-        onToggleOverlay={(event) => setShowOverlay(event.target.checked)}
         onMeasure={handleLocalMeasure}
         localAction={localAction}
         metrics={metrics}
@@ -161,7 +168,6 @@ export default function ProjectAnalysis({
         }
         pixelReport={pixelReport}
         palette={palette}
-        analysisError={analysisError}
         colorError={colorError}
         onTransferToWorkspace={onTransferToWorkspace}
       />

@@ -15,16 +15,14 @@ import { encodePresetReference, restorePresetReference } from './presetReference
 /** Sở hữu trạng thái và thao tác của phiên; giữ nguyên thứ tự hiệu ứng hiện tại. */
 export function useAnalysisSession({ currentProject, loadedPresetData, isActive }) {
   // ========================================================
-  // TRẠNG THÁI ẢNH THAM CHIẾU & LỚP PHỦ GIẢI PHẪU
+  // TRẠNG THÁI ẢNH THAM CHIẾU & ĐO ĐẠC MÀU SẮC
   // ========================================================
   const [reference, setReference] = useState(null);
+  const [referenceSize, setReferenceSize] = useState(null);
   const referenceVersion = useRef(0);
-  const [annotatedUrl, setAnnotatedUrl] = useState(null);
-  const [showOverlay, setShowOverlay] = useState(true);
 
-  // Trạng thái dữ liệu đo đạc giải phẫu hình học (CharacterMetrics)
+  // Trạng thái dữ liệu đo đạc giải phẫu hình học (CharacterMetrics khi nạp từ preset)
   const [metrics, setMetrics] = useState(null);
-  const [analysisError, setAnalysisError] = useState('');
   const [colorError, setColorError] = useState('');
   const [localAction, setLocalAction] = useState(null);
 
@@ -58,10 +56,32 @@ export function useAnalysisSession({ currentProject, loadedPresetData, isActive 
   const [saveSuccessMsg, setSaveSuccessMsg] = useState('');
   const [loadedPresetConfig, setLoadedPresetConfig] = useState(null);
 
-  // Dọn dẹp bộ nhớ URL tạm khi đổi ảnh
+  // Dọn dẹp bộ nhớ URL tạm và tự động đọc kích thước pixel gốc (W × H) của ảnh mẫu
   useEffect(() => {
-    if (!reference) return;
+    if (!reference?.url) {
+      setReferenceSize(null);
+      return undefined;
+    }
+    let cancelled = false;
+    let preview = null;
+    if (typeof Image !== 'undefined') {
+      preview = new Image();
+      preview.onload = () => {
+        if (!cancelled && preview.naturalWidth > 0 && preview.naturalHeight > 0) {
+          setReferenceSize([preview.naturalWidth, preview.naturalHeight]);
+        }
+      };
+      preview.onerror = () => {
+        if (!cancelled) setReferenceSize(null);
+      };
+      preview.src = reference.url;
+    }
     return () => {
+      cancelled = true;
+      if (preview) {
+        preview.onload = null;
+        preview.onerror = null;
+      }
       URL.revokeObjectURL(reference.url);
     };
   }, [reference]);
@@ -71,10 +91,8 @@ export function useAnalysisSession({ currentProject, loadedPresetData, isActive 
     if (loadedPresetData) {
       referenceVersion.current += 1;
       setReference(null);
-      setAnnotatedUrl(null);
       setLocalAction(null);
       setIsGeneratingStyle(false);
-      setAnalysisError('');
       setColorError('');
       setProfileError('');
       try {
@@ -122,9 +140,7 @@ export function useAnalysisSession({ currentProject, loadedPresetData, isActive 
         name: file.name,
         url: URL.createObjectURL(file),// tạo một đường dẫn từ file nhị phân được lưu trong ram
       });
-      setAnnotatedUrl(null);
       setMetrics(null);
-      setAnalysisError('');
       setColorError('');
       setProfileData({
         global_analysis: null,
@@ -170,30 +186,21 @@ export function useAnalysisSession({ currentProject, loadedPresetData, isActive 
   }, [isActive, workspaceMode, projectId]);
 
   /**
-   * Chạy đo đạc cục bộ bằng thuật toán Python (size hoặc colors).
+   * Chạy phân tích bảng màu cục bộ bằng thuật toán Python.
    * 
-   * @param {'colors'|'size'} action Phép đo Python được yêu cầu.
+   * @param {'colors'} [action='colors'] Phép đo Python được yêu cầu.
    */
-  const handleLocalMeasure = async (action) => {
-    if (!reference || localAction) return; //reference là biến lưu nạp ảnh , localAction lưu trạng thái đo đạc hiện tại
+  const handleLocalMeasure = async (action = 'colors') => {
+    if (!reference || localAction || action !== 'colors') return; //reference là biến lưu nạp ảnh , localAction lưu trạng thái đo đạc hiện tại
     const version = referenceVersion.current; // kiểm tra xem nếu người dùng đột ngột huỷ ảnh đang nạp mà nạp ảnh khác thì tính lại
-    const measureColors = action === 'colors'; // đo màu là true, đo kích thước là false
-    const setError = measureColors ? setColorError : setAnalysisError;
-    setLocalAction(action);// đánh dấu trên màn hình là đang làm
-    setError('');
+    setLocalAction('colors');// đánh dấu trên màn hình là đang làm
+    setColorError('');
     try {
-      const result = await requestAnalysis(reference.file, measureColors ? '/api/analyze-colors' : '/api/analyze');
+      const result = await requestAnalysis(reference.file, '/api/analyze-colors');
       if (version !== referenceVersion.current) return;
-      if (measureColors) {
-        setProfileData((previous) => ({ ...previous, ...result }));
-      } else {
-        setMetrics(result.metrics);
-        setAnnotatedUrl(result.annotated_image);
-        setShowOverlay(true);
-        setProfileData((previous) => ({ ...previous, region_measurements: result.region_measurements }));
-      }
+      setProfileData((previous) => ({ ...previous, ...result }));
     } catch (error) {
-      if (version === referenceVersion.current) setError(error.message);
+      if (version === referenceVersion.current) setColorError(error.message);
     } finally {
       if (version === referenceVersion.current) setLocalAction(null);
     }
@@ -280,7 +287,6 @@ export function useAnalysisSession({ currentProject, loadedPresetData, isActive 
   const pythonMeasurements = collectPythonMeasurements({ palette, pixelReport, metrics, profileData });
   const progress = [
     localAction === 'colors' && 'Đang phân tích màu bằng Python…',
-    localAction === 'size' && 'Đang đo kích thước bằng Python…',
     isGeneratingStyle && `Đang chờ ${providerLabel} viết chỉ dẫn phong cách…`,
   ].filter(Boolean).join(' ');
 
@@ -293,5 +299,5 @@ export function useAnalysisSession({ currentProject, loadedPresetData, isActive 
     (profileData?.manual_region_measurements && Object.keys(profileData.manual_region_measurements?.measurements || {}).length > 0)
   );
 
-  return { reference, annotatedUrl, showOverlay, setShowOverlay, metrics, analysisError, colorError, localAction, workspaceMode, setWorkspaceMode, activeProfileTab, setActiveProfileTab, profileData, setProfileData, visionStatus, visionError, isGeneratingStyle, profileError, generatedProfilePrompt, savingPreset, saveSuccessMsg, loadedPresetConfig, handleReferenceChange, handleLocalMeasure, handleGenerateReferenceStyle, handleSavePreset, tabStatuses, palette, pixelReport, referenceStyle, providerLabel, resultProviderLabel, pythonMeasurements, progress, hasMeasured };
+  return { reference, referenceSize, metrics, colorError, localAction, workspaceMode, setWorkspaceMode, activeProfileTab, setActiveProfileTab, profileData, setProfileData, visionStatus, visionError, isGeneratingStyle, profileError, generatedProfilePrompt, savingPreset, saveSuccessMsg, loadedPresetConfig, handleReferenceChange, handleLocalMeasure, handleGenerateReferenceStyle, handleSavePreset, tabStatuses, palette, pixelReport, referenceStyle, providerLabel, resultProviderLabel, pythonMeasurements, progress, hasMeasured };
 }

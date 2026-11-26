@@ -1,314 +1,556 @@
 // ========================================================
 // 1. THƯ VIỆN NỀN TẢNG REACT
 // ========================================================
-// Các hook giữ bản vẽ nháp, tải ảnh và cập nhật canvas.
-import { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 // ========================================================
-// 2. THƯ VIỆN BÊN NGOÀI
+// 2. THƯ VIỆN BÊN NGOÀI (Biểu tượng giao diện)
 // ========================================================
-// lucide-react: Biểu tượng quay lại, điều chỉnh thu phóng và lưu tệp.
-import { ArrowLeft, Download, Minus, Plus, Upload } from 'lucide-react';
+import {
+  ArrowLeft,
+  Check,
+  Eye,
+  EyeOff,
+  GitBranch,
+  Hand,
+  Lock,
+  Maximize2,
+  Minus,
+  PencilRuler,
+  Plus,
+  Redo2,
+  RotateCcw,
+  Save,
+  Slash,
+  Trash2,
+  Undo2,
+  Unlock,
+} from 'lucide-react';
 
 // ========================================================
-// 3. THÀNH PHẦN NỘI BỘ DỰ ÁN
+// 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Canvas, Hình minh họa & Cấu hình 11 thông số)
 // ========================================================
-// Không cần thêm thành phần nội bộ.
+import AnatomyGuideIllustration from './AnatomyGuideIllustration';
+import ManualMeasurementCanvas from './ManualMeasurementCanvas';
+import {
+  ALL_ANATOMY_METRICS,
+  ANATOMY_GROUPS,
+  ANATOMY_METRIC_BY_KEY,
+} from '../manualAnatomyConfig';
 
 // ========================================================
 // 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC
 // ========================================================
-// Dùng các biến màu bộ phận và lớp định dạng trong theme.css.
+import '../manual-measure-atelier.css';
 
-const PARTS = [
-  ['head', 'Đầu'], ['neck', 'Cổ'], ['torso', 'Thân'],
-  ['left_arm', 'Tay trái'], ['right_arm', 'Tay phải'],
-  ['left_leg', 'Chân trái'], ['right_leg', 'Chân phải'],
-];
-const LIMBS = new Set(['left_arm', 'right_arm', 'left_leg', 'right_leg']);
-const samePoint = (a, b) => a?.[0] === b?.[0] && a?.[1] === b?.[1];
+/** Tạo bản đồ dữ liệu gửi lên Python từ trạng thái measurements hiện hành. */
+function serializeMeasurementsPayload(measurementsMap) {
+  const payload = {};
+  for (const meta of ALL_ANATOMY_METRICS) {
+    const entry = measurementsMap?.[meta.key];
+    if (!entry) continue;
+    if (entry.occluded) {
+      payload[meta.key] = { occluded: true };
+    } else if (Array.isArray(entry.points) && entry.points.length >= 2) {
+      payload[meta.key] = { points: entry.points };
+    }
+  }
+  return payload;
+}
 
 /**
- * Vẽ đa giác, trục chi và đoạn thẳng trên lưới pixel của ảnh gốc.
+ * Công cụ đo đoạn thẳng giải phẫu thủ công (Point-to-Point Measurement) cho 11 thông số.
+ * Thu thập tọa độ điểm đo trên ảnh gốc, gửi backend Python tính số đo và đồng bộ báo cáo cho Prompt Template.
  *
- * @param {Object} props Ảnh đang mở, báo cáo hiện tại và thao tác lưu vào hồ sơ.
- * @returns {React.ReactElement} Bàn đo thủ công.
+ * @param {Object} props Ảnh đang mở, báo cáo hiện hành và callback cập nhật lên phiên phân tích.
+ * @returns {React.ReactElement} Màn hình đo thủ công đầy đủ chức năng.
  */
 export default function SpriteMeasurementEditor({ reference, report, onReport, onBack }) {
-  const canvas = useRef(null);
-  const request = useRef(null);
+  const requestRef = useRef(null);
   const [image, setImage] = useState(null);
-  const [zoom, setZoom] = useState(1);
-  const [part, setPart] = useState('head');
-  const [mode, setMode] = useState('polygon');
-  const [showAll, setShowAll] = useState(true);
-  const [vertices, setVertices] = useState([]);
-  const [awaitingAxis, setAwaitingAxis] = useState(false);
-  const [axisStart, setAxisStart] = useState(null);
-  const [drag, setDrag] = useState(null);
+  const [zoom, setZoom] = useState(4);
+  const [fitSignal, setFitSignal] = useState(0);
+  const [panMode, setPanMode] = useState(false);
+  const [axisLockEnabled, setAxisLockEnabled] = useState(true);
+
+  const [activeMetric, setActiveMetric] = useState('body_height');
+  const [polylineMode, setPolylineMode] = useState(false);
+  const [draftPoints, setDraftPoints] = useState([]);
+
+  const [hiddenMetrics, setHiddenMetrics] = useState({});
+  const [showOnlyActive, setShowOnlyActive] = useState(false);
+
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const measurements = report?.measurements;
+
+  // Bản nháp kết quả đo trong phiên chỉnh sửa; chỉ đồng bộ sang Tab Phân tích khi bấm Lưu
+  const [draftReport, setDraftReport] = useState(report || null);
+  const initialMap = report?.measurements || {};
+  const [history, setHistory] = useState([initialMap]);
+  const [historyIndex, setHistoryIndex] = useState(0);
+
+  const measurements = draftReport?.measurements || {};
+  const activeMeta = ANATOMY_METRIC_BY_KEY[activeMetric] || ALL_ANATOMY_METRICS[0];
 
   useEffect(() => {
     const preview = new Image();
-    preview.onload = () => {
-      setImage(preview);
-      setZoom(Math.max(1, Math.min(6, Math.floor(420 / Math.max(preview.width, preview.height)))));
-    };
-    preview.onerror = () => setError('Không đọc được ảnh để đo.');
+    preview.onload = () => setImage(preview);
+    preview.onerror = () => setError('Không đọc được ảnh để đo giải phẫu.');
     preview.src = reference.url;
     return () => {
       preview.onload = null;
       preview.onerror = null;
-      request.current?.abort();
+      requestRef.current?.abort();
     };
   }, [reference.url]);
 
+  // Tự tắt chế độ đo qua khớp nếu chuyển sang thông số chỉ có 2 điểm
   useEffect(() => {
-    if (!image || !canvas.current) return;
-    const node = canvas.current;
-    const scale = Math.min(zoom * (window.devicePixelRatio || 1), 2048 / Math.max(image.width, image.height));
-    node.width = Math.max(1, Math.round(image.width * scale));
-    node.height = Math.max(1, Math.round(image.height * scale));
-    const context = node.getContext('2d');
-    context.setTransform(node.width / image.width, 0, 0, node.height / image.height, 0, 0);
-    context.imageSmoothingEnabled = false;
-    context.drawImage(image, 0, 0);
-
-    const colors = getComputedStyle(node);
-    const colorFor = (key) => colors.getPropertyValue(`--measure-${key}`).trim();
-    const draw = (points, color, { closed = false, dashed = false, fill = false } = {}) => {
-      if (points.length < 2) return;
-      context.beginPath();
-      points.forEach(([x, y], index) => index ? context.lineTo(x, y) : context.moveTo(x, y));
-      if (closed) context.closePath();
-      if (fill) {
-        context.globalAlpha = 0.18;
-        context.fillStyle = color;
-        context.fill();
-        context.globalAlpha = 1;
-      }
-      context.setLineDash(dashed ? [3 / zoom, 3 / zoom] : []);
-      context.strokeStyle = '#101627';
-      context.lineWidth = 3.5 / zoom;
-      context.stroke();
-      context.strokeStyle = color;
-      context.lineWidth = 1.7 / zoom;
-      context.stroke();
-    };
-    const dot = ([x, y], color) => {
-      context.beginPath();
-      context.arc(x, y, 3 / zoom, 0, Math.PI * 2);
-      context.fillStyle = color;
-      context.fill();
-    };
-
-    for (const [key, entry] of Object.entries(measurements || {})) {
-      if (!showAll && key !== part) continue;
-      const color = colorFor(key);
-      if (entry.polygon) draw(entry.polygon, color, { closed: true, fill: true });
-      if (entry.axis) draw(entry.axis, color, { dashed: true });
-      for (const [width, start, end] of entry.cuts || []) {
-        if (width && !(samePoint(start, entry.start) && samePoint(end, entry.end))) {
-          draw([start, end], color, { dashed: true });
-        }
-      }
-      draw([entry.start, entry.end], color);
+    if (!activeMeta.supportsPolyline && polylineMode) {
+      setPolylineMode(false);
+      setDraftPoints([]);
     }
-    const draftColor = colorFor(part);
-    draw(vertices, draftColor, { closed: awaitingAxis });
-    vertices.forEach((point) => dot(point, draftColor));
-    if (axisStart) dot(axisStart, draftColor);
-    if (drag) draw([drag.start, drag.end], draftColor);
-  }, [image, zoom, part, showAll, measurements, vertices, awaitingAxis, axisStart, drag]);
+  }, [activeMeta, polylineMode]);
 
-  const clearDraft = () => {
-    setVertices([]);
-    setAwaitingAxis(false);
-    setAxisStart(null);
-    setDrag(null);
-  };
-
-  /** @param {Object} data Các điểm đo trên ảnh và kích thước canvas gốc. */
-  const submit = async (data) => {
-    if (request.current) return;
+  /** Gửi bảng tọa độ lên backend Python tính số đo thực tế và lưu vào lịch sử Undo/Redo. */
+  const submitToPython = async (nextMeasurementsPayload, { recordHistory = true } = {}) => {
+    if (!image || requestRef.current) return;
     const controller = new AbortController();
-    request.current = controller;
+    requestRef.current = controller;
     setBusy(true);
     setError('');
     try {
       const body = new FormData();
       body.append('file', reference.file);
-      body.append('regions_json', JSON.stringify(data));
-      const response = await fetch('/api/measure-regions', { method: 'POST', body, signal: controller.signal });
+      body.append('regions_json', JSON.stringify({
+        image_size_px: [image.width, image.height],
+        measurements: nextMeasurementsPayload,
+      }));
+      const response = await fetch('/api/measure-regions', {
+        method: 'POST',
+        body,
+        signal: controller.signal,
+      });
       const result = await response.json();
-      if (!response.ok) throw new Error(result.detail || 'Không đo được vùng này.');
+      if (!response.ok) throw new Error(result.detail || 'Không tính được số đo giải phẫu.');
       if (controller.signal.aborted) return;
-      onReport(result);
-      clearDraft();
+
+      setDraftReport(result);
+      setDraftPoints([]);
+
+      if (recordHistory) {
+        const snapshot = result.measurements || {};
+        setHistory((prev) => [...prev.slice(0, historyIndex + 1), snapshot]);
+        setHistoryIndex((prev) => prev + 1);
+      }
     } catch (failure) {
-      if (!controller.signal.aborted) setError(failure.message || 'Không gửi được số đo.');
+      if (!controller.signal.aborted) {
+        setError(failure.message || 'Không gửi được tọa độ lên máy chủ Python.');
+      }
     } finally {
-      request.current = null;
+      requestRef.current = null;
       if (!controller.signal.aborted) setBusy(false);
     }
   };
 
-  const updateMeasurements = (next) => submit({
-    image_size_px: [image.width, image.height],
-    measurements: next,
-  });
-  const savePart = (shape) => updateMeasurements({ ...measurements, [part]: shape });
+  const handleSelectMetric = (metricKey) => {
+    setActiveMetric(metricKey);
+    setDraftPoints([]);
+    setPanMode(false);
+    setError('');
+  };
 
-  const closePolygon = () => {
-    if (awaitingAxis) {
-      savePart({ polygon: vertices });
-    } else if (LIMBS.has(part)) {
-      setAwaitingAxis(true);
+  const handleCommitPoints = (metricKey, points) => {
+    const nextPayload = serializeMeasurementsPayload(measurements);
+    nextPayload[metricKey] = { points };
+    // Tự hiện lại đường đo nếu người dùng vừa vẽ mới trên thông số đó
+    if (hiddenMetrics[metricKey]) {
+      setHiddenMetrics((prev) => ({ ...prev, [metricKey]: false }));
+    }
+    submitToPython(nextPayload);
+  };
+
+  const handleToggleOccluded = (metricKey) => {
+    const nextPayload = serializeMeasurementsPayload(measurements);
+    const currentlyOccluded = Boolean(measurements[metricKey]?.occluded);
+    if (currentlyOccluded) {
+      delete nextPayload[metricKey];
     } else {
-      savePart({ polygon: vertices });
+      nextPayload[metricKey] = { occluded: true };
     }
+    if (metricKey === activeMetric) setDraftPoints([]);
+    submitToPython(nextPayload);
   };
 
-  const undo = () => {
-    if (axisStart) setAxisStart(null);
-    else if (awaitingAxis) setAwaitingAxis(false);
-    else setVertices((points) => points.slice(0, -1));
+  const handleDeleteMetric = (metricKey) => {
+    if (!measurements[metricKey]) return;
+    const nextPayload = serializeMeasurementsPayload(measurements);
+    delete nextPayload[metricKey];
+    submitToPython(nextPayload);
   };
 
-  const imagePoint = (event) => {
-    const rect = event.currentTarget.getBoundingClientRect();
-    const snap = (value, length, pixels) => Math.max(0, Math.min(pixels, Math.round(value / length * pixels)));
-    return [
-      snap(event.clientX - rect.left, rect.width, image.width),
-      snap(event.clientY - rect.top, rect.height, image.height),
-    ];
+  const handleUndo = () => {
+    if (busy || historyIndex <= 0) return;
+    const prevIndex = historyIndex - 1;
+    const targetSnapshot = history[prevIndex];
+    setHistoryIndex(prevIndex);
+    submitToPython(serializeMeasurementsPayload(targetSnapshot), { recordHistory: false });
   };
 
-  const pointerDown = (event) => {
-    if (busy || event.button !== 0) return;
-    event.currentTarget.focus();
-    const point = imagePoint(event);
-    if (mode === 'segment') {
-      event.currentTarget.setPointerCapture(event.pointerId);
-      setDrag({ start: point, end: point });
-    } else if (awaitingAxis) {
-      if (!axisStart) setAxisStart(point);
-      else if (!samePoint(axisStart, point)) savePart({ polygon: vertices, axis: [axisStart, point] });
-    } else if (!samePoint(vertices.at(-1), point)) {
-      setVertices([...vertices, point]);
-    }
+  const handleRedo = () => {
+    if (busy || historyIndex >= history.length - 1) return;
+    const nextIndex = historyIndex + 1;
+    const targetSnapshot = history[nextIndex];
+    setHistoryIndex(nextIndex);
+    submitToPython(serializeMeasurementsPayload(targetSnapshot), { recordHistory: false });
   };
 
-  const pointerUp = (event) => {
-    if (!drag) return;
-    const end = imagePoint(event);
-    setDrag(null);
-    if (!samePoint(drag.start, end)) savePart({ start: drag.start, end });
+  // Phím tắt Ctrl+Z / Ctrl+Y cho Hoàn tác & Làm lại
+  useEffect(() => {
+    const onShortcut = (event) => {
+      if (!(event.ctrlKey || event.metaKey)) return;
+      const key = event.key.toLowerCase();
+      if (key === 'z' && !event.shiftKey) {
+        event.preventDefault();
+        handleUndo();
+      } else if (key === 'y' || (key === 'z' && event.shiftKey)) {
+        event.preventDefault();
+        handleRedo();
+      }
+    };
+    window.addEventListener('keydown', onShortcut);
+    return () => window.removeEventListener('keydown', onShortcut);
+  });
+
+  /** Lưu kết quả đo hiện tại sang Tab Phân tích và đóng màn hình đo thủ công. */
+  const handleSaveMeasurements = () => {
+    if (busy || !draftReport) return;
+    onReport(draftReport);
+    onBack();
   };
 
-  const canClose = !busy && mode === 'polygon' && new Set(vertices.map(String)).size >= 3;
-  const keyboard = (event) => {
-    if (busy) return;
-    if (event.key === 'Enter' && canClose) closePolygon();
-    else if (event.key === 'Backspace') undo();
-    else if (event.key === 'Escape') clearDraft();
-    else return;
-    event.preventDefault();
-  };
-
-  const loadJson = async (event) => {
-    const file = event.target.files[0];
-    event.target.value = '';
-    if (!file) return;
-    try {
-      const data = JSON.parse((await file.text()).replace(/^\uFEFF/, ''));
-      await submit(data);
-    } catch {
-      setError('Tệp JSON số đo không hợp lệ.');
-    }
-  };
-
-  const downloadJson = () => {
-    const data = { image: reference.name, image_size_px: report.image_size_px, measurements };
-    const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${reference.name.replace(/\.[^.]+$/, '')}.measurements.json`;
-    link.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-  };
+  const measuredCount = ALL_ANATOMY_METRICS.filter((m) => measurements[m.key]?.status === 'measured').length;
+  const occludedCount = ALL_ANATOMY_METRICS.filter((m) => measurements[m.key]?.occluded).length;
+  const unmeasuredCount = ALL_ANATOMY_METRICS.length - measuredCount - occludedCount;
 
   return (
-    <section className="studio-viewport-card sprite-measure-editor" aria-label="Đo thủ công">
-      <div className="studio-viewport-header sprite-measure-toolbar">
-        <button className="btn-secondary-studio" type="button" onClick={onBack} disabled={busy}>
-          <ArrowLeft size={15} /> Phân tích sprite
-        </button>
-        <h3>Đo thủ công</h3>
-        <div className="sprite-measure-actions">
-          <button className="btn-ghost-studio" type="button" aria-label="Thu nhỏ" disabled={!image || zoom <= 0.25} onClick={() => setZoom(zoom / 2)}><Minus size={15} /></button>
-          <output aria-label="Mức thu phóng">{zoom}×</output>
-          <button className="btn-ghost-studio" type="button" aria-label="Phóng to" disabled={!image || zoom >= 8} onClick={() => setZoom(Math.min(8, zoom * 2))}><Plus size={15} /></button>
-          <label className="btn-secondary-studio studio-file-button">
-            <Upload size={14} /> Nạp JSON
-            <input type="file" accept=".json,application/json" disabled={!image || busy} onChange={loadJson} />
-          </label>
-          <button className="btn-secondary-studio" type="button" disabled={!measurements || !Object.keys(measurements).length || busy} onClick={downloadJson}><Download size={14} /> Lưu JSON</button>
+    <section className="manual-measure-studio" aria-label="Công cụ đo đoạn thẳng giải phẫu thủ công">
+      {/* Thanh công cụ trên cùng */}
+      <header className="manual-measure-topbar">
+        <div className="manual-measure-title-group">
+          <button type="button" className="manual-tool-btn" onClick={onBack} disabled={busy}>
+            <ArrowLeft size={15} />
+            <span>Quay lại Phân tích</span>
+          </button>
+          <h3>Đo đoạn thẳng giải phẫu (11 thông số)</h3>
         </div>
-      </div>
 
-      <div className="sprite-measure-layout">
-        <div className="sprite-measure-scroll">
-          {image && (
-            <canvas
-              ref={canvas}
-              style={{ width: image.width * zoom, height: image.height * zoom }}
-              aria-label="Ảnh sprite để khoanh vùng hoặc kéo đoạn đo"
-              tabIndex={0}
-              onKeyDown={keyboard}
-              onPointerDown={pointerDown}
-              onPointerMove={(event) => { if (drag) setDrag({ ...drag, end: imagePoint(event) }); }}
-              onPointerUp={pointerUp}
-              onPointerCancel={() => setDrag(null)}
-            />
-          )}
+        <div className="manual-measure-toolbar-group">
+          <button
+            type="button"
+            className={`manual-tool-btn ${!panMode ? 'active' : ''}`}
+            onClick={() => setPanMode(false)}
+            title="Công cụ đo đoạn thẳng"
+          >
+            <PencilRuler size={14} />
+            <span>Đo điểm</span>
+          </button>
+          <button
+            type="button"
+            className={`manual-tool-btn ${panMode ? 'active' : ''}`}
+            onClick={() => setPanMode((prev) => !prev)}
+            title="Di chuyển ảnh (hoặc giữ phím Space + kéo chuột)"
+          >
+            <Hand size={14} />
+            <span>Di chuyển ảnh</span>
+          </button>
+
+          <button
+            type="button"
+            className="manual-tool-btn"
+            onClick={() => setZoom((z) => Math.max(0.5, Number((z / 1.5).toFixed(2))))}
+            disabled={!image}
+            aria-label="Thu nhỏ"
+          >
+            <Minus size={14} />
+          </button>
+          <button
+            type="button"
+            className="manual-tool-btn"
+            onClick={() => setFitSignal((s) => s + 1)}
+            disabled={!image}
+            title="Căn vừa khung nhìn"
+          >
+            <Maximize2 size={13} />
+            <span>{zoom}×</span>
+          </button>
+          <button
+            type="button"
+            className="manual-tool-btn"
+            onClick={() => setZoom((z) => Math.min(24, Number((z * 1.5).toFixed(2))))}
+            disabled={!image}
+            aria-label="Phóng to"
+          >
+            <Plus size={14} />
+          </button>
+
+          <button
+            type="button"
+            className="manual-tool-btn"
+            onClick={handleUndo}
+            disabled={busy || historyIndex <= 0}
+            title="Hoàn tác (Ctrl+Z)"
+          >
+            <Undo2 size={14} />
+            <span>Hoàn tác</span>
+          </button>
+          <button
+            type="button"
+            className="manual-tool-btn"
+            onClick={handleRedo}
+            disabled={busy || historyIndex >= history.length - 1}
+            title="Làm lại (Ctrl+Y)"
+          >
+            <Redo2 size={14} />
+            <span>Làm lại</span>
+          </button>
+
+          <button
+            type="button"
+            className={`manual-tool-btn ${axisLockEnabled ? 'active' : ''}`}
+            onClick={() => setAxisLockEnabled((prev) => !prev)}
+            title="Tự động khóa vuông góc trục Ox (chiều cao) và trục Oy (chiều rộng) để chống run tay; với tay/chân có thể giữ Shift"
+          >
+            {axisLockEnabled ? <Lock size={14} /> : <Unlock size={14} />}
+            <span>{axisLockEnabled ? 'Khóa trục Ox/Oy' : 'Đo tự do'}</span>
+          </button>
+
+          <button
+            type="button"
+            className={`manual-tool-btn ${showOnlyActive ? 'active' : ''}`}
+            onClick={() => setShowOnlyActive((prev) => !prev)}
+            title="Ẩn các đường khác để tập trung vào thông số đang chọn"
+          >
+            {showOnlyActive ? <EyeOff size={14} /> : <Eye size={14} />}
+            <span>{showOnlyActive ? 'Chỉ hiện mục chọn' : 'Hiện tất cả'}</span>
+          </button>
+
+          <button
+            type="button"
+            className="manual-tool-btn manual-save-btn"
+            onClick={handleSaveMeasurements}
+            disabled={busy || !image || (!draftReport && !Object.keys(measurements).length)}
+            title="Lưu toàn bộ kết quả đo và hiển thị tại Tab Phân tích"
+          >
+            <Save size={14} />
+            <span>Lưu kết quả đo</span>
+          </button>
         </div>
-        <div className="sprite-measure-controls">
-          <fieldset disabled={busy || !image}>
-            <legend>Cách đo</legend>
-            <label><input type="radio" name="measure-mode" checked={mode === 'polygon'} onChange={() => { clearDraft(); setMode('polygon'); }} /> Khoanh vùng</label>
-            <label><input type="radio" name="measure-mode" checked={mode === 'segment'} onChange={() => { clearDraft(); setMode('segment'); }} /> Kéo đoạn</label>
-          </fieldset>
-          <fieldset disabled={busy || !image}>
-            <legend>Bộ phận cần đo</legend>
-            {PARTS.map(([key, label]) => (
-              <label key={key} className="sprite-measure-part">
-                <input type="radio" name="measure-part" checked={part === key} onChange={() => { clearDraft(); setPart(key); }} />
-                <span className="sprite-measure-dot" style={{ backgroundColor: `var(--measure-${key})` }} />
-                {label}
-                <output>{measurements?.[key] ? `${measurements[key].width_px.toFixed(2)} px` : '—'}</output>
-              </label>
+      </header>
+
+      {/* Khu vực làm việc 2 cột: Canvas lớn bên trái + Bảng điều khiển/Tổng hợp bên phải */}
+      <div className="manual-measure-workspace">
+        <div className="manual-canvas-column">
+          {activeMeta.supportsPolyline && (
+            <div className="manual-limb-subbar">
+              <span>
+                Đang chọn <strong>{activeMeta.label}</strong>: hỗ trợ kéo thẳng 1 đoạn hoặc nối nhiều đoạn qua khớp nếu chi đang gập.
+              </span>
+              <div className="manual-measure-toolbar-group">
+                <button
+                  type="button"
+                  className={`manual-tool-btn ${polylineMode ? 'active' : ''}`}
+                  onClick={() => {
+                    setPolylineMode((prev) => !prev);
+                    setDraftPoints([]);
+                    setPanMode(false);
+                  }}
+                >
+                  <GitBranch size={13} />
+                  <span>{polylineMode ? 'Đang đo qua khớp' : 'Đo nhiều đoạn qua khớp'}</span>
+                </button>
+                {polylineMode && draftPoints.length >= 2 && (
+                  <button
+                    type="button"
+                    className="manual-tool-btn active"
+                    onClick={() => handleCommitPoints(activeMetric, draftPoints)}
+                    disabled={busy}
+                  >
+                    <Check size={13} />
+                    <span>Hoàn tất chi ({draftPoints.length} điểm)</span>
+                  </button>
+                )}
+                {polylineMode && draftPoints.length > 0 && (
+                  <button
+                    type="button"
+                    className="manual-tool-btn"
+                    onClick={() => setDraftPoints([])}
+                  >
+                    <RotateCcw size={13} />
+                    <span>Hủy nháp</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          <ManualMeasurementCanvas
+            image={image}
+            measurements={measurements}
+            activeMetric={activeMetric}
+            hiddenMetrics={hiddenMetrics}
+            showOnlyActive={showOnlyActive}
+            panMode={panMode}
+            axisLockEnabled={axisLockEnabled}
+            polylineMode={polylineMode}
+            draftPoints={draftPoints}
+            zoom={zoom}
+            onZoomChange={setZoom}
+            fitSignal={fitSignal}
+            busy={busy}
+            onSelectMetric={handleSelectMetric}
+            onCommitPoints={handleCommitPoints}
+            onAddDraftPoint={(pt) => setDraftPoints((prev) => [...prev, pt])}
+            onFinishPolyline={() => {
+              if (draftPoints.length >= 2) handleCommitPoints(activeMetric, draftPoints);
+            }}
+            onDeleteActive={() => handleDeleteMetric(activeMetric)}
+            onUndoDraftPoint={() => setDraftPoints((prev) => prev.slice(0, -1))}
+            onCancelDraft={() => setDraftPoints([])}
+          />
+
+          <p className={`manual-status-line ${error ? 'is-error' : ''}`} role={error ? 'alert' : 'status'}>
+            {error
+              || (busy
+                ? 'Đang gửi tọa độ ảnh gốc lên Backend Python để tính số đo…'
+                : polylineMode
+                  ? 'Bấm lần lượt các khớp (Vai → Khuỷu → Cổ tay hoặc Hông → Gối → Cổ chân; giữ Shift để thẳng hàng), nhấn Enter hoặc nhấp đúp để hoàn tất.'
+                  : 'Nhấn giữ và kéo chuột để tạo đoạn đo (tự khóa vuông góc Ox/Oy khi đo cao/rộng; giữ Shift để khóa trục tay/chân); giữ Space để kéo ảnh.')}
+          </p>
+        </div>
+
+        {/* Cột phải: Hình minh họa, 11 thông số theo nhóm và Bảng tổng hợp */}
+        <aside className="manual-inspector-column">
+          <AnatomyGuideIllustration activeMetric={activeMetric} />
+
+          <div className="manual-groups-card">
+            <div className="manual-section-header">
+              <h4>11 thông số giải phẫu</h4>
+              <span style={{ fontSize: '0.73rem', color: 'var(--atl-emerald)' }}>
+                {measuredCount}/11 đã đo
+              </span>
+            </div>
+
+            {ANATOMY_GROUPS.map((group) => (
+              <div key={group.id} className="manual-group-block">
+                <div className="manual-group-title">
+                  <span className="manual-color-dot" style={{ backgroundColor: `var(${group.colorVar})` }} />
+                  <span>{group.label} ({group.colorName})</span>
+                </div>
+
+                {group.metrics.map((metric) => {
+                  const entry = measurements[metric.key];
+                  const isOccluded = Boolean(entry?.occluded);
+                  const isMeasured = entry?.status === 'measured' && entry?.value_px !== null;
+                  const isHidden = Boolean(hiddenMetrics[metric.key]);
+                  const isActive = activeMetric === metric.key;
+
+                  return (
+                    <div
+                      key={metric.key}
+                      className={`manual-metric-row ${isActive ? 'is-active' : ''} ${isOccluded ? 'is-occluded' : ''}`}
+                    >
+                      <button
+                        type="button"
+                        className="manual-metric-select"
+                        onClick={() => handleSelectMetric(metric.key)}
+                      >
+                        <span>{metric.label}</span>
+                        <span
+                          className={`manual-metric-value ${isOccluded ? 'is-occluded' : !isMeasured ? 'is-muted' : ''}`}
+                        >
+                          {isOccluded ? 'Che khuất' : isMeasured ? `${entry.value_px} px` : '—'}
+                        </span>
+                      </button>
+
+                      <button
+                        type="button"
+                        className="manual-icon-btn"
+                        disabled={!isMeasured}
+                        onClick={() =>
+                          setHiddenMetrics((prev) => ({ ...prev, [metric.key]: !prev[metric.key] }))
+                        }
+                        title={isHidden ? 'Hiện đường đo' : 'Ẩn đường đo'}
+                        aria-label={`${isHidden ? 'Hiện' : 'Ẩn'} ${metric.label}`}
+                      >
+                        {isHidden ? <EyeOff size={13} /> : <Eye size={13} />}
+                      </button>
+
+                      <button
+                        type="button"
+                        className={`manual-icon-btn ${isOccluded ? 'is-on' : ''}`}
+                        disabled={busy}
+                        onClick={() => handleToggleOccluded(metric.key)}
+                        title={isOccluded ? 'Bỏ đánh dấu che khuất để đo lại' : 'Đánh dấu bộ phận bị che khuất (bỏ qua)'}
+                        aria-label={`Đánh dấu che khuất ${metric.label}`}
+                      >
+                        <Slash size={13} />
+                      </button>
+
+                      <button
+                        type="button"
+                        className="manual-icon-btn"
+                        disabled={busy || !entry}
+                        onClick={() => handleDeleteMetric(metric.key)}
+                        title="Xóa số đo để đo lại"
+                        aria-label={`Xóa ${metric.label}`}
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
             ))}
-          </fieldset>
-          <label className="sprite-measure-show-all"><input type="checkbox" checked={showAll} onChange={(event) => setShowAll(event.target.checked)} /> Xem tất cả vùng và đoạn</label>
-          {mode === 'polygon' && (
-            <button className="btn-primary-studio" type="button" disabled={!canClose} onClick={closePolygon}>
-              {awaitingAxis ? 'Dùng trục dọc' : 'Khép vùng'}
-            </button>
-          )}
-          <div className="sprite-measure-actions">
-            <button className="btn-ghost-studio" type="button" disabled={!vertices.length || busy} onClick={undo}>Hoàn tác điểm</button>
-            <button className="btn-ghost-studio" type="button" disabled={!measurements?.[part] || busy} onClick={() => savePart(null)}>Xóa số đo</button>
           </div>
-        </div>
+
+          <div className="manual-summary-card">
+            <div className="manual-section-header">
+              <h4>Bảng tổng hợp kết quả</h4>
+            </div>
+            <div className="manual-summary-stats">
+              <span>Đã đo: <strong>{measuredCount}</strong></span>
+              <span>•</span>
+              <span>Che khuất: <strong>{occludedCount}</strong></span>
+              <span>•</span>
+              <span>Chưa đo: <strong>{unmeasuredCount}</strong></span>
+            </div>
+            <table className="manual-summary-table">
+              <thead>
+                <tr>
+                  <th>Thông số</th>
+                  <th>Trạng thái</th>
+                  <th>Kết quả</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ALL_ANATOMY_METRICS.map((metric) => {
+                  const entry = measurements[metric.key];
+                  const isOccluded = Boolean(entry?.occluded);
+                  const isMeasured = entry?.status === 'measured' && entry?.value_px !== null;
+                  return (
+                    <tr key={metric.key} onClick={() => handleSelectMetric(metric.key)} style={{ cursor: 'pointer' }}>
+                      <td>{metric.label}</td>
+                      <td>{isOccluded ? 'Che khuất' : isMeasured ? 'Đã đo' : 'Chưa đo'}</td>
+                      <td>{isMeasured ? `${entry.value_px} px` : '—'}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </aside>
       </div>
-      <p className={`sprite-measure-status ${error ? 'studio-reference-error' : ''}`} role={error ? 'alert' : 'status'}>
-        {error || (busy ? 'Đang tính số đo…' : awaitingAxis
-          ? 'Bấm hai điểm dọc theo tay hoặc chân để chọn trục đo.'
-          : mode === 'polygon' ? 'Bấm các điểm quanh bộ phận, rồi bấm Khép vùng hoặc Enter.' : 'Kéo từ điểm đầu đến điểm cuối của đoạn cần đo.')}
-      </p>
     </section>
   );
 }

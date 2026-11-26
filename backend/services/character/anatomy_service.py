@@ -5,8 +5,6 @@
 import io
 # base64: Mã hóa ảnh kết quả sang chuỗi base64 gửi về Frontend
 import base64
-# math: Đo khoảng cách giữa hai đầu đoạn.
-import math
 # typing: Định nghĩa các kiểu dữ liệu
 from typing import Optional, Dict, Any, Tuple
 
@@ -27,10 +25,12 @@ from backend.core.metrics.character_metrics import CharacterMetrics
 from backend.core.processing.masking import BackgroundMaskExtractor
 # HeuristicAnalyzer: Phân tích giải phẫu học toán học ngoại tuyến
 from backend.core.metrics.heuristic_analyzer import HeuristicAnalyzer
+# compute_manual_anatomy_report: Tính 11 số đo giải phẫu theo tọa độ điểm đo thủ công
+from backend.core.metrics.manual_anatomy_measurement import compute_manual_anatomy_report
 # measure_region: Đo lát cắt trên vùng do bộ phân tích giải phẫu xác định.
 from backend.core.metrics.region_measure import measure_region
-# Các bộ phận được hỗ trợ, kiểm tra điểm và định dạng báo cáo số đo.
-from backend.core.metrics.sprite_prompt import PARTS, build_region_report, read_point
+# build_region_report: Định dạng báo cáo lát cắt vùng đo tự động.
+from backend.core.metrics.sprite_prompt import build_region_report
 # AnatomyVisualRenderer: Vẽ các lớp phủ trực quan Head/Torso/Legs/Weapons
 from backend.core.processing.visual_renderer import AnatomyVisualRenderer
 
@@ -96,48 +96,10 @@ class AnatomyService:
 
     @staticmethod
     def measure_manual_regions(image: Image.Image, data: Dict[str, Any]) -> Dict[str, Any]:
-        """Tính lại số đo từ các điểm và trục do người dùng vẽ trên ảnh gốc."""
+        """Tính 11 số đo giải phẫu bằng Python thuần từ tọa độ điểm đo trên ảnh gốc."""
         if not isinstance(data, dict) or data.get("image_size_px") != list(image.size):
             raise ValueError("Kích thước trong tệp số đo phải khớp với ảnh đang mở.")
-        shapes = data.get("measurements")
-        if not isinstance(shapes, dict):
-            raise ValueError("Dữ liệu số đo thiếu bảng measurements.")
-
-        rgba = image.convert("RGBA")
-        measurements = {}
-        for part, shape in shapes.items():
-            if part not in PARTS:
-                raise ValueError(f"Bộ phận không hợp lệ: {part}.")
-            if shape is None:
-                continue
-            if not isinstance(shape, dict):
-                raise ValueError(f"Số đo {PARTS[part][0].lower()} sai định dạng.")
-            if "polygon" in shape:
-                vertices = shape["polygon"]
-                if not isinstance(vertices, list):
-                    raise ValueError("Đa giác phải là danh sách các điểm.")
-                polygon = [read_point(point, image.size) for point in vertices]
-                if any(type(coord) is not int for point in polygon for coord in point):
-                    raise ValueError("Tọa độ đa giác phải là số nguyên theo lưới pixel.")
-                axis = shape.get("axis")
-                if axis is not None:
-                    if not isinstance(axis, list) or len(axis) != 2 or part in ("head", "neck", "torso"):
-                        raise ValueError("Trục tay hoặc chân cần đúng hai điểm.")
-                    axis = tuple(read_point(point, image.size) for point in axis)
-                region = measure_region(rgba, part, polygon, axis)
-                width, start, end = region.representative
-                measurements[part] = {
-                    "polygon": polygon, "axis": axis, "cuts": region.cuts,
-                    "start": start, "end": end, "width_px": round(width, 2),
-                }
-            else:
-                start = read_point(shape.get("start"), image.size)
-                end = read_point(shape.get("end"), image.size)
-                width = round(math.dist(start, end), 2)
-                if not width:
-                    raise ValueError("Hai đầu đoạn đo cần khác nhau.")
-                measurements[part] = {"start": start, "end": end, "width_px": width}
-        return build_region_report(image.size, measurements)
+        return compute_manual_anatomy_report(image.size, data.get("measurements"))
 
     @classmethod
     def _render_annotated_base64(cls, image: Image.Image, metrics: CharacterMetrics) -> str:

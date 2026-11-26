@@ -39,18 +39,18 @@ test('tạo ảnh giữ payload một ảnh vuông, đồng bộ prompt và thê
   }, { fetch: async (url, options) => {
     calls.push([url, options]);
     return jsonResponse(url.includes('/status') ? { provider: 'openai', ready: true }
-      : { images: [{ id: ++index }], provider_used: 'openai' });
+      : { images: [{ id: ++index, data_url: 'data:image/png;base64,aW1hZ2U=' }], provider_used: 'openai', model_used: 'image-model' });
   } });
   session.flushEffects(); await tick(); session.render();
   assert.equal(calls[0][0], '/api/image-gen/status?project_id=7');
   assert.equal(session.value.prompt, 'Mage');
   await session.value.handleGenerateImage(); session.render();
   assert.deepEqual(JSON.parse(calls[1][1].body), { prompt: 'Mage', negative_prompt: 'blur', project_id: 7,
-    aspect_ratio: '1:1', number_of_images: 1, style_preset: null, image: null });
+    aspect_ratio: '1:1', number_of_images: 1, style_preset: null, image: null, native_size_wh: null, metrics: null, region_measurements: null, manual_region_measurements: null, color_count: null });
   await session.value.handleGenerateImage(); session.render();
   assert.equal(session.value.generatedGallery[0].id, 2);
   assert.equal(session.value.generatedGallery[1].id, 1);
-  assert.match(session.value.successMsg, /OpenAI DALL-E/);
+  assert.match(session.value.successMsg, /openai.*image-model/);
   assert.equal(session.value.generating, false);
 });
 

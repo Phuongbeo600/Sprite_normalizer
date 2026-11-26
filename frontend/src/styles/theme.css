@@ -47,6 +47,14 @@
 
   /* 7. Font */
   --font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+  /* 8. Bảng màu 6 nhóm đường đo giải phẫu thủ công (Point-to-Point) */
+  --measure-yellow: #facc15;
+  --measure-red: #ef4444;
+  --measure-orange: #f97316;
+  --measure-green: #22c55e;
+  --measure-blue: #3b82f6;
+  --measure-purple: #a855f7;
 }
 
 /* Khung hiển thị thông báo kết quả phân tích trong các Tab hồ sơ nhân vật */

@@ -8,6 +8,7 @@ import { Gamepad2, Eye, Trash2, RefreshCw, Clock, Download, LayoutGrid, List, Wr
 import { PixelCrystal } from "../../shared/ui/PixelArtIcons";
 import { spriteImageUrl } from "./assetRequests";
 import { formatBytes, formatDate } from './formatAssets';
+import ProtectedAssetImage from './ProtectedAssetImage';
 
 // 4. ĐỊNH DẠNG GIAO DIỆN / CẤU HÌNH (Kế thừa từ trang kho tài nguyên)
 
@@ -86,10 +87,9 @@ export default function SpriteAssetList({ currentProject, handleDeleteSprite, ha
                   <div key={s.id} className="atelier-assets-card" style={{ padding: 0, overflow: 'hidden' }}>
                     {/* Khung xem trước ảnh Thumbnail */}
                     <div className="atelier-assets-thumb-frame">
-                      <img
+                      <ProtectedAssetImage
                         src={thumbUrl}
                         alt={s.name}
-                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
                       />
 
                       {/* Tag trạng thái góc trên */}
@@ -248,7 +248,7 @@ export default function SpriteAssetList({ currentProject, handleDeleteSprite, ha
                         }}
                         onClick={() => setSelectedSprite(s)}
                       >
-                        <img
+                        <ProtectedAssetImage
                           src={thumbUrl}
                           alt={s.name}
                           style={{ maxWidth: '90%', maxHeight: '90%', objectFit: 'contain', imageRendering: 'pixelated' }}

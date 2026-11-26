@@ -1,0 +1,178 @@
+/* Khung kết quả phủ lên form rồi hạ xuống; chiều cao dựa trên nội dung thực tế. */
+.atelier-gen-result-stage {
+  position: relative;
+  min-width: 0;
+  isolation: isolate;
+  scroll-margin-top: 20px;
+  transition: height 340ms cubic-bezier(.22, .8, .25, 1);
+}
+.atelier-gen-result-stage.has-result { overflow: clip; }
+.atelier-gen-prompt-layer { width: 100%; min-width: 0; }
+.atelier-gen-result-layer {
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 1;
+  box-sizing: border-box;
+  padding: 22px;
+  border: 1px solid var(--border-card-hover);
+  border-radius: var(--radius-lg);
+  background: var(--bg-app);
+  transform: translateY(var(--prompt-offset));
+  transition: transform 340ms cubic-bezier(.22, .8, .25, 1);
+}
+.result-open > .atelier-gen-result-layer { transform: translateY(0); }
+/* Trượt lên cả ở lần ảnh đầu tiên xuất hiện, không chỉ khi bấm nút xem lại. */
+@starting-style {
+  .result-open > .atelier-gen-result-layer { transform: translateY(var(--prompt-offset)); }
+}
+.atelier-gen-result-heading { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 14px; margin-bottom: 18px; }
+.atelier-gen-result-heading h3 { display: flex; align-items: center; gap: 9px; color: var(--text-primary); margin: 0; font-size: 1.05rem; }
+.atelier-gen-result-heading p { margin: 7px 0 0; color: var(--text-muted); font-size: .8rem; }
+.atelier-gen-result-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 9px 13px;
+  min-height: 40px;
+  border: 1px solid var(--border-card-hover);
+  border-radius: var(--radius-sm);
+  background: var(--bg-input);
+  color: var(--text-highlight);
+  font: inherit;
+  font-size: .82rem;
+  cursor: pointer;
+}
+.atelier-gen-result-toggle:hover { background: var(--bg-card-hover); }
+.atelier-gen-result-toggle svg { transition: transform 340ms ease; flex-shrink: 0; }
+.atelier-gen-result-toggle .point-up { transform: rotate(180deg); }
+.atelier-gen-result-viewport {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: clamp(280px, 52vh, 620px);
+  padding: 18px 66px 18px 18px;
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-input);
+}
+.atelier-gen-result-image {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: zoom-in;
+}
+.atelier-gen-result-image img { display: block; width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; }
+.atelier-gen-result-frames-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-rows: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  width: 100%;
+  height: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+}
+.atelier-gen-result-frame-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 0;
+  padding: 4px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  cursor: zoom-in;
+  transition: border-color .16s ease, background .16s ease, transform .16s ease;
+}
+.atelier-gen-result-frame-btn:hover {
+  border-color: var(--border-card-hover);
+  background: var(--bg-card-hover);
+  transform: translateY(-1px);
+}
+.atelier-gen-result-frame-btn img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+.atelier-gen-result-switcher {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  transform: translateY(-50%);
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px;
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(8px);
+}
+.atelier-gen-switcher-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--accent-secondary-btn);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background .16s ease, border-color .16s ease, color .16s ease;
+}
+.atelier-gen-switcher-btn:hover:not(:disabled) {
+  background: var(--accent-secondary-btn-hover);
+  border-color: var(--border-card-hover);
+  color: var(--text-primary);
+}
+.atelier-gen-switcher-btn.active {
+  background: var(--accent-active-tab);
+  border-color: var(--accent-purple);
+  color: var(--text-white);
+  box-shadow: 0 0 12px var(--accent-purple-glow);
+}
+.atelier-gen-switcher-btn:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+.atelier-gen-switcher-index {
+  position: absolute;
+  right: 3px;
+  bottom: 2px;
+  font-size: .62rem;
+  font-weight: 700;
+  line-height: 1;
+}
+.atelier-gen-result-zoom { position: absolute; right: 12px; bottom: 12px; z-index: 2; display: inline-flex; gap: 6px; align-items: center; padding: 7px 10px; border-radius: var(--radius-sm); background: var(--bg-app); color: var(--text-muted); font-size: .75rem; pointer-events: none; }
+.atelier-gen-result-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 16px; }
+.atelier-gen-result-actions .atelier-gen-btn-download { flex: 0 1 auto; width: auto; }
+.atelier-gen-result-note { color: var(--text-muted); font-size: .8rem; line-height: 1.5; margin: 12px 0 0; }
+@media (max-width: 640px) {
+  .atelier-gen-result-layer { padding: 14px; }
+  .atelier-gen-result-viewport { padding: 10px 56px 10px 10px; height: clamp(260px, 42vh, 420px); }
+  .atelier-gen-switcher-btn { width: 32px; height: 32px; }
+  .atelier-gen-result-actions { gap: 8px; }
+  .atelier-gen-result-actions button { flex: 1 1 auto; min-height: 44px; }
+  .atelier-gen-result-toggle { min-height: 44px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .atelier-gen-result-stage, .atelier-gen-result-layer, .atelier-gen-result-toggle svg { transition: none; }
+}

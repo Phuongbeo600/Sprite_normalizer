@@ -32,6 +32,8 @@ from fastapi.staticfiles import StaticFiles
 from backend.api import api_router
 # init_db: Hàm tự động khởi tạo và cập nhật bảng CSDL MySQL
 from backend.db import init_db
+# LocalPromptEnhancerService: Tự động dọn dẹp tiến trình llama-server cục bộ khi tắt máy chủ
+from backend.services.local_prompt_enhancer_service import LocalPromptEnhancerService
 
 # ========================================================
 # 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
@@ -42,13 +44,20 @@ from backend.db import init_db
 async def lifespan(app: FastAPI):
     """
     Quản lý vòng đời khởi động và tắt của ứng dụng FastAPI (Lifespan Context Manager).
-    Khởi tạo và cập nhật cấu trúc cơ sở dữ liệu MySQL khi ứng dụng bắt đầu khởi chạy.
+    Khởi tạo và cập nhật cấu trúc cơ sở dữ liệu MySQL khi ứng dụng bắt đầu khởi chạy,
+    đồng thời dọn dẹp tiến trình AI Local (nếu đang bật) khi tắt máy chủ.
     """
     try:
         init_db()# Khởi tạo và cập nhật cấu trúc cơ sở dữ liệu MySQL khi ứng dụng bắt đầu khởi chạy.
     except Exception as err:
         print(f"[Lifespan] Cảnh báo khởi tạo CSDL: {err}")
-    yield
+    try:
+        yield
+    finally:
+        try:
+            LocalPromptEnhancerService.stop()
+        except Exception as err:
+            print(f"[Lifespan] Cảnh báo dọn dẹp AI Local: {err}")
 
 
 app = FastAPI(

@@ -7,15 +7,20 @@ import React from 'react';
 // ========================================================
 // 2. THƯ VIỆN BÊN NGOÀI
 // ========================================================
-// lucide-react: Bộ biểu tượng cho biểu mẫu, trạng thái và thông báo.
-import { Sparkles, RefreshCw, AlertCircle, CheckCircle2, Trash2, Wand2, Lock, ArrowRight } from "lucide-react";
+// lucide-react: Bộ biểu tượng cho biểu mẫu, trạng thái, công tắc AI Local, dịch thuật và thông báo.
+import { Sparkles, RefreshCw, AlertCircle, CheckCircle2, Trash2, Wand2, Lock, ArrowRight, Power, Languages } from "lucide-react";
 
 // ========================================================
 // 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Thành phần giao diện và dữ liệu)
 // ========================================================
-// Thành phần hiển thị bộ sưu tập và ảnh phóng to.
-import { GeneratedImageGallery, GeneratedImagePreview } from './GeneratedImageResults';
+// Thành phần hiển thị ảnh phóng to kết quả.
+import { GeneratedImagePreview } from './GeneratedImageResults';
+// GenerationResultStage: Đưa kết quả mới nhất lên phủ form và hạ xuống khi chỉnh prompt.
+import GenerationResultStage from './GenerationResultStage';
 import { useImageGeneration } from './useImageGeneration';
+// useLocalPromptEnhancer & PromptEnhancerPanel: Bật/tắt AI Local cổng 8080 và hiển thị gợi ý SSE.
+import { useLocalPromptEnhancer } from './useLocalPromptEnhancer';
+import PromptEnhancerPanel from './PromptEnhancerPanel';
 // ImageApiSource: Phân biệt nguồn mặc định hệ thống và key riêng dự án.
 import ImageApiSource from '../../shared/components/ImageApiSource';
 
@@ -45,6 +50,7 @@ export default function ImageGeneration({
   incomingPrompt = '',
   incomingNegativePrompt = '',
   incomingImage = null,
+  incomingAnatomyData = null,
   onSelectTab,
   onTransferToWorkspace,
   onTransferToGodot,
@@ -54,16 +60,53 @@ export default function ImageGeneration({
     configStatus,
     checkingConfig,
     prompt,
-    setPrompt,
+    handlePromptChange,
+    handleApplyEnhancerSuggestion,
     generating,
+    translateTargetLang,
+    translatingDirection,
     errorMsg,
     successMsg,
     generatedGallery,
     setGeneratedGallery,
+    resultExpanded,
+    setResultExpanded,
     modalImage,
     setModalImage,
-    handleGenerateImage
-  } = useImageGeneration({ currentProject, incomingPrompt, incomingNegativePrompt, incomingImage });
+    handleGenerateImage,
+    handleToggleTranslate
+  } = useImageGeneration({
+    currentProject,
+    incomingPrompt,
+    incomingNegativePrompt,
+    incomingImage,
+    incomingAnatomyData,
+  });
+
+  const {
+    enhancerStatus,
+    togglingEnhancer,
+    toggleAction,
+    enhancing,
+    enhancePhase,
+    enhancePhaseMsg,
+    suggestionText,
+    enhanceError,
+    suggestionTranslateTargetLang,
+    translatingSuggestion,
+    handleToggleEnhancer,
+    handleEnhancePrompt,
+    handleStopEnhancing,
+    handleClearSuggestion,
+    handleToggleTranslateSuggestion,
+  } = useLocalPromptEnhancer();
+
+  const localStateClass = enhancerStatus.ready
+    ? 'ready'
+    : (enhancerStatus.running || togglingEnhancer ? 'loading' : 'off');
+  const localToggleLabel = togglingEnhancer
+    ? (toggleAction === 'stopping' ? 'Đang tắt AI...' : 'Đang nạp model...')
+    : (enhancerStatus.ready ? 'AI Local: Bật (8080)' : (enhancerStatus.running ? 'AI Local: Đang nạp...' : 'AI Local: Tắt'));
 
   /**
    * Chuyển chuỗi Data URL Base64 thành đối tượng File để truyền sang Workspace / Godot
@@ -84,13 +127,17 @@ export default function ImageGeneration({
   };
 
   /**
-   * Tải ảnh trực tiếp về máy tính dạng PNG
+   * Tải ảnh trực tiếp về máy tính dạng PNG (ưu tiên ảnh sheet đã xử lý nếu chọn)
    * @param {Object} imgItem Đối tượng ảnh kết quả
+   * @param {boolean} [preferProcessed=false] Có ưu tiên tải sheet sau hậu xử lý không
    */
-  const handleDownloadImage = (imgItem) => {
+  const handleDownloadImage = (imgItem, preferProcessed = false) => {
+    const processedUrl = imgItem.post_processing?.sheet_data_url;
+    const targetUrl = preferProcessed && processedUrl ? processedUrl : imgItem.data_url;
+    const suffix = preferProcessed && processedUrl ? 'processed' : 'raw';
     const link = document.createElement('a');
-    link.href = imgItem.data_url;
-    link.download = `atelier_sprite_${Date.now()}.png`;
+    link.href = targetUrl;
+    link.download = `atelier_sprite_${suffix}_${Date.now()}.png`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -101,7 +148,8 @@ export default function ImageGeneration({
    * @param {Object} imgItem Đối tượng ảnh kết quả
    */
   const handleSendToWorkspace = (imgItem) => {
-    const file = dataUrlToFile(imgItem.data_url, `generated_${imgItem.id}.png`);
+    const sourceUrl = imgItem.post_processing?.sheet_data_url || imgItem.data_url;
+    const file = dataUrlToFile(sourceUrl, `generated_${imgItem.id}.png`);
     if (onTransferToWorkspace) {
       onTransferToWorkspace(file);
     } else if (onSelectTab) {
@@ -114,7 +162,8 @@ export default function ImageGeneration({
    * @param {Object} imgItem Đối tượng ảnh kết quả
    */
   const handleSendToGodot = (imgItem) => {
-    const file = dataUrlToFile(imgItem.data_url, `generated_${imgItem.id}.png`);
+    const sourceUrl = imgItem.post_processing?.sheet_data_url || imgItem.data_url;
+    const file = dataUrlToFile(sourceUrl, `generated_${imgItem.id}.png`);
     if (onTransferToGodot) {
       onTransferToGodot(file);
     } else if (onSelectTab) {
@@ -146,7 +195,7 @@ export default function ImageGeneration({
             <div className="atelier-gen-api-badge connected">
               <CheckCircle2 size={15} />
               <span>
-                Đã cấu hình: <strong>{configStatus.provider === 'gemini' ? 'Google Gemini' : 'API tương thích OpenAI'}</strong>
+                Đã cấu hình: <strong>{configStatus.provider || 'Chưa xác định'}</strong>
                 {configStatus.model && (
                   <span style={{ marginLeft: '6px', color: '#c084fc', fontWeight: 600 }}>
                     • Model: {configStatus.model}
@@ -157,7 +206,7 @@ export default function ImageGeneration({
           ) : (
             <div className="atelier-gen-api-badge warning">
               <AlertCircle size={15} />
-              <span>Chưa nạp API Key ({configStatus?.provider || 'Gemini'})</span>
+              <span>Chưa nạp API Key ({configStatus?.provider || 'Chưa xác định'})</span>
               {onSelectTab && (
                 <button
                   type="button"
@@ -212,6 +261,17 @@ export default function ImageGeneration({
       )}
 
       {/* 2. Khung Soạn Thảo Prompt & Cấu hình Tham Số */}
+      <GenerationResultStage
+        image={generatedGallery[0]}
+        expanded={resultExpanded && !generating}
+        onExpandedChange={setResultExpanded}
+        onPreview={setModalImage}
+        onDownload={handleDownloadImage}
+        onSendToWorkspace={handleSendToWorkspace}
+        onSendToGodot={handleSendToGodot}
+        onOpenAssets={onSelectTab ? () => onSelectTab('saved_presets') : null}
+        onClear={() => { setGeneratedGallery([]); setResultExpanded(false); }}
+      >
       <div className="atelier-gen-workspace-grid">
         {/* CỘT TRÁI: Ô NHẬP PROMPT & THẺ PHONG CÁCH */}
         <div className="atelier-gen-card">
@@ -220,24 +280,95 @@ export default function ImageGeneration({
               <Wand2 size={16} color="#c084fc" />
               <span>Mô tả nhân vật / Sprite cần tạo (Prompt):</span>
             </label>
-            {prompt && (
+            <div className="atelier-gen-prompt-actions">
               <button
                 type="button"
-                className="atelier-gen-btn-clear"
-                onClick={() => setPrompt('')}
-                title="Xóa nội dung prompt"
+                className={`atelier-gen-local-toggle ${localStateClass}`}
+                onClick={handleToggleEnhancer}
+                disabled={togglingEnhancer || enhancing}
+                title={enhancerStatus.message || 'Bật hoặc tắt máy chủ AI Local (cổng 8080)'}
               >
-                <Trash2 size={12} /> Xóa chữ
+                <span className="atelier-gen-local-dot" aria-hidden="true" />
+                <Power size={12} />
+                <span>{localToggleLabel}</span>
               </button>
-            )}
+
+              <button
+                type="button"
+                className="atelier-gen-btn-translate"
+                onClick={handleToggleTranslate}
+                disabled={!prompt.trim() || Boolean(translatingDirection) || enhancing}
+                title={translateTargetLang === 'en'
+                  ? 'Dịch sang Tiếng Anh (lưu đệm RAM để đổi qua lại không cần dịch lại)'
+                  : 'Đổi sang bản Tiếng Việt (ưu tiên bản gốc đã lưu trong RAM)'}
+              >
+                {translatingDirection ? (
+                  <>
+                    <RefreshCw size={12} className="spin" />
+                    <span>Đang dịch...</span>
+                  </>
+                ) : (
+                  <>
+                    <Languages size={12} />
+                    <span>{translateTargetLang === 'en' ? 'Dịch ➔ EN' : 'Dịch ➔ VI'}</span>
+                  </>
+                )}
+              </button>
+
+              <button
+                type="button"
+                className="atelier-gen-btn-enhance"
+                onClick={() => handleEnhancePrompt(prompt)}
+                disabled={!prompt.trim() || enhancing || togglingEnhancer}
+                title="Dùng AI Local gợi ý nâng cao mô tả nhân vật theo luồng trực tiếp SSE (tự bật cổng 8080 nếu đang tắt)"
+              >
+                {enhancing ? (
+                  <>
+                    <RefreshCw size={12} className="spin" />
+                    <span>Đang gợi ý...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles size={12} />
+                    <span>Nâng cao Prompt</span>
+                  </>
+                )}
+              </button>
+
+              {prompt && (
+                <button
+                  type="button"
+                  className="atelier-gen-btn-clear"
+                  onClick={() => handlePromptChange('')}
+                  title="Xóa nội dung prompt"
+                >
+                  <Trash2 size={12} /> Xóa chữ
+                </button>
+              )}
+            </div>
           </div>
 
           <textarea
             value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
+            onChange={(e) => handlePromptChange(e.target.value)}
             placeholder="Ví dụ: Hiệp sĩ Dark Fantasy phong cách pixel art 16-bit, mặc giáp thép đen viền tím phát sáng, cầm trường kiếm ánh bạc, đứng trên nền trắng thuần khiết..."
             rows={5}
             className="atelier-gen-textarea"
+          />
+
+          <PromptEnhancerPanel
+            enhancing={enhancing}
+            enhancePhase={enhancePhase}
+            enhancePhaseMsg={enhancePhaseMsg}
+            suggestionText={suggestionText}
+            enhanceError={enhanceError}
+            translateTargetLang={suggestionTranslateTargetLang}
+            translating={translatingSuggestion}
+            onToggleTranslate={handleToggleTranslateSuggestion}
+            onStop={handleStopEnhancing}
+            onApply={handleApplyEnhancerSuggestion}
+            onRetry={() => handleEnhancePrompt(prompt)}
+            onClose={handleClearSuggestion}
           />
 
           {/* NÚT BẮT ĐẦU TẠO ẢNH CHÍNH (Đã chuyển vào trong ô Prompt rộng rãi) */}
@@ -268,17 +399,9 @@ export default function ImageGeneration({
         </div>
       </div>
 
-      {/* 3. Bộ Sưu Tập Kết Quả Ảnh Đã Sinh (Gallery) */}
-      <GeneratedImageGallery
-        images={generatedGallery}
-        onClear={() => setGeneratedGallery([])}
-        onPreview={setModalImage}
-        onSendToWorkspace={handleSendToWorkspace}
-        onSendToGodot={handleSendToGodot}
-        onDownload={handleDownloadImage}
-      />
+      </GenerationResultStage>
 
-      {/* 4. Modal Phóng To Xem Chi Tiết Ảnh */}
+      {/* 3. Modal Phóng To Xem Chi Tiết Ảnh */}
       {modalImage && (
         <GeneratedImagePreview
           modalImage={modalImage}

@@ -276,8 +276,8 @@ class TestCharacterProfileService(unittest.TestCase):
         self.assertEqual(len(down_anim["idle"]["frame_descriptions"]), 3)
         self.assertEqual(len(down_anim["walk"]["frame_descriptions"]), 4)
 
-    def test_manual_measurements_use_polygons_and_segments(self):
-        """Kiểm tra đa giác tay có trục và đoạn đo đầu trên cùng ảnh."""
+    def test_manual_measurements_point_to_point_11_metrics(self):
+        """Kiểm tra endpoint /measure-regions tính 11 thông số Point-to-Point, chi gập và phần che khuất."""
         buffer = io.BytesIO()
         self.sample_image.save(buffer, format="PNG")
         buffer.seek(0)
@@ -285,18 +285,23 @@ class TestCharacterProfileService(unittest.TestCase):
         payload = {
             "image_size_px": [32, 48],
             "measurements": {
-                "head": {"start": [8, 12], "end": [16, 18], "width_px": 999},
-                "left_arm": {
-                    "polygon": [[8, 10], [14, 10], [14, 25], [8, 25]],
-                    "axis": [[11, 10], [11, 25]],
-                },
+                "body_height": {"points": [[16, 4], [18, 44]]},
+                "head_width": {"points": [[8, 12], [18, 20]]},
+                "arm_length": {"points": [[10, 14], [10, 22], [16, 22]]},
+                "arm_width": {"points": [[8, 16], [12, 18]]},
+                "shoulder_width": {"occluded": True},
             },
         }
         report = sprites.measure_manual_regions(upload, json.dumps(payload))
-        self.assertEqual(report["measurements"]["head"]["width_px"], 10)
-        self.assertEqual(report["measurements"]["left_arm"]["width_px"], 6)
-        self.assertEqual(len(report["measurements"]["left_arm"]["cuts"]), 3)
-        self.assertIn("left arm width 6 px", report["prompt_notes"])
+        self.assertEqual(report["schema_version"], "point_to_point_v1")
+        self.assertEqual(report["measurements"]["body_height"]["value_px"], 40.0)
+        self.assertEqual(report["measurements"]["head_width"]["value_px"], 10.0)
+        self.assertEqual(report["measurements"]["arm_length"]["value_px"], 14.0)
+        self.assertEqual(report["measurements"]["arm_width"]["value_px"], 4.0)
+        self.assertTrue(report["measurements"]["shoulder_width"]["occluded"])
+        self.assertIsNone(report["raw_anatomy_metrics"]["shoulder_width"])
+        self.assertGreaterEqual(len(report["keypoints"]), 9)
+        self.assertIn("body height 40 px", report["prompt_notes"])
 
     def test_analyze_tab_constraints(self):
         """Kiểm tra phân tích Tab 4 (Tính nhất quán & Ràng buộc phủ định)."""

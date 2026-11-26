@@ -820,116 +820,6 @@
 .studio-legend-cape { color: #ff69b4; }
 .studio-legend-shadow { color: #a0a0a0; }
 
-/* Bàn đo thủ công dùng màu riêng cho từng bộ phận. */
-.sprite-measure-editor {
-  --measure-head: #f9db69;
-  --measure-neck: #63e6ef;
-  --measure-torso: #9ee876;
-  --measure-left_arm: #ffae6d;
-  --measure-right_arm: #bba0ff;
-  --measure-left_leg: #73abff;
-  --measure-right_leg: #ff83bb;
-}
-
-.sprite-measure-toolbar,
-.sprite-measure-actions {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.sprite-measure-actions output {
-  min-width: 34px;
-  text-align: center;
-  font-size: 0.8rem;
-  color: var(--text-muted);
-}
-
-.sprite-measure-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(180px, 230px);
-}
-
-.sprite-measure-scroll {
-  min-width: 0;
-  min-height: 300px;
-  height: clamp(300px, 57vh, 690px);
-  overflow: auto;
-  padding: 16px;
-  background-color: #101827;
-  background-image: conic-gradient(#182339 25%, transparent 0 50%, #182339 0 75%, transparent 0);
-  background-size: 16px 16px;
-}
-
-.sprite-measure-scroll canvas {
-  display: block;
-  image-rendering: pixelated;
-  cursor: crosshair;
-  touch-action: none;
-}
-
-.sprite-measure-scroll canvas:focus-visible {
-  outline: 1px dashed var(--text-muted);
-}
-
-.sprite-measure-controls {
-  display: grid;
-  align-content: start;
-  gap: 10px;
-  padding: 12px;
-  border-inline-start: 1px solid var(--border-subtle);
-  background: var(--bg-sidebar);
-  font-size: 0.8rem;
-}
-
-.sprite-measure-controls fieldset {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-  padding: 6px;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-xs);
-}
-
-.sprite-measure-controls legend {
-  padding-inline: 4px;
-  color: var(--text-muted);
-}
-
-.sprite-measure-controls label {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px;
-  cursor: pointer;
-}
-
-.sprite-measure-controls input {
-  accent-color: var(--accent-purple);
-}
-
-.sprite-measure-part output {
-  margin-inline-start: auto;
-  color: var(--text-primary);
-  font-variant-numeric: tabular-nums;
-}
-
-.sprite-measure-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 2px;
-  flex: 0 0 10px;
-}
-
-.sprite-measure-status {
-  min-height: 40px;
-  margin: 0;
-  padding: 10px 14px;
-  border-top: 1px solid var(--border-subtle);
-  font-size: 0.8rem;
-}
-
 @media (max-width: 680px) {
   #root .app-layout {
     gap: 8px;
@@ -974,14 +864,6 @@
 
   .studio-reference-grid .studio-viewport-controls {
     justify-content: flex-start;
-  }
-
-  .sprite-measure-layout {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .sprite-measure-controls {
-    border-inline-start: 0;
   }
 }
 

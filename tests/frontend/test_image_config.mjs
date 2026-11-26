@@ -58,7 +58,7 @@ test('nút tạo ảnh gửi đồng thời ảnh mẫu, prompt và negative đ�
     calls.push({ url, ...options });
     return { ok: true, json: async () => url.includes('/status')
       ? { ready: true, provider: 'openai', config_source: 'system' }
-      : { images: [{ id: 'new-image' }], provider_used: 'openai' } };
+      : { images: [{ id: 'new-image', data_url: 'data:image/png;base64,aW1hZ2U=' }], provider_used: 'openai', model_used: 'image-model' } };
   } });
   session.flushEffects();
   await new Promise((resolve) => setImmediate(resolve));

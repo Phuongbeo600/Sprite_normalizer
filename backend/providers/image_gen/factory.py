@@ -18,6 +18,7 @@ from .base import BaseImageGenProvider
 from .gemini_imagen_provider import GeminiImagenProvider
 # OpenAiDalleProvider: Hiện thực hóa cho OpenAI DALL-E 3
 from .openai_dalle_provider import OpenAiDalleProvider
+from .cloudflare_workers_ai_provider import CloudflareWorkersAiProvider
 
 # ========================================================
 # 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
@@ -39,6 +40,7 @@ class ImageGenProviderFactory:
     _registry: Dict[str, Type[BaseImageGenProvider]] = {
         "gemini": GeminiImagenProvider,
         "openai": OpenAiDalleProvider,
+        "cloudflare": CloudflareWorkersAiProvider,
     }
 
     @classmethod

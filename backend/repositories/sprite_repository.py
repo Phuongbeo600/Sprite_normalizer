@@ -186,6 +186,34 @@ class SpriteRepository(BaseRepository):
         rows = db.execute(sql, {"project_id": project_id}).mappings().all()
         return [dict(r) for r in rows]
 
+    def _replace_sprite_frames(
+        self,
+        db: Session,
+        sprite_id: int,
+        project_id: int,
+        frames: List[Dict[str, Any]],
+    ) -> None:
+        """Thay thế toàn bộ danh sách khung hình cắt rời của một tấm sprite trong transaction hiện tại."""
+        # Xóa các frame cũ nếu có của sprite này trước khi nạp mới (đảm bảo tính toàn vẹn)
+        db.execute(text("DELETE FROM sprite_frames WHERE sprite_id = :sprite_id;"), {"sprite_id": sprite_id})
+        if not frames:
+            return
+
+        insert_frame_sql = text("""
+            INSERT INTO sprite_frames (sprite_id, project_id, frame_index, frame_name, frame_image_data, metadata)
+            VALUES (:sprite_id, :project_id, :frame_index, :frame_name, :frame_image_data, :metadata);
+        """)
+        for item in frames:
+            f_meta = safe_json_dumps(item.get("metadata") or {"size": item.get("size")})
+            db.execute(insert_frame_sql, {
+                "sprite_id": sprite_id,
+                "project_id": project_id,
+                "frame_index": item.get("index", 1),
+                "frame_name": item.get("name", f"frame_{item.get('index', 1):03}.png"),
+                "frame_image_data": item.get("bytes", b""),
+                "metadata": f_meta,
+            })
+
     def save_sliced_pack(
         self,
         db: Session,
@@ -253,25 +281,7 @@ class SpriteRepository(BaseRepository):
                     raise
 
         try:
-            # Xóa các frame cũ nếu có của sprite này trước khi nạp mới (đảm bảo tính toàn vẹn)
-            db.execute(text("DELETE FROM sprite_frames WHERE sprite_id = :sprite_id;"), {"sprite_id": sprite_id})
-
-            # Lưu danh sách frame cắt rời vào sprite_frames
-            insert_frame_sql = text("""
-                INSERT INTO sprite_frames (sprite_id, project_id, frame_index, frame_name, frame_image_data, metadata)
-                VALUES (:sprite_id, :project_id, :frame_index, :frame_name, :frame_image_data, :metadata);
-            """)
-            for item in frames:
-                f_meta = safe_json_dumps(item.get("metadata") or {"size": item.get("size")})
-                db.execute(insert_frame_sql, {
-                    "sprite_id": sprite_id,
-                    "project_id": project_id,
-                    "frame_index": item.get("index", 1),
-                    "frame_name": item.get("name", f"frame_{item.get('index', 1):03}.png"),
-                    "frame_image_data": item.get("bytes", b""),
-                    "metadata": f_meta
-                })
-
+            self._replace_sprite_frames(db, sprite_id, project_id, frames)
             db.commit()
         except Exception:
             db.rollback()
@@ -282,6 +292,111 @@ class SpriteRepository(BaseRepository):
             "sheet_name": sheet_name,
             "frame_count": len(frames),
             "is_duplicate_sheet": bool(existing)
+        }
+
+    def save_generated_sprite_pack(
+        self,
+        db: Session,
+        project_id: int,
+        name: str,
+        raw_image_bytes: bytes,
+        processed_image_bytes: Optional[bytes] = None,
+        frames: Optional[List[Dict[str, Any]]] = None,
+        folder_name: str = "Tạo ảnh AI",
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """
+        Lưu đồng thời ảnh gốc trả về từ API tạo ảnh AI, ảnh Sprite Sheet sau hậu xử lý
+        (nếu có) và danh sách các frame đã chuẩn hóa vào MySQL trong một transaction nguyên tử.
+
+        @param db Phiên làm việc cơ sở dữ liệu.
+        @param project_id Mã định danh dự án.
+        @param name Tên tệp hiển thị trong Kho Tài Nguyên Dự Án.
+        @param raw_image_bytes Dữ liệu PNG gốc nhận từ API AI.
+        @param processed_image_bytes Dữ liệu PNG Sprite Sheet đã ghép sau hậu xử lý (hoặc None).
+        @param frames Danh sách các khung hình con đã cắt & ép kích thước (nếu có).
+        @param folder_name Tên thư mục gom nhóm trong Kho Tài Nguyên.
+        @param metadata Thông tin ngữ cảnh (provider, model, prompt, kích thước, trạng thái hậu xử lý).
+        @returns {Dict[str, Any]} Thông tin bản ghi vừa lưu (sprite_id, has_processed, frame_count).
+        """
+        frame_items = list(frames or [])
+        is_sheet = 1 if (frame_items or processed_image_bytes is not None) else 0
+        status = "processed" if processed_image_bytes is not None else "raw"
+        file_hash = hashlib.sha256(raw_image_bytes).hexdigest() if raw_image_bytes else None
+
+        meta_dict = dict(metadata or {})
+        if file_hash:
+            meta_dict["file_hash"] = file_hash
+        meta_dict["frame_count"] = len(frame_items)
+        meta_json = safe_json_dumps(meta_dict)
+
+        existing = self.get_by_hash(db, project_id, file_hash) if file_hash else None
+        if existing:
+            sprite_id = existing["id"]
+            if processed_image_bytes is not None:
+                update_sql = text("""
+                    UPDATE project_sprites
+                    SET folder_name = :folder_name,
+                        is_sheet = :is_sheet,
+                        processed_image_data = :processed_image_data,
+                        processing_metadata = :processing_metadata,
+                        status = 'processed',
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE id = :id AND project_id = :project_id;
+                """)
+                db.execute(update_sql, {
+                    "id": sprite_id,
+                    "project_id": project_id,
+                    "folder_name": folder_name,
+                    "is_sheet": is_sheet,
+                    "processed_image_data": processed_image_bytes,
+                    "processing_metadata": meta_json,
+                })
+        else:
+            insert_sql = text("""
+                INSERT INTO project_sprites (
+                    project_id, name, file_hash, folder_name, is_sheet,
+                    raw_image_data, processed_image_data, processing_metadata, status
+                )
+                VALUES (
+                    :project_id, :name, :file_hash, :folder_name, :is_sheet,
+                    :raw_image_data, :processed_image_data, :processing_metadata, :status
+                );
+            """)
+            try:
+                res = db.execute(insert_sql, {
+                    "project_id": project_id,
+                    "name": name,
+                    "file_hash": file_hash,
+                    "folder_name": folder_name,
+                    "is_sheet": is_sheet,
+                    "raw_image_data": raw_image_bytes,
+                    "processed_image_data": processed_image_bytes,
+                    "processing_metadata": meta_json,
+                    "status": status,
+                })
+                sprite_id = res.lastrowid
+            except IntegrityError:
+                db.rollback()
+                existing = self.get_by_hash(db, project_id, file_hash) if file_hash else None
+                if existing:
+                    sprite_id = existing["id"]
+                else:
+                    raise
+
+        try:
+            if frame_items:
+                self._replace_sprite_frames(db, sprite_id, project_id, frame_items)
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
+
+        return {
+            "sprite_id": sprite_id,
+            "folder_name": folder_name,
+            "has_processed": processed_image_bytes is not None,
+            "frame_count": len(frame_items),
         }
 
     def get_sprite_frames(self, db: Session, sprite_id: int) -> List[Dict[str, Any]]:

@@ -5,7 +5,6 @@ import { useState, useEffect, useRef, useCallback } from "react";
 
 // 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Dữ liệu và yêu cầu của tính năng)
 import { fetchAssetList, presetCollectionUrl, requestPresetDetail, requestSpriteFrames, fetchSpriteFile, requestDeleteSprite, requestDeletePreset, requestDeleteCharacter, requestDeleteMap, fetchAssetMap } from './assetRequests';
-import { spriteImageUrl } from './assetRequests';
 import { buildWorkspaceSheetPayload } from './assetMetadata';
 
 // 4. ĐỊNH DẠNG GIAO DIỆN / CẤU HÌNH (Không sử dụng)
@@ -157,18 +156,30 @@ export function useProjectAssets({ currentProject, isActive, onLoadPresetToStudi
   };
 
   /**
-   * Tải tệp ảnh PNG về máy tính người dùng.
+   * Tải tệp ảnh PNG về máy tính người dùng (kèm JWT header nếu dự án có chủ sở hữu).
    * @param {Object} sprite Bản ghi sprite
    * @param {boolean} isProcessed Cờ tải ảnh đã qua xử lý
    */
-  const handleDownloadSprite = (sprite, isProcessed = false) => {
-    const url = spriteImageUrl(currentProject.id, sprite.id, isProcessed && sprite.has_processed);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${sprite.name || 'sprite'}${isProcessed ? '_processed' : '_raw'}.png`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+  const handleDownloadSprite = async (sprite, isProcessed = false) => {
+    const useProcessed = Boolean(isProcessed && sprite.has_processed);
+    const filename = `${sprite.name || 'sprite'}${useProcessed ? '_processed' : '_raw'}.png`;
+    try {
+      const file = await fetchSpriteFile(
+        currentProject.id,
+        { ...sprite, has_processed: useProcessed },
+        filename
+      );
+      const url = URL.createObjectURL(file);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      alert(err.message || 'Không thể tải ảnh PNG về máy.');
+    }
   };
 
   /**

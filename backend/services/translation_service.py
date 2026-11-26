@@ -27,7 +27,9 @@ from typing import List, Dict, Tuple, Optional, Any
 # (Không áp dụng cho file backend)
 
 # Khóa luồng bảo vệ khởi tạo lười mô hình Argos an toàn trong môi trường đa luồng
-_init_lock = threading.Lock()
+# _ensure_initialized gọi _get_argos trong cùng luồng khi đang giữ khóa này.
+# RLock cho phép chiếm lại, vẫn tuần tự hóa khởi tạo giữa các luồng.
+_init_lock = threading.RLock()
 # Biến bộ nhớ lưu trữ module argostranslate sau khi nạp lười
 _argos_module = None
 
