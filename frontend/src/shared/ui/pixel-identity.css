@@ -25,14 +25,6 @@
   filter: drop-shadow(0 0 10px rgba(245, 158, 11, 0.6)) drop-shadow(0 0 20px rgba(234, 179, 8, 0.25));
 }
 
-.pixel-art-glow-cyan {
-  filter: drop-shadow(0 0 10px rgba(56, 189, 248, 0.6)) drop-shadow(0 0 20px rgba(14, 165, 233, 0.25));
-}
-
-.pixel-art-glow-emerald {
-  filter: drop-shadow(0 0 10px rgba(16, 185, 129, 0.6)) drop-shadow(0 0 20px rgba(5, 150, 105, 0.25));
-}
-
 /* 3. Hiệu ứng lơ lửng nhẹ nhàng kiểu vật phẩm ma thuật RPG */
 @keyframes pixelFloat {
   0%, 100% {
@@ -47,60 +39,7 @@
   animation: pixelFloat 3.2s ease-in-out infinite;
 }
 
-/* 4. Hình bóng chìm hậu cảnh (Ambient Watermark) */
-.pixel-ambient-watermark {
-  position: absolute;
-  pointer-events: none;
-  user-select: none;
-  z-index: 0;
-  opacity: 0.055;
-  transition: opacity 0.3s ease;
-}
-
-/* 5. Hoa văn cổ rune trang trí góc thẻ card */
-.pixel-corner-rune {
-  position: absolute;
-  pointer-events: none;
-  user-select: none;
-  opacity: 0.35;
-  transition: opacity 0.25s ease, filter 0.25s ease;
-}
-
-.atelier-prompt-studio-card:hover .pixel-corner-rune,
-.atelier-assets-card:hover .pixel-corner-rune,
-.atelier-gen-panel:hover .pixel-corner-rune {
-  opacity: 0.85;
-  filter: drop-shadow(0 0 6px rgba(192, 132, 252, 0.7));
-}
-
-.pixel-corner-top-right {
-  top: 14px;
-  right: 16px;
-}
-
-.pixel-corner-bottom-right {
-  bottom: 14px;
-  right: 16px;
-}
-
-.pixel-corner-top-left {
-  top: 14px;
-  left: 16px;
-}
-
-/* 6. Khung chứa Empty State phong cách Pixel Game */
-.pixel-empty-stage {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 14px;
-  padding: 40px 24px;
-  text-align: center;
-  position: relative;
-  overflow: hidden;
-}
-
+/* 4. Khung chứa Empty State phong cách Pixel Game */
 .pixel-empty-icon-wrap {
   position: relative;
   display: inline-flex;

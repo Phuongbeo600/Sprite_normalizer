@@ -13,7 +13,7 @@
 # ========================================================
 # Schemas xác thực người dùng
 from .auth import LoginRequest, RegisterRequest, UpdateProfileRequest
-# Schemas cho Dự án, Cài đặt và Cố vấn Prompt
+# Schemas cho Dự án
 from .project import (
     ProjectCreateRequest,
     ProjectItem,
@@ -21,30 +21,10 @@ from .project import (
     ProjectApiConfigRequest,
     SaveCharacterPresetRequest
 )
-from .settings import SettingsResponse, SettingsUpdateRequest, TestApiKeyRequest
-from .character.prompt import (
-    NewCharacterPromptRequest,
-    GeneratePromptFromProfileRequest,
-    CompileSpriteSheetPromptRequest
-)
-# Schema mới cho Phân tích Asset nhân vật tham chiếu AI
+# Schemas đo màu nhân vật đang dùng
 from .character import (
-    IdentityAnalysis,
-    AnatomyAnalysis,
-    PixelStyleAnalysis,
-    MaterialType,
-    MaterialAnalysis,
-    ViewType,
-    DirectionProfile,
-    DirectionAnalysis,
-    AnimationType,
-    AnimationProfile,
-    DirectionAnimation,
-    AnimationAnalysis,
-    GlobalAnalysis,
-    ConsistencyAnalysis,
-    NegativeConstraints,
-    AIAnalysis
+    DominantColorItem,
+    PaletteMetrics,
 )
 
 # ========================================================
@@ -57,33 +37,13 @@ __all__ = [
     "LoginRequest",
     "RegisterRequest",
     "UpdateProfileRequest",
-    # Schemas hệ thống dự án & cài đặt
+    # Schemas hệ thống dự án
     "ProjectCreateRequest",
     "ProjectItem",
     "ProjectListResponse",
     "ProjectApiConfigRequest",
     "SaveCharacterPresetRequest",
-    "SettingsResponse",
-    "SettingsUpdateRequest",
-    "TestApiKeyRequest",
-    "NewCharacterPromptRequest",
-    "GeneratePromptFromProfileRequest",
-    "CompileSpriteSheetPromptRequest",
-    # Schemas phân tích nhân vật mới
-    "IdentityAnalysis",
-    "AnatomyAnalysis",
-    "PixelStyleAnalysis",
-    "MaterialType",
-    "MaterialAnalysis",
-    "ViewType",
-    "DirectionProfile",
-    "DirectionAnalysis",
-    "AnimationType",
-    "AnimationProfile",
-    "DirectionAnimation",
-    "AnimationAnalysis",
-    "GlobalAnalysis",
-    "ConsistencyAnalysis",
-    "NegativeConstraints",
-    "AIAnalysis"
+    # Schemas nhân vật đang sử dụng
+    "DominantColorItem",
+    "PaletteMetrics",
 ]

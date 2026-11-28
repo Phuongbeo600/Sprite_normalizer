@@ -28,11 +28,6 @@ from PIL import Image
 from backend.schemas.auth import LoginRequest, RegisterRequest, UpdateProfileRequest
 # Schemas dự án mới tách từ projects.py
 from backend.schemas.project import ProjectApiConfigRequest, SaveCharacterPresetRequest
-# Schemas prompt mới tách từ character_analysis.py
-from backend.schemas.character.prompt import (
-    GeneratePromptFromProfileRequest,
-    CompileSpriteSheetPromptRequest
-)
 # sprites router & helpers
 from backend.api.v1.sprites import (
     get_sprite_repository,
@@ -61,7 +56,6 @@ class TestApiV1SchemasC53(unittest.TestCase):
     Bộ kiểm thử đơn vị cho các Pydantic DTOs/Schemas được tách từ Router (U-11):
     - Auth Schemas: LoginRequest, RegisterRequest, UpdateProfileRequest.
     - Project Schemas: ProjectApiConfigRequest, SaveCharacterPresetRequest.
-    - Character Prompt Schemas: GeneratePromptFromProfileRequest, CompileSpriteSheetPromptRequest.
     """
 
     def test_auth_schemas(self):
@@ -92,19 +86,6 @@ class TestApiV1SchemasC53(unittest.TestCase):
         )
         self.assertEqual(preset.name, "Preset 1")
         self.assertEqual(preset.stature_rule, "Bằng nhân vật gốc (Tỷ lệ chuẩn)")
-
-    def test_character_prompt_schemas(self):
-        """Kiểm tra khởi tạo các schema yêu cầu tạo Prompt từ hồ sơ nhân vật."""
-        gen = GeneratePromptFromProfileRequest()
-        self.assertEqual(gen.stature_rule, "Bằng nhân vật gốc (Tỷ lệ chuẩn)")
-        self.assertTrue(gen.inherit_scale)
-        self.assertTrue(gen.inherit_style)
-
-        compile_req = CompileSpriteSheetPromptRequest(
-            character_concept="Ninja bóng đêm"
-        )
-        self.assertEqual(compile_req.character_concept, "Ninja bóng đêm")
-        self.assertEqual(compile_req.profile_data, {})
 
 
 class TestSpriteRouterRefactoringC53(unittest.TestCase):

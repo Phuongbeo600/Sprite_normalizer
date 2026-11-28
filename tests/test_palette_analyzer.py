@@ -17,8 +17,6 @@ from PIL import Image
 from backend.core.metrics.palette_analyzer import HeuristicPaletteAnalyzer
 # PaletteMetrics: Schema Pydantic lưu trữ 6 tiêu chuẩn màu sắc
 from backend.schemas.character.palette import PaletteMetrics
-# PromptBuilderService: Dịch vụ biên dịch Prompt ma trận frame tích hợp bảng màu
-from backend.services.character.prompt_builder_service import PromptBuilderService
 
 # ========================================================
 # 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
@@ -108,54 +106,6 @@ class TestPaletteAnalyzer(unittest.TestCase):
         # Master Color Prompt phải có chứa thông số
         self.assertIn("MASTER COLOR & GRAPHIC PALETTE SPECIFICATIONS", metrics.master_color_prompt)
         self.assertIn("transparent background", metrics.master_color_prompt)
-
-    def test_prompt_builder_integration_with_palette(self):
-        """Kiểm tra PromptBuilderService tự động tích hợp Master Color Prompt ở đầu câu."""
-        profile_data = {
-            "anatomy": {"anatomical_height": 56, "head_to_body_ratio": "1:3.5"},
-            "pixel_style": {"pixel_art_era": "16-bit SNES"},
-            "palette_metrics": {
-                "total_colors": 24,
-                "palette_era": "16-bit SNES / GBA Classic (16-32 colors)",
-                "top_hex_list": ["#8b5cf6", "#3b82f6", "#10b981", "#000000"],
-                "shading_steps": 2,
-                "shading_style_detected": "2-Tone Cel-Shading",
-                "hue_shifting_detected": True,
-                "hue_shift_description": "Active Hue-Shifting detected (~16.2° shift)",
-                "outline_style_detected": "Selective Dark Outline (Selout)",
-                "average_saturation": 0.62,
-                "saturation_type": "Vibrant Retro Pixel Saturation",
-                "contrast_ratio": 7.2,
-                "contrast_type": "High Contrast",
-                "master_color_prompt": (
-                    "MASTER COLOR & GRAPHIC PALETTE SPECIFICATIONS (STRICTLY HARMONIZED WITH REFERENCE ASSET):\n"
-                    "- Color Budget: Strictly indexed 24-color palette (16-bit SNES / GBA Classic), primary palette anchors: [#8b5cf6, #3b82f6].\n"
-                    "- Shading Architecture: 2-Tone Cel-Shading per surface (2 distinct tone levels).\n"
-                    "- Hue-Shifting Rule: Active Hue-Shifting detected (~16.2° shift).\n"
-                    "- Outline Grammar: Selective Dark Outline (Selout).\n"
-                    "- Background: Isolated on pure transparent background (PNG alpha channel)."
-                )
-            }
-        }
-
-        compiled = PromptBuilderService.compile_sprite_sheet_prompt(
-            character_concept="Nữ pháp sư tím",
-            profile_data=profile_data
-        )
-
-        pos_prompt = compiled["positive_prompt"]
-        # Khung to nhất phải nằm ở đầu câu
-        self.assertTrue(pos_prompt.startswith("MASTER COLOR & GRAPHIC PALETTE SPECIFICATIONS"))
-        self.assertIn("Outline Grammar: Selective Dark Outline (Selout).", pos_prompt)
-        self.assertNotIn("distinct tone levels", pos_prompt)
-        # Vẫn bảo toàn nguyên vẹn 100% Ma trận 15 frame ở khung dưới
-        self.assertIn("SPRITE SHEET GRID LAYOUT (3 Rows x 5 Columns, total 15 frames)", pos_prompt)
-        self.assertIn("[ROW 1 - DOWN / FRONT VIEW]:", pos_prompt)
-        self.assertIn("[ROW 2 - SIDE / RIGHT PROFILE VIEW]:", pos_prompt)
-        self.assertIn("[ROW 3 - UP / BACK VIEW]:", pos_prompt)
-        # Nền trong suốt
-        self.assertIn("transparent background", pos_prompt)
-        self.assertIn("background scenery", compiled["negative_prompt"])
 
 
 if __name__ == "__main__":

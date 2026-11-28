@@ -13,8 +13,6 @@
 # ========================================================
 from .projects import projects_router
 from .sprites import sprites_router
-from .settings import settings_router
-from .character_analysis import character_analysis_router
 
 # ========================================================
 # 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
@@ -24,6 +22,4 @@ from .character_analysis import character_analysis_router
 __all__ = [
     "projects_router",
     "sprites_router",
-    "settings_router",
-    "character_analysis_router"
 ]

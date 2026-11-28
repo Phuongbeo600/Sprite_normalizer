@@ -8,7 +8,7 @@ Tại sao tồn tại: Tách biệt hoàn toàn hợp đồng dữ liệu Offlin
 # ========================================================
 # 1. THƯ VIỆN NỀN TẢNG PYTHON (Kiểu dữ liệu)
 # ========================================================
-from typing import List, Optional
+from typing import Optional
 
 # ========================================================
 # 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
@@ -61,12 +61,3 @@ class OfflineReindexRequest(BaseModel):
     """Yêu cầu đồng bộ tăng dần hoặc xây dựng lại toàn bộ chỉ mục tri thức."""
 
     force_rebuild: bool = Field(False, description="True để xóa chỉ mục cũ và nhúng lại toàn bộ tài liệu")
-
-
-class OfflineSourceItem(BaseModel):
-    """Thông tin trích dẫn nguồn tài liệu đã được đưa vào ngữ cảnh trả lời."""
-
-    chunk_id: str = Field(..., description="Mã định danh chunk")
-    doc_path: str = Field(..., description="Đường dẫn tương đối của tài liệu nguồn")
-    title: str = Field(..., description="Tiêu đề mục tài liệu")
-    score: float = Field(..., description="Điểm tương đồng Cosine với truy vấn")

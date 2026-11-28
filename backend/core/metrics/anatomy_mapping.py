@@ -12,7 +12,7 @@ và biến [ANATOMICAL_DESCRIPTION] trong Master Prompt Template.
 # math: Kiểm tra số hữu hạn (isfinite) và tính khoảng cách hai điểm trục chi (dist)
 import math
 # typing: Khai báo kiểu tùy chọn, ánh xạ, bộ quy tắc và từ điển
-from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Mapping, Optional, Tuple
 
 # ========================================================
 # 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)

@@ -11,12 +11,9 @@
 # ========================================================
 # 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Services)
 # ========================================================
-# Phân hệ Hồ sơ nhân vật & Prompt Studio (Character)
-from .character.character_analysis_service import CharacterAnalysisService
-from .character.prompt_builder_service import PromptBuilderService
-from .character.reference_style_service import generate_style_prompt
+# Phân hệ Phân tích Giải phẫu Nhân vật (Character)
 from .character.anatomy_service import AnatomyService
-from .character import character_analysis_service, prompt_builder_service, reference_style_service, anatomy_service
+from .character import anatomy_service
 
 # Phân hệ Phòng thử nghiệm Godot (Testbed)
 from .testbed.testbed_service import TestbedService
@@ -37,10 +34,7 @@ from .translation_service import TranslationService
 # (Không áp dụng cho file backend)
 
 __all__ = [
-    # Character & Prompt
-    "CharacterAnalysisService",
-    "PromptBuilderService",
-    "generate_style_prompt",
+    # Character
     "AnatomyService",
     # Godot Testbed
     "TestbedService",

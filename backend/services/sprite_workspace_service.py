@@ -2,7 +2,6 @@
 import hashlib
 import io
 import json
-from base64 import b64encode
 
 # 2. THƯ VIỆN BÊN NGOÀI (Đọc và ghép ảnh)
 from PIL import Image, ImageOps

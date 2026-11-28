@@ -6,12 +6,6 @@ import os
 import sys
 # unittest: Framework kiểm thử đơn vị tiêu chuẩn của Python
 import unittest
-# mock: Giả lập biến môi trường và gọi hàm hệ thống
-from unittest.mock import patch, MagicMock
-# tempfile, shutil: Tạo môi trường thư mục tạm kiểm thử ghi file .env
-import tempfile
-import shutil
-from pathlib import Path
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -21,12 +15,10 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 # (Không có phụ thuộc bên ngoài ngoài standard library)
 
 # ========================================================
-# 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Main Server & Settings Service)
+# 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Main Server)
 # ========================================================
 # get_uvicorn_config: Hàm xác định cấu hình máy chủ Uvicorn
 from backend.main import get_uvicorn_config
-# SettingsService: Dịch vụ cấu hình hệ thống hỗ trợ an toàn đa tiến trình
-from backend.services.settings_service import SettingsService
 
 # ========================================================
 # 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
@@ -41,7 +33,6 @@ class TestUvicornAndWorkerConfiguration(unittest.TestCase):
     - Kiểm tra cấu hình tối ưu trong môi trường Production (Multi-Worker, reload=False).
     - Kiểm tra khả năng tùy chỉnh số lượng Worker qua UVICORN_WORKERS và WEB_CONCURRENCY.
     - Kiểm tra các thông số bảo vệ quá tải: limit_concurrency, timeout_keep_alive, timeout_graceful_shutdown.
-    - Kiểm tra cơ chế tạo file tạm .env có PID/timestamp chống xung đột giữa các Worker.
     """
 
     def setUp(self):
@@ -118,45 +109,6 @@ class TestUvicornAndWorkerConfiguration(unittest.TestCase):
         cfg = get_uvicorn_config()
 
         self.assertEqual(cfg["workers"], 3, "Phải nhận đúng số Worker từ WEB_CONCURRENCY khi thiếu UVICORN_WORKERS.")
-
-    def test_settings_service_atomic_file_temp_naming_distinct(self):
-        """
-        Kiểm tra cơ chế lưu file .env qua file tạm có chứa PID và timestamp:
-        - Đảm bảo tên file tạm không cố định là .env.tmp mà mang định danh tiến trình duy nhất.
-        """
-        temp_dir = tempfile.mkdtemp()
-        mock_env_file = Path(temp_dir) / ".env"
-        mock_env_file.write_text("AI_PROVIDER=gemini\n", encoding="utf-8")
-
-        original_env_path = SettingsService.ENV_PATH
-        SettingsService.ENV_PATH = mock_env_file
-
-        created_temp_paths = []
-        original_open = open
-
-        def intercept_open(file, *args, **kwargs):
-            file_str = str(file)
-            if ".tmp" in file_str and ".env." in file_str:
-                created_temp_paths.append(file_str)
-            return original_open(file, *args, **kwargs)
-
-        try:
-            with patch("builtins.open", side_effect=intercept_open):
-                SettingsService.save_settings(provider="openai", openai_api_key="sk-test-key-12345678")
-
-            # Xác minh file tạm đã được tạo với PID trong tên
-            self.assertTrue(len(created_temp_paths) > 0, "Phải tạo file tạm phân biệt khi ghi .env.")
-            expected_pid_fragment = f".env.{os.getpid()}_"
-            self.assertTrue(
-                any(expected_pid_fragment in path for path in created_temp_paths),
-                f"Tên file tạm phải chứa PID ({os.getpid()}) của tiến trình để chống xung đột."
-            )
-            # Xác minh file .env đã được cập nhật thành công
-            content = mock_env_file.read_text(encoding="utf-8")
-            self.assertIn("AI_PROVIDER=openai", content)
-        finally:
-            SettingsService.ENV_PATH = original_env_path
-            shutil.rmtree(temp_dir, ignore_errors=True)
 
 
 if __name__ == "__main__":

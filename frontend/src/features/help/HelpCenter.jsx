@@ -33,8 +33,7 @@ import renderGuideArticle from './renderGuideArticle';
 // ========================================================
 // 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC
 // ========================================================
-// Kế thừa phong cách Dark Fantasy Atelier từ help-atelier.css
-import './help-atelier.css';
+// Giao diện sử dụng định dạng nội tuyến của Help Center.
 
 /**
  * Ánh xạ icon tương ứng với danh mục hướng dẫn.

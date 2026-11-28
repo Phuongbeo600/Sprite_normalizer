@@ -1,8 +1,8 @@
 # ========================================================
 # 1. THƯ VIỆN NỀN TẢNG PYTHON (Cấu trúc, Liệt kê & Kiểu)
 # ========================================================
-# typing: Định nghĩa các kiểu danh sách, chuỗi, số thực và tùy chọn
-from typing import List, Optional, Dict, Any
+# typing: Định nghĩa các kiểu danh sách và tùy chọn
+from typing import List, Optional
 
 # ========================================================
 # 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)

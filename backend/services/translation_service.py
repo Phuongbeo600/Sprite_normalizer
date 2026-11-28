@@ -7,8 +7,8 @@ import re
 import threading
 # OrderedDict: Cấu trúc từ điển có thứ tự phục vụ cơ chế LRU Cache giải phóng bộ nhớ
 from collections import OrderedDict
-# typing: Định nghĩa các kiểu dữ liệu mảng, từ điển và tùy chọn
-from typing import List, Dict, Tuple, Optional, Any
+# typing: Định nghĩa các kiểu dữ liệu mảng, từ điển và bộ giá trị
+from typing import List, Dict, Tuple, Any
 
 # ========================================================
 # 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)

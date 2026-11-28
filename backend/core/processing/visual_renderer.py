@@ -1,8 +1,7 @@
 # ========================================================
 # 1. THƯ VIỆN NỀN TẢNG PYTHON (Cấu trúc dữ liệu & Kiểu)
 # ========================================================
-# typing: Định nghĩa các kiểu dữ liệu
-from typing import Tuple
+# (Không phụ thuộc mô-đun typing bổ sung)
 
 # ========================================================
 # 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)

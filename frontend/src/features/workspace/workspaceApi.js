@@ -47,46 +47,6 @@ export async function processImage(file, route, fields, signal) {
 }
 
 /**
- * Lưu ảnh nguồn của dự án và báo lại mã bản ghi khi máy chủ trả về.
- *
- * @param {File} file Ảnh nguồn cần lưu.
- * @param {number|string} projectId Mã dự án hiện tại.
- * @param {string} fallbackName Tên thay thế khi tệp ảnh không có tên.
- * @param {Function} onSaved Hàm nhận mã bản ghi ảnh đã lưu.
- * @returns {void}
- */
-export function saveRawSprite(file, projectId, fallbackName, onSaved) {
-  const form = new FormData();
-  form.append('file', file);
-  form.append('project_id', projectId);
-  form.append('name', file.name || fallbackName);
-  fetch('/api/sprites/save-raw', { method: 'POST', headers: getAuthHeaders(), body: form })
-    .then((res) => (res.ok ? res.json() : null))
-    .then((data) => {
-      if (data && data.id) {
-        onSaved(data.id);
-      }
-    })
-    .catch((err) => console.error('Lỗi khi lưu ảnh gốc vào MySQL:', err));
-}
-
-/**
- * Lưu ảnh sau xử lý vào bản ghi của ảnh nguồn.
- *
- * @param {Blob} blob Nội dung ảnh sau xử lý.
- * @param {number|string} projectId Mã dự án hiện tại.
- * @param {number|string} spriteId Mã bản ghi ảnh nguồn.
- * @returns {void}
- */
-export function saveProcessedSprite(blob, projectId, spriteId) {
-  const form = new FormData();
-  form.append('file', blob, 'processed.png');
-  form.append('project_id', projectId);
-  fetch(`/api/sprites/${spriteId}/save-processed`, { method: 'POST', headers: getAuthHeaders(), body: form })
-    .catch((err) => console.error('Lỗi khi lưu ảnh tối ưu vào MySQL:', err));
-}
-
-/**
  * Phân tích và lấy toàn bộ bảng màu gốc của ảnh sprite qua backend.
  *
  * @param {File|Blob} file Tệp ảnh sprite cần phân tích màu.

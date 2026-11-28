@@ -10,8 +10,8 @@ import time
 import asyncio
 import httpx
 from PIL import Image
-# typing: Khai báo gợi ý kiểu dữ liệu danh sách, từ điển, tùy chọn
-from typing import List, Optional, Dict, Any
+# typing: Khai báo gợi ý kiểu dữ liệu tùy chọn
+from typing import Optional
 
 # ========================================================
 # 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)

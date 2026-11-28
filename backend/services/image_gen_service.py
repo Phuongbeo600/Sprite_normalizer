@@ -1,8 +1,8 @@
 # ========================================================
 # 1. THƯ VIỆN NỀN TẢNG PYTHON (Hệ thống & Kiểu dữ liệu)
 # ========================================================
-# typing: Định nghĩa các kiểu danh sách, từ điển, tùy chọn, bộ giá trị
-from typing import Dict, Any, List, Optional, Tuple
+# typing: Định nghĩa các kiểu từ điển, tùy chọn, bộ giá trị
+from typing import Dict, Any, Optional, Tuple
 
 # ========================================================
 # 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
@@ -32,7 +32,7 @@ from backend.providers.image_gen import (
     OpenAiDalleProvider
 )
 # Schemas: DTO kiểm tra dữ liệu yêu cầu và phản hồi sinh ảnh
-from backend.schemas.image_gen import ImageGenRequest, ImageGenResponse, GeneratedImageItem
+from backend.schemas.image_gen import ImageGenRequest, ImageGenResponse
 
 # ========================================================
 # 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
@@ -193,49 +193,3 @@ class ImageGenService:
         @returns {ImageGenResponse} Phản hồi đã gắn saved_sprite_id và saved_to_project.
         """
         return save_generated_images_to_project(request=request, response=response, db=db)
-
-    # ========================================================
-    # CÁC PHƯƠNG THỨC ỦY QUYỀN TƯƠNG THÍCH NGƯỢC (Backward Compatibility)
-    # ========================================================
-
-    @classmethod
-    def _generate_with_gemini_imagen(
-        cls,
-        api_key: str,
-        prompt: str,
-        negative_prompt: Optional[str],
-        aspect_ratio: str,
-        number_of_images: int,
-        image: Optional[str] = None
-    ) -> ImageGenResponse:
-        """Phương thức tương thích ngược ủy quyền sang GeminiImagenProvider."""
-        return GeminiImagenProvider().generate_images(
-            api_key=api_key,
-            prompt=prompt,
-            negative_prompt=negative_prompt,
-            aspect_ratio=aspect_ratio,
-            number_of_images=number_of_images,
-            image=image
-        )
-
-    @classmethod
-    def _generate_with_openai(
-        cls,
-        api_key: str,
-        base_url: Optional[str],
-        prompt: str,
-        negative_prompt: Optional[str],
-        aspect_ratio: str,
-        number_of_images: int,
-        image: Optional[str] = None
-    ) -> ImageGenResponse:
-        """Phương thức tương thích ngược ủy quyền sang OpenAiDalleProvider."""
-        return OpenAiDalleProvider().generate_images(
-            api_key=api_key,
-            prompt=prompt,
-            negative_prompt=negative_prompt,
-            aspect_ratio=aspect_ratio,
-            number_of_images=number_of_images,
-            base_url=base_url,
-            image=image
-        )

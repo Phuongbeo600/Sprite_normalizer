@@ -16,10 +16,6 @@ from fastapi import APIRouter
 from backend.api.v1.projects import projects_router
 # sprites_router: Phân hệ chuẩn hóa và phân tích giải phẫu (/api/normalize, /api/analyze)
 from backend.api.v1.sprites import sprites_router
-# settings_router: Phân hệ cấu hình hệ thống & API Key (/api/settings)
-from backend.api.v1.settings import settings_router
-# character_analysis_router: Phân hệ phân tích hồ sơ nhân vật tham chiếu theo Tab (/api/character-profile)
-from backend.api.v1.character_analysis import character_analysis_router
 # image_gen_router: Phân hệ tạo ảnh nhân vật / sprite bằng mô hình AI (/api/image-gen)
 from backend.api.v1.image_gen import image_gen_router
 # translation_router: Phân hệ dịch thuật prompt 2 chiều offline không cần API key (/api/translate)
@@ -30,8 +26,6 @@ from backend.api.v1.testbed import testbed_router
 from backend.api.v1.auth import auth_router
 # users_router: Phân hệ quản trị tài khoản người dùng dành cho Admin (/api/users)
 from backend.api.v1.users import users_router
-# chat_router: Phân hệ trợ lý AI Chatbot phát luồng thời gian thực qua SSE (/api/chat)
-from backend.api.v1.chat import chat_router
 # offline_chat_router: Phân hệ Chatbot RAG Offline độc lập dùng Qwen3.5-4B & BGE-M3 (/api/offline-chat)
 from backend.api.v1.offline_chat import offline_chat_router
 
@@ -47,12 +41,9 @@ api_router.include_router(auth_router)
 api_router.include_router(users_router)
 api_router.include_router(projects_router)
 api_router.include_router(sprites_router)
-api_router.include_router(settings_router)
-api_router.include_router(character_analysis_router)
 api_router.include_router(image_gen_router)
 api_router.include_router(translation_router)
 api_router.include_router(testbed_router)
-api_router.include_router(chat_router)
 api_router.include_router(offline_chat_router)
 
 

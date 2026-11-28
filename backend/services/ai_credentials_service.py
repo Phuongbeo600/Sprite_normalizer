@@ -1,7 +1,7 @@
 """
 Module: backend.services.ai_credentials_service
 Mục đích: Dịch vụ hợp nhất phân giải thông tin xác thực AI (API Key, Provider, Base URL) và kiểm tra cờ AI của dự án.
-Ai gọi nó: `CharacterAnalysisService`, `ImageGenService`, router `character_analysis`, `project_service`.
+Ai gọi nó: `ImageGenService`, `project_service`.
 Tại sao tồn tại: Giải quyết dứt điểm Code Smell SM-05 (DRY Violation) - loại bỏ việc lặp lại 4 lần logic bóc tách thông tin xác thực và 5 lần kiểm tra trạng thái cờ `ai_enabled` của dự án.
 """
 

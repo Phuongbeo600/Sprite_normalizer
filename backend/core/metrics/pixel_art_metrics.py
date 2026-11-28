@@ -24,10 +24,8 @@ from __future__ import annotations
 
 # math: Tính các chỉ số hình học và màu.
 import math
-# dataclasses: Lưu tham số lưới pixel và dữ liệu bảng màu.
-from dataclasses import dataclass
 # typing: Khai báo kiểu dữ liệu của các hàm phân tích.
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Optional
 
 # ========================================================
 # 2. THƯ VIỆN BÊN NGOÀI

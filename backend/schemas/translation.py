@@ -1,8 +1,8 @@
 # ========================================================
 # 1. THƯ VIỆN NỀN TẢNG PYTHON (Kiểu dữ liệu)
 # ========================================================
-# typing: Định nghĩa danh sách và kiểu tùy chọn
-from typing import List, Optional
+# typing: Định nghĩa kiểu danh sách
+from typing import List
 
 # ========================================================
 # 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)

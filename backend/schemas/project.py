@@ -68,13 +68,6 @@ class ProjectTestConnectionRequest(BaseModel):
     model: Optional[str] = Field(None, description="Mô hình cần thử nghiệm")
 
 
-class ProjectFetchModelsRequest(BaseModel):
-    """Schema yêu cầu tải danh sách model khả dụng từ nhà cung cấp."""
-    provider: Optional[str] = Field(None, description="Nhà cung cấp: 'gemini' hoặc 'openai'")
-    api_key: Optional[str] = Field(None, description="Khóa API truyền trực tiếp (nếu có)")
-    base_url: Optional[str] = Field(None, description="Địa chỉ máy chủ proxy")
-
-
 class SaveCharacterPresetRequest(BaseModel):
     """Schema lưu trữ bản phân tích và Prompt của nhân vật vào dự án."""
     name: str = Field(..., description="Tên gợi nhớ cho bản phân tích")
