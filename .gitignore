@@ -24,6 +24,7 @@ __pycache__/
 
 # Môi trường ảo Python (Virtual Environments)
 .venv/
+.venv*/
 venv/
 ENV/
 env/
@@ -156,4 +157,32 @@ data/skills/
 # ========================================================
 # Toàn bộ thư mục tài liệu dự án (docs/learning/, docs/agent/, PDF, HTML)
 docs/
+
+# ========================================================
+# 8. BỘ DỮ LIỆU GÁN NHÃN THỦ CÔNG CỤC BỘ (Local Labeling Dataset)
+# ========================================================
+# Thư mục 50 ảnh nhân vật sạch phục vụ gán nhãn YOLO cục bộ (không đưa tệp nhị phân lớn lên Git)
+dataset_50_to_label/
+
+# Tệp bàn giao phiên làm việc cục bộ cho AI Agent
+HANDOFF.md
+
+# ========================================================
+# 9. TRỌNG SỐ MÔ HÌNH AI CỤC BỘ (Local AI Model Weights)
+# ========================================================
+# Thư mục lưu trọng số Hunyuan PromptEnhancer 7B cục bộ (dung lượng lớn, không đưa lên Git)
+localPromtTess/
+# Thư mục lưu trọng số mô hình AI cục bộ theo nghiệp vụ (RAG Chatbot: LLM & Embedding)
+models/
+# Dữ liệu chỉ mục vector RAG sinh tự động (NPZ + JSON)
+data/offline_rag_index/
+# Tệp trọng số mô hình AI nặng (tránh lọt vào Git dù đặt ở bất kỳ thư mục nào)
+*.gguf
+*.safetensors
+*.onnx
+# Công cụ llama.cpp cục bộ và môi trường ảo riêng phục vụ chuyển đổi GGUF
+tools/
+.venv-gguf/
+
+
 

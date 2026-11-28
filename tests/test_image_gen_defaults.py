@@ -12,12 +12,20 @@ from fastapi import HTTPException
 
 # 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Điều phối tạo ảnh)
 from backend.services.image_gen_service import ImageGenService
-from backend.schemas.image_gen import ImageGenRequest
+from backend.schemas.image_gen import ImageGenRequest, ImageGenResponse, GeneratedImageItem
 from backend.api.v1.image_gen import get_image_gen_status
 
 # 4. ĐỊNH DẠNG GIAO DIỆN / CẤU HÌNH (Dữ liệu cấu hình giả)
 DEFAULTS = {"IMAGE_GEN_PROVIDER": "openai", "IMAGE_GEN_API_KEY": "system-image-secret",
             "IMAGE_GEN_BASE_URL": "https://images.example/v1", "IMAGE_GEN_MODEL": "image-model"}
+
+
+PNG_SAMPLE = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/iZk9HQAAAABJRU5ErkJggg=='
+
+
+def generated_response():
+    return ImageGenResponse(provider_used="openai", model_used="image-model", images=[
+        GeneratedImageItem(id="test", b64_data=PNG_SAMPLE, data_url=f"data:image/png;base64,{PNG_SAMPLE}")])
 
 
 class TestImageGenDefaults(unittest.TestCase):
@@ -67,10 +75,10 @@ class TestImageGenDefaults(unittest.TestCase):
     def test_generation_without_project_uses_default_model(self):
         """Mô hình mặc định được truyền đến provider ngay cả khi chưa mở dự án."""
         with patch.dict(os.environ, DEFAULTS, clear=True), patch(
-            "backend.providers.image_gen.OpenAiDalleProvider.generate_images", return_value="generated",
+            "backend.providers.image_gen.OpenAiDalleProvider.generate_images", return_value=generated_response(),
         ) as generate:
             result = ImageGenService.generate_images(ImageGenRequest(prompt="Sprite"))
-        self.assertEqual(result, "generated")
+        self.assertEqual(result.status, "success")
         self.assertEqual(generate.call_args.kwargs["api_key"], "system-image-secret")
         self.assertEqual(generate.call_args.kwargs["model"], "image-model")
 
@@ -86,7 +94,7 @@ class TestImageGenDefaults(unittest.TestCase):
         with patch.dict(os.environ, DEFAULTS, clear=True), patch(
             "backend.services.project_service.ProjectService.get_api_config", return_value=cfg,
         ), patch("backend.services.ai_credentials_service.SessionLocal"), patch(
-            "backend.providers.image_gen.OpenAiDalleProvider.generate_images", return_value="generated",
+            "backend.providers.image_gen.OpenAiDalleProvider.generate_images", return_value=generated_response(),
         ) as generate:
             ImageGenService.generate_images(ImageGenRequest(project_id=9, prompt="Sprite"))
         self.assertEqual(generate.call_args.kwargs["api_key"], "system-image-secret")
@@ -105,9 +113,11 @@ class TestImageGenDefaults(unittest.TestCase):
     def test_openai_compatible_service_uses_configured_endpoint_and_model(self):
         """Dịch vụ bên thứ ba dùng nguyên URL, key và model cấu hình trong môi trường."""
         response = MagicMock(status_code=200)
-        response.json.return_value = {"data": [{"b64_json": "aW1hZ2U="}]}
+        response.json.return_value = {"data": [{"b64_json": PNG_SAMPLE}]}
         with patch.dict(os.environ, DEFAULTS, clear=True), patch(
-            "backend.providers.image_gen.openai_dalle_provider.requests.post", return_value=response,
+            "backend.services.image_gen_service.load_fixed_reference_image_2_b64", return_value=None,
+        ), patch(
+            "backend.providers.image_gen.base._post", return_value=response,
         ) as post:
             result = ImageGenService.generate_images(ImageGenRequest(prompt="Sprite"))
         self.assertEqual(result.status, "success")

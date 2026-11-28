@@ -280,85 +280,6 @@
   color: #6e658a;
 }
 
-/* Thẻ Phong Cách Nhanh */
-.atelier-gen-tags-label {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--atl-text-secondary, #a39bc2);
-  display: block;
-  margin-bottom: 8px;
-}
-
-.atelier-gen-tags-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 7px;
-}
-
-.atelier-gen-tag-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: rgba(26, 19, 48, 0.7);
-  border: 1px solid rgba(168, 85, 247, 0.2);
-  border-radius: 8px;
-  padding: 5px 10px;
-  color: #d8b4fe;
-  font-size: 0.74rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.atelier-gen-tag-chip:hover {
-  background: rgba(147, 51, 234, 0.22);
-  border-color: rgba(192, 132, 252, 0.5);
-  color: #ffffff;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(147, 51, 234, 0.2);
-}
-
-.atelier-gen-tag-chip:active {
-  transform: scale(0.97);
-}
-
-/* Khu vực Negative Prompt */
-.atelier-gen-negative-box {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-  padding-top: 14px;
-  margin-top: 2px;
-}
-
-.atelier-gen-negative-textarea {
-  width: 100%;
-  padding: 10px 12px;
-  border-radius: 8px;
-  background: rgba(16, 10, 22, 0.85);
-  border: 1px solid rgba(244, 63, 94, 0.25);
-  color: #fda4af;
-  font-family: inherit;
-  font-size: 0.78rem;
-  line-height: 1.45;
-  resize: vertical;
-  box-sizing: border-box;
-  transition: all 0.2s ease;
-}
-
-.atelier-gen-negative-textarea:focus {
-  outline: none;
-  border-color: rgba(244, 63, 94, 0.55);
-  box-shadow: 0 0 0 3px rgba(244, 63, 94, 0.12);
-}
-
-.atelier-gen-hint {
-  font-size: 0.7rem;
-  color: var(--atl-text-tertiary, #6e658a);
-  line-height: 1.4;
-}
-
 /* ============================================================================
    6. NÚT TẠO ẢNH CHÍNH (PRIMARY FORGE BUTTON)
    ============================================================================ */
@@ -398,131 +319,6 @@
   border-color: rgba(255, 255, 255, 0.08);
   color: #6e658a;
   box-shadow: none;
-}
-
-/* ============================================================================
-   7. BỘ SƯU TẬP ẢNH KẾT QUẢ (GALLERY)
-   ============================================================================ */
-.atelier-gen-gallery-card {
-  background: rgba(18, 13, 34, 0.75);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid var(--atl-border-amethyst, rgba(168, 85, 247, 0.18));
-  border-radius: 14px;
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
-}
-
-.atelier-gen-empty-state {
-  padding: 44px 20px;
-  text-align: center;
-  color: var(--atl-text-secondary, #a39bc2);
-  border: 1.5px dashed rgba(168, 85, 247, 0.2);
-  border-radius: 12px;
-  background: rgba(12, 8, 24, 0.4);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-}
-
-.atelier-gen-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 16px;
-}
-
-/* Thẻ ảnh trong thư viện */
-.atelier-gen-item {
-  background: rgba(12, 8, 24, 0.85);
-  border: 1px solid rgba(168, 85, 247, 0.18);
-  border-radius: 12px;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
-}
-
-.atelier-gen-item:hover {
-  border-color: rgba(192, 132, 252, 0.45);
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(147, 51, 234, 0.2);
-}
-
-.atelier-gen-image-frame {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 1 / 1;
-  background-color: #07050e;
-  background-image: 
-    linear-gradient(45deg, #0e0a1b 25%, transparent 25%), 
-    linear-gradient(-45deg, #0e0a1b 25%, transparent 25%), 
-    linear-gradient(45deg, transparent 75%, #0e0a1b 75%), 
-    linear-gradient(-45deg, transparent 75%, #0e0a1b 75%);
-  background-size: 16px 16px;
-  background-position: 0 0, 0 8px, 8px -8px, -8px 0px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  cursor: pointer;
-}
-
-.atelier-gen-image-frame img {
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
-  image-rendering: pixelated;
-  display: block;
-  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.atelier-gen-image-frame:hover img {
-  transform: scale(1.05);
-}
-
-.atelier-gen-zoom-overlay {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  background: rgba(10, 7, 20, 0.75);
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 6px;
-  padding: 5px;
-  color: #ffffff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0;
-  transform: scale(0.9);
-  transition: all 0.18s ease;
-}
-
-.atelier-gen-image-frame:hover .atelier-gen-zoom-overlay {
-  opacity: 1;
-  transform: scale(1);
-}
-
-/* Nhóm nút hành động thẻ ảnh */
-.atelier-gen-item-actions {
-  padding: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(18, 13, 34, 0.6);
-}
-
-.atelier-gen-action-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
 }
 
 .atelier-gen-btn-sub {
@@ -621,107 +417,229 @@
 }
 
 /* ============================================================================
-   7. KHUNG ĐÍNH KÈM ẢNH MẪU THAM CHIẾU (REFERENCE SPRITE BOX)
+   11. CÔNG TẮC AI LOCAL & HỘP GỢI Ý SSE NÂNG CAO PROMPT
    ============================================================================ */
-.atelier-gen-reference-box {
-  display: flex;
+.atelier-gen-card-header {
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.atelier-gen-prompt-actions {
+  display: inline-flex;
   align-items: center;
-  gap: 14px;
-  padding: 10px 14px;
-  background: rgba(26, 18, 48, 0.6);
-  border: 1px dashed rgba(168, 85, 247, 0.35);
-  border-radius: 10px;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  box-sizing: border-box;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
-.atelier-gen-reference-box.has-image {
-  background: rgba(30, 20, 56, 0.85);
-  border: 1px solid rgba(168, 85, 247, 0.4);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
-}
-
-.atelier-gen-ref-thumb-wrapper {
-  position: relative;
-  width: 50px;
-  height: 50px;
-  border-radius: 8px;
-  background: #090611;
-  border: 1px solid rgba(192, 132, 252, 0.3);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  flex-shrink: 0;
-}
-
-.atelier-gen-ref-thumb {
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
-  image-rendering: pixelated;
-}
-
-.atelier-gen-ref-info {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  flex: 1;
-}
-
-.atelier-gen-ref-title {
-  font-size: 0.82rem;
-  font-weight: 600;
-  color: #e9d5ff;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.atelier-gen-ref-desc {
-  font-size: 0.72rem;
-  color: var(--atl-text-secondary, #a39bc2);
-  line-height: 1.35;
-}
-
-.atelier-gen-btn-ref-action {
+.atelier-gen-local-toggle,
+.atelier-gen-btn-translate,
+.atelier-gen-btn-enhance {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 12px;
-  border-radius: 7px;
-  font-size: 0.74rem;
-  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: var(--atl-r-sm, 8px);
+  font-size: 0.73rem;
+  font-weight: 600;
   cursor: pointer;
-  background: rgba(168, 85, 247, 0.16);
-  border: 1px solid rgba(168, 85, 247, 0.32);
-  color: #d8b4fe;
-  transition: all 0.2s ease;
-  user-select: none;
+  transition: all var(--atl-trans-fast, 0.15s ease);
 }
 
-.atelier-gen-btn-ref-action:hover {
-  background: rgba(168, 85, 247, 0.28);
-  border-color: rgba(192, 132, 252, 0.6);
-  color: #ffffff;
+.atelier-gen-btn-translate {
+  background: var(--accent-secondary-btn, #162038);
+  border: 1px solid var(--border-card, rgba(99, 102, 241, 0.25));
+  color: var(--text-highlight, #a5b4fc);
 }
 
-.atelier-gen-btn-ref-remove {
+.atelier-gen-btn-translate:hover:not(:disabled) {
+  background: var(--accent-secondary-btn-hover, #1e2c4d);
+  border-color: var(--border-card-hover, rgba(129, 140, 248, 0.45));
+  color: var(--text-white, #ffffff);
+}
+
+.atelier-gen-local-toggle {
+  background: var(--atl-bg-card, rgba(24, 17, 44, 0.65));
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
+  color: var(--atl-text-secondary, #a39bc2);
+}
+
+.atelier-gen-local-toggle.ready {
+  background: var(--atl-emerald-glow, rgba(16, 185, 129, 0.16));
+  border-color: var(--atl-emerald, #10b981);
+  color: var(--atl-text-primary, #f5f3ff);
+}
+
+.atelier-gen-local-toggle.loading {
+  background: rgba(245, 158, 11, 0.14);
+  border-color: rgba(245, 158, 11, 0.45);
+  color: #fcd34d;
+}
+
+.atelier-gen-local-toggle:hover:not(:disabled) {
+  border-color: var(--atl-border-hover, rgba(192, 132, 252, 0.45));
+  color: var(--atl-text-pure, #ffffff);
+}
+
+.atelier-gen-local-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: var(--radius-pill, 9999px);
+  background: var(--text-dim, #64748b);
+}
+
+.atelier-gen-local-toggle.ready .atelier-gen-local-dot {
+  background: var(--atl-emerald, #10b981);
+  box-shadow: 0 0 8px var(--atl-emerald, #10b981);
+}
+
+.atelier-gen-local-toggle.loading .atelier-gen-local-dot {
+  background: #f59e0b;
+  animation: pulseLocalDot 1.1s ease-in-out infinite;
+}
+
+@keyframes pulseLocalDot {
+  0%, 100% { opacity: 0.4; transform: scale(0.9); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
+
+.atelier-gen-btn-enhance {
+  background: var(--atl-amethyst-soft, rgba(168, 85, 247, 0.16));
+  border: 1px solid var(--atl-border-amethyst, rgba(168, 85, 247, 0.3));
+  color: var(--atl-amethyst-light, #c084fc);
+}
+
+.atelier-gen-btn-enhance:hover:not(:disabled) {
+  background: rgba(147, 51, 234, 0.28);
+  border-color: var(--atl-border-hover, rgba(192, 132, 252, 0.55));
+  color: var(--atl-text-pure, #ffffff);
+}
+
+.atelier-gen-local-toggle:disabled,
+.atelier-gen-btn-translate:disabled,
+.atelier-gen-btn-enhance:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.atelier-gen-enhancer-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: var(--atl-r-md, 10px);
+  background: rgba(13, 9, 26, 0.9);
+  border: 1px solid var(--atl-border-amethyst, rgba(168, 85, 247, 0.28));
+  animation: fadeInAtelier 0.2s ease;
+}
+
+.atelier-gen-enhancer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.atelier-gen-enhancer-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--atl-text-primary, #f5f3ff);
+  flex-wrap: wrap;
+}
+
+.atelier-gen-enhancer-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill, 9999px);
+  background: var(--atl-amethyst-soft, rgba(168, 85, 247, 0.15));
+  color: var(--atl-amethyst-light, #c084fc);
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.atelier-gen-enhancer-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.atelier-gen-enhancer-btn {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 6px 10px;
-  border-radius: 7px;
+  padding: 4px 9px;
+  border-radius: var(--atl-r-sm, 6px);
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.12));
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--atl-text-secondary, #a39bc2);
   font-size: 0.72rem;
-  background: rgba(239, 68, 68, 0.12);
-  border: 1px solid rgba(239, 68, 68, 0.3);
-  color: #fca5a5;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all var(--atl-trans-fast, 0.15s ease);
 }
 
-.atelier-gen-btn-ref-remove:hover {
-  background: rgba(239, 68, 68, 0.25);
-  border-color: rgba(239, 68, 68, 0.5);
-  color: #fee2e2;
+.atelier-gen-enhancer-btn.apply {
+  background: var(--atl-emerald-glow, rgba(16, 185, 129, 0.18));
+  border-color: var(--atl-emerald, #10b981);
+  color: #6ee7b7;
+}
+
+.atelier-gen-enhancer-btn.apply:hover {
+  background: rgba(16, 185, 129, 0.3);
+  color: var(--atl-text-pure, #ffffff);
+}
+
+.atelier-gen-enhancer-btn.stop {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #fca5a5;
+}
+
+.atelier-gen-enhancer-btn.retry:hover,
+.atelier-gen-enhancer-btn.close:hover {
+  border-color: var(--atl-border-hover, rgba(192, 132, 252, 0.45));
+  color: var(--atl-text-pure, #ffffff);
+}
+
+.atelier-gen-enhancer-error {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 10px;
+  border-radius: var(--atl-r-sm, 8px);
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #fca5a5;
+  font-size: 0.76rem;
+}
+
+.atelier-gen-enhancer-body {
+  padding: 10px 12px;
+  border-radius: var(--atl-r-sm, 8px);
+  background: rgba(8, 5, 17, 0.85);
+  border: 1px solid rgba(168, 85, 247, 0.16);
+  color: var(--atl-text-primary, #f5f3ff);
+  font-size: 0.82rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+.atelier-gen-enhancer-cursor {
+  display: inline-block;
+  width: 7px;
+  height: 14px;
+  margin-left: 3px;
+  vertical-align: middle;
+  background: var(--atl-amethyst-light, #c084fc);
+  animation: blinkCursor 0.85s steps(2, start) infinite;
+}
+
+@keyframes blinkCursor {
+  to { visibility: hidden; }
 }

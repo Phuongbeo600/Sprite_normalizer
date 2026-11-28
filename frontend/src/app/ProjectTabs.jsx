@@ -35,6 +35,7 @@ export default function ProjectTabs({
   imageGenPrompt,
   imageGenNegativePrompt,
   imageGenReferenceImage,
+  imageGenAnatomyData,
   transferredImageForWorkspace,
   transferredPaletteForWorkspace,
   transferredSheetDataForWorkspace,
@@ -62,12 +63,13 @@ export default function ProjectTabs({
           </span>
         </div>
 
-        {/* Mục 1: Phân tích & Prompt (Studio) */}
+        {/* Mục 1: Phân tích & Đo đạc Sprite */}
         <div hidden={activeTab !== 'analysis'}>
           <ProjectAnalysis
             currentProject={currentProject}
             loadedPresetData={loadedPresetData}
             isActive={activeTab === 'analysis'}
+            onSelectTab={onSelectTab}
             onSendPromptToImageGen={onSendPromptToImageGen}
             onTransferToWorkspace={onTransferToWorkspace}
             isAiEnabled={isAiEnabled}
@@ -81,6 +83,7 @@ export default function ProjectTabs({
             incomingPrompt={imageGenPrompt}
             incomingNegativePrompt={imageGenNegativePrompt}
             incomingImage={imageGenReferenceImage}
+            incomingAnatomyData={imageGenAnatomyData}
             onSelectTab={onSelectTab}
             onTransferToWorkspace={onTransferToWorkspace}
             onTransferToGodot={onTransferToGodot}

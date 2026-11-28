@@ -20,6 +20,7 @@ import { spriteImageUrl } from './assetRequests';
 
 import AssetDetailModal from './AssetDetailModal';
 import SpriteFramesViewer from './SpriteFramesViewer';
+import ProtectedAssetImage from './ProtectedAssetImage';
 
 // ========================================================
 // 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC
@@ -81,7 +82,7 @@ export default function SpriteDetailsDialog({
               justifyContent: 'center',
               overflow: 'hidden'
             }}>
-              <img
+              <ProtectedAssetImage
                 src={spriteImageUrl(projectId, selectedSprite.id)}
                 alt="Raw Sprite"
                 style={{ maxWidth: '95%', maxHeight: '95%', objectFit: 'contain', imageRendering: 'pixelated' }}
@@ -108,7 +109,7 @@ export default function SpriteDetailsDialog({
                 justifyContent: 'center',
                 overflow: 'hidden'
               }}>
-                <img
+                <ProtectedAssetImage
                   src={spriteImageUrl(projectId, selectedSprite.id, true)}
                   alt="Processed Sprite"
                   style={{ maxWidth: '95%', maxHeight: '95%', objectFit: 'contain', imageRendering: 'pixelated' }}

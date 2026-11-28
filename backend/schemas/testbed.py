@@ -2,7 +2,7 @@
 # 1. THƯ VIỆN NỀN TẢNG PYTHON (Kiểu dữ liệu & Cấu trúc)
 # ========================================================
 # typing: Định nghĩa các kiểu dữ liệu mảng, từ điển và tùy chọn
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict
 
 # ========================================================
 # 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)

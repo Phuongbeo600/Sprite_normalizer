@@ -1,7 +1,7 @@
 """
 Module: backend.services.project_service
 Mục đích: Dịch vụ nghiệp vụ quản lý dự án (Project Service).
-Ai gọi nó: API router `backend.api.v1.projects` và `backend.api.v1.character_analysis`.
+Ai gọi nó: API router `backend.api.v1.projects`.
 Tại sao tồn tại: Đóng vai trò lớp trung gian độc lập kiểm tra tính hợp lệ dữ liệu, giải quyết thông tin xác thực API Key từ MySQL, và quản lý các bản ghi cấu hình Preset nhân vật.
 """
 

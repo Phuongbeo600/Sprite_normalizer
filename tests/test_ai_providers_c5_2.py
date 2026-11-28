@@ -32,14 +32,22 @@ from backend.providers.gemini_provider import GeminiProvider
 from backend.providers.openai_provider import OpenAiProvider
 # ImageGenService: Dịch vụ điều phối tạo ảnh
 from backend.services.image_gen_service import ImageGenService
+# ImageGenPromptParts, build_final_prompt, build_prompt_from_request: Pipeline dựng prompt động
+from backend.services.image_gen_prompts import (
+    ImageGenPromptParts,
+    build_final_prompt,
+    build_prompt_from_request,
+)
 # Schemas
-from backend.schemas.image_gen import ImageGenRequest, ImageGenResponse
+from backend.schemas.image_gen import ImageGenRequest, ImageGenResponse, GeneratedImageItem
 
 # ========================================================
 # 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
 # ========================================================
 # (Không áp dụng cho file test backend)
 
+
+PNG_SAMPLE = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/iZk9HQAAAABJRU5ErkJggg=='
 
 class TestGeminiImagenProvider(unittest.TestCase):
     """
@@ -53,7 +61,7 @@ class TestGeminiImagenProvider(unittest.TestCase):
     def setUp(self):
         self.provider = GeminiImagenProvider()
 
-    @patch("requests.post")
+    @patch("backend.providers.image_gen.base._post")
     def test_generate_images_success(self, mock_post):
         """Kiểm tra tạo ảnh thành công khi Google Imagen 3 phản hồi 200 OK."""
         mock_resp = MagicMock()
@@ -81,7 +89,7 @@ class TestGeminiImagenProvider(unittest.TestCase):
         self.assertEqual(res.provider_used, "gemini")
         self.assertEqual(res.model_used, "imagen-3.0-generate-002")
 
-    @patch("requests.post")
+    @patch("backend.providers.image_gen.base._post")
     def test_model_fallback_loop(self, mock_post):
         """Kiểm tra tự động chuyển sang model thứ hai khi model đầu tiên bị lỗi 500."""
         resp_fail = MagicMock()
@@ -104,7 +112,7 @@ class TestGeminiImagenProvider(unittest.TestCase):
         self.assertEqual(res.model_used, "imagen-3.0-fast-generate-001")
         self.assertEqual(mock_post.call_count, 2)
 
-    @patch("requests.post")
+    @patch("backend.providers.image_gen.base._post")
     def test_safety_filter_error(self, mock_post):
         """Kiểm tra phát hiện lỗi vi phạm bộ lọc an toàn nội dung (Safety Filter)."""
         mock_resp = MagicMock()
@@ -116,7 +124,7 @@ class TestGeminiImagenProvider(unittest.TestCase):
             self.provider.generate_images(api_key="key", prompt="inappropriate")
         self.assertIn("bộ lọc an toàn nội dung", str(ctx.exception))
 
-    @patch("requests.post")
+    @patch("backend.providers.image_gen.base._post")
     def test_quota_limit_error(self, mock_post):
         """Kiểm tra bắt lỗi hạn mức Rate Limit 429."""
         mock_resp = MagicMock()
@@ -141,10 +149,10 @@ class TestOpenAiDalleProvider(unittest.TestCase):
     def setUp(self):
         self.provider = OpenAiDalleProvider()
 
-    @patch("requests.post")
+    @patch("backend.providers.image_gen.base._post")
     def test_generate_images_without_legacy_response_format(self, mock_post):
         """Tạo ảnh được khi máy chủ từ chối tham số response_format cũ."""
-        def respond(url, *, json, headers, timeout):
+        def respond(url, *, json, headers, timeout, total_timeout):
             """Mô phỏng máy chủ chỉ nhận các trường tạo ảnh được hỗ trợ."""
             response = MagicMock()
             if "response_format" in json:
@@ -163,12 +171,48 @@ class TestOpenAiDalleProvider(unittest.TestCase):
         self.assertEqual(result.images[0].b64_data, "sample_png")
         mock_post.assert_called_once_with(
             "https://proxy.example/v1/images/generations",
-            json={"model": "gpt-image-1.5", "prompt": "pixel knight", "n": 1, "size": "1024x1024"},
+            json={
+                "model": "gpt-image-1.5",
+                "prompt": "pixel knight",
+                "n": 1,
+                "size": "1024x1024",
+                "background": "transparent",
+                "output_format": "png",
+            },
             headers={"Authorization": "Bearer test-key", "Content-Type": "application/json"},
-            timeout=60,
+            timeout=mock_post.call_args.kwargs["timeout"],
+            total_timeout=mock_post.call_args.kwargs["total_timeout"],
         )
 
-    @patch("requests.post")
+    @patch("backend.providers.image_gen.base._post")
+    def test_gpt_image_transparent_fallback_and_non_gpt_omits_background(self, mock_post):
+        """Proxy từ chối trường background được thử lại không kèm background; DALL-E 3 không gửi trường này."""
+        def respond_proxy(url, *, json, headers, timeout, total_timeout):
+            resp = MagicMock()
+            if "background" in json:
+                resp.status_code = 400
+                resp.text = '{"error":{"message":"Unknown parameter: background","code":"unknown_parameter"}}'
+            else:
+                resp.status_code = 200
+                resp.json.return_value = {"data": [{"b64_json": "ok_png"}]}
+            return resp
+
+        mock_post.side_effect = respond_proxy
+        res = self.provider.generate_images(api_key="test-key", prompt="knight", model="gpt-image-1")
+        self.assertEqual(res.images[0].b64_data, "ok_png")
+        self.assertEqual(mock_post.call_count, 2)
+        self.assertEqual(mock_post.call_args_list[0].kwargs["json"]["background"], "transparent")
+        self.assertNotIn("background", mock_post.call_args_list[1].kwargs["json"])
+
+        mock_post.reset_mock()
+        ok_resp = MagicMock(status_code=200)
+        ok_resp.json.return_value = {"data": [{"b64_json": "dalle3_png"}]}
+        mock_post.side_effect = None
+        mock_post.return_value = ok_resp
+        self.provider.generate_images(api_key="test-key", prompt="knight", model="dall-e-3")
+        self.assertNotIn("background", mock_post.call_args.kwargs["json"])
+
+    @patch("backend.providers.image_gen.base._post")
     def test_generate_images_b64_success(self, mock_post):
         """Kiểm tra tạo ảnh thành công trả về chuỗi b64_json trực tiếp."""
         mock_resp = MagicMock()
@@ -189,7 +233,7 @@ class TestOpenAiDalleProvider(unittest.TestCase):
         self.assertEqual(res.model_used, "gpt-image-1.5")
         self.assertEqual(res.images[0].b64_data, "openai_dalle_b64_data")
 
-    @patch("requests.post")
+    @patch("backend.providers.image_gen.base._post")
     def test_gpt_image_sizes(self, mock_post):
         """Gửi kích thước được GPT Image hỗ trợ cho mỗi nhóm tỉ lệ."""
         mock_post.return_value.status_code = 200
@@ -202,8 +246,8 @@ class TestOpenAiDalleProvider(unittest.TestCase):
                 self.provider.generate_images(api_key="test", prompt="sprite", aspect_ratio=ratio)
                 self.assertEqual(mock_post.call_args.kwargs["json"]["size"], size)
 
-    @patch("requests.get")
-    @patch("requests.post")
+    @patch("backend.providers.image_gen.base._get")
+    @patch("backend.providers.image_gen.base._post")
     def test_generate_images_url_fallback(self, mock_post, mock_get):
         """Kiểm tra cơ chế tải fallback khi proxy trả về link URL ảnh thay vì b64_json."""
         mock_post_resp = MagicMock()
@@ -224,10 +268,10 @@ class TestOpenAiDalleProvider(unittest.TestCase):
             aspect_ratio="1:1"
         )
         self.assertEqual(res.status, "success")
-        mock_get.assert_called_once_with("https://images.proxy.com/sample.png", timeout=30)
+        mock_get.assert_called_once_with("https://images.proxy.com/sample.png", timeout=mock_get.call_args.kwargs["timeout"], total_timeout=mock_get.call_args.kwargs["total_timeout"])
         self.assertTrue(len(res.images[0].b64_data) > 0)
 
-    @patch("requests.post")
+    @patch("backend.providers.image_gen.base._post")
     def test_content_policy_violation(self, mock_post):
         """Kiểm tra bắt lỗi chính sách nội dung của OpenAI."""
         mock_resp = MagicMock()
@@ -294,17 +338,18 @@ class TestImageGenService(unittest.TestCase):
             ImageGenService.generate_images(req)
         self.assertIn("Chưa cấu hình API Key", str(ctx.exception))
 
+    @patch("backend.services.image_gen_service.load_fixed_reference_image_2_b64", return_value=None)
     @patch("backend.services.ai_credentials_service.AiCredentialsService.is_ai_enabled", return_value=True)
     @patch("backend.services.ai_credentials_service.AiCredentialsService.resolve_image_configuration", return_value={"api_key": "test-key-123", "provider": "gemini", "base_url": None, "model": None})
     @patch.object(GeminiImagenProvider, "generate_images")
-    def test_orchestration_delegates_to_provider(self, mock_gemini_gen, mock_resolve, mock_ai_enabled):
+    def test_orchestration_delegates_to_provider(self, mock_gemini_gen, mock_resolve, mock_ai_enabled, mock_ref2):
         """Kiểm tra điều phối ghép style_preset và ủy quyền thành công sang GeminiImagenProvider."""
         mock_gemini_gen.return_value = ImageGenResponse(
             status="success",
             message="OK",
             provider_used="gemini",
             model_used="imagen-3.0-generate-002",
-            images=[]
+            images=[GeneratedImageItem(id="test", b64_data=PNG_SAMPLE, data_url=f"data:image/png;base64,{PNG_SAMPLE}")]
         )
 
         req = ImageGenRequest(
@@ -320,7 +365,7 @@ class TestImageGenService(unittest.TestCase):
         self.assertEqual(res.status, "success")
         mock_gemini_gen.assert_called_once_with(
             api_key="test-key-123",
-            prompt="goblin, Style: 16-bit RPG",
+            prompt=build_prompt_from_request(req),
             negative_prompt="modern, 3D",
             aspect_ratio="1:1",
             number_of_images=1,
@@ -329,17 +374,18 @@ class TestImageGenService(unittest.TestCase):
             image=None
         )
 
+    @patch("backend.services.image_gen_service.load_fixed_reference_image_2_b64", return_value=None)
     @patch("backend.services.ai_credentials_service.AiCredentialsService.is_ai_enabled", return_value=True)
     @patch("backend.services.ai_credentials_service.AiCredentialsService.resolve_image_configuration", return_value={"api_key": "test-key-123", "provider": "gemini", "base_url": None, "model": None})
     @patch("backend.providers.image_gen.GeminiImagenProvider.generate_images")
-    def test_orchestration_with_reference_image_injects_hidden_prompt(self, mock_gemini_gen, mock_res, mock_ai_on):
+    def test_orchestration_with_reference_image_injects_hidden_prompt(self, mock_gemini_gen, mock_res, mock_ai_on, mock_ref2):
         """Kiểm tra truyền ảnh mẫu tham chiếu sẽ tự động tiêm prompt ẩn yêu cầu AI căn cứ vào ảnh mẫu."""
         mock_gemini_gen.return_value = ImageGenResponse(
             status="success",
             message="OK",
             provider_used="gemini",
             model_used="imagen-3.0-generate-002",
-            images=[]
+            images=[GeneratedImageItem(id="test", b64_data=PNG_SAMPLE, data_url=f"data:image/png;base64,{PNG_SAMPLE}")]
         )
 
         dummy_b64 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
@@ -353,11 +399,90 @@ class TestImageGenService(unittest.TestCase):
         res = ImageGenService.generate_images(req)
 
         self.assertEqual(res.status, "success")
-        # Kiểm tra prompt thực tế gửi xuống provider có chứa chỉ dẫn ẩn bắt buộc
+        # Ảnh mẫu 1x1 quá nhỏ không đủ tin cậy đo giải phẫu -> phải bỏ khối ANATOMICAL PROPORTIONS
         called_args, called_kwargs = mock_gemini_gen.call_args
-        self.assertIn("Đây là ảnh mẫu tham chiếu", called_kwargs["prompt"])
-        self.assertIn("warrior knight", called_kwargs["prompt"])
+        self.assertIn("### TASK", called_kwargs["prompt"])
+        self.assertIn("### CHARACTER DESIGN\n\nwarrior knight", called_kwargs["prompt"])
+        self.assertIn("### REFERENCE RULES", called_kwargs["prompt"])
+        self.assertNotIn("### ANATOMICAL PROPORTIONS", called_kwargs["prompt"])
+        self.assertIn("### COLOR CONSTRAINTS", called_kwargs["prompt"])
+        self.assertIn("### BACKGROUND CONSTRAINTS", called_kwargs["prompt"])
         self.assertEqual(called_kwargs["image"], "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==")
+
+    def test_build_final_prompt_renders_dynamic_and_static_parts(self):
+        """Kiểm tra ImageGenPromptParts và build_final_prompt điền đủ cả phần động và tĩnh."""
+        parts = ImageGenPromptParts(
+            user_prompt="ice {mage} with crystal staff",
+            anatomical_description="3.5 heads tall chibi",
+            color_count_description="- Use a shared color palette, limited to a maximum of 16 colors across the entire Sprite Sheet.",
+        )
+        rendered = build_final_prompt(parts)
+        self.assertIn("ice {mage} with crystal staff", rendered)
+        self.assertIn("3.5 heads tall chibi", rendered)
+        self.assertIn("limited to a maximum of 16 colors across the entire Sprite Sheet", rendered)
+        self.assertIn("- Inherit the saturation and value contrast of Image 1.", rendered)
+        self.assertIn("- Choose colors that fit the new character design.", rendered)
+        self.assertIn("### REFERENCE RULES", rendered)
+        self.assertIn("Image 1 — Style and Proportions:", rendered)
+        self.assertIn("Image 2 — Layout and Motion:", rendered)
+        self.assertIn("Reproduce Image 2's poses using Image 1's body proportions", rendered)
+        self.assertIn("### LAYOUT & MOTION", rendered)
+        self.assertIn("Arrange exactly 15 frames in a 3 rows × 5 columns grid.", rendered)
+        self.assertIn("Each frame corresponds to the exact cell in Image 2.", rendered)
+        self.assertIn("### CONSISTENCY RULES", rendered)
+        self.assertIn("handedness of held items", rendered)
+        self.assertIn("### OUTPUT RULES", rendered)
+        self.assertIn("Display the full character and gear inside each cell", rendered)
+        self.assertIn("### BACKGROUND CONSTRAINTS", rendered)
+        self.assertIn("Alpha = 0", rendered)
+        self.assertIn("### PRIORITY RULES", rendered)
+        self.assertIn("When requirements conflict, prioritize in the following order:", rendered)
+        self.assertIn("Adapt reference poses to the character's anatomy", rendered)
+
+    @patch("backend.services.image_gen_prompts.TranslationService.translate", return_value="dark shadow mage")
+    def test_build_prompt_from_request_translates_vietnamese_prompt(self, mock_translate):
+        """Kiểm tra pipeline bắt buộc đưa prompt tiếng Việt về tiếng Anh trước khi vào template."""
+        vi_req = ImageGenRequest(prompt="Nữ pháp sư bóng đêm")
+        final_vi = build_prompt_from_request(vi_req)
+        mock_translate.assert_called_once_with("Nữ pháp sư bóng đêm", source_lang="vi", target_lang="en")
+        self.assertIn("### CHARACTER DESIGN\n\ndark shadow mage", final_vi)
+
+        mock_translate.reset_mock()
+        en_req = ImageGenRequest(prompt="pixel knight")
+        final_en = build_prompt_from_request(en_req)
+        mock_translate.assert_not_called()
+        self.assertIn("### CHARACTER DESIGN\n\npixel knight", final_en)
+
+    def test_build_prompt_from_request_omits_hardcoded_style_constraints(self):
+        """Kiểm tra Dynamic Prompt mặc định không ép cứng kỹ thuật đổ bóng hay số màu cố định."""
+        req = ImageGenRequest(prompt="pixel knight")
+        rendered = build_prompt_from_request(req)
+        self.assertNotIn("2-tone cel shading", rendered)
+        self.assertNotIn("16–32 crisp colors", rendered)
+        self.assertIn("### COLOR CONSTRAINTS", rendered)
+        self.assertIn("- Use a shared color palette matched to Image 1's color budget across the entire Sprite Sheet.", rendered)
+        self.assertIn("- Inherit the saturation and value contrast of Image 1.", rendered)
+        self.assertIn("- Choose colors that fit the new character design.", rendered)
+
+    def test_build_prompt_from_request_injects_measured_color_count_without_hex(self):
+        """Truyền số lượng màu đo được (hoặc tự đo từ Ảnh 1) chỉ giới hạn số màu, không truyền mã màu HEX."""
+        req_explicit = ImageGenRequest(prompt="pixel knight", color_count=39)
+        rendered_explicit = build_prompt_from_request(req_explicit)
+        self.assertIn("limited to a maximum of 39 colors across the entire Sprite Sheet", rendered_explicit)
+        self.assertNotRegex(rendered_explicit, r"#[0-9a-fA-F]{6}")
+
+        # Tự đo từ Ảnh 1 đa sắc khi chưa truyền sẵn color_count
+        import base64
+        import io
+        sprite = Image.new("RGBA", (8, 8), (0, 0, 0, 0))
+        for x, color in enumerate([(20, 30, 40, 255), (200, 50, 50, 255), (60, 180, 90, 255)]):
+            sprite.putpixel((x, 2), color)
+        with io.BytesIO() as buf:
+            sprite.save(buf, format="PNG")
+            data_url = "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
+        rendered_auto = build_prompt_from_request(ImageGenRequest(prompt="pixel knight", image=data_url))
+        self.assertIn("limited to a maximum of 3 colors across the entire Sprite Sheet", rendered_auto)
+        self.assertNotRegex(rendered_auto, r"#[0-9a-fA-F]{6}")
 
 
 class TestVisionAndTextProviders(unittest.TestCase):

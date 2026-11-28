@@ -31,7 +31,13 @@ from fastapi.staticfiles import StaticFiles
 # api_router: Bộ định tuyến chính gom các sub-router v1
 from backend.api import api_router
 # init_db: Hàm tự động khởi tạo và cập nhật bảng CSDL MySQL
-from backend.db import init_db
+from backend.db import SessionLocal, init_db
+# OfflineChatRepository: Khôi phục các tin nhắn kẹt trạng thái `generating` sau khi khởi động lại server
+from backend.repositories.offline_chat_repository import OfflineChatRepository
+# LocalPromptEnhancerService: Tự động dọn dẹp tiến trình llama-server cục bộ khi tắt máy chủ
+from backend.services.local_prompt_enhancer_service import LocalPromptEnhancerService
+# AiRuntimeManager: Giải phóng an toàn các mô hình RAG Offline (Qwen3.5-4B, BGE-M3) khi tắt máy chủ
+from backend.services.ai_runtime_manager import AiRuntimeManager
 
 # ========================================================
 # 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
@@ -42,13 +48,29 @@ from backend.db import init_db
 async def lifespan(app: FastAPI):
     """
     Quản lý vòng đời khởi động và tắt của ứng dụng FastAPI (Lifespan Context Manager).
-    Khởi tạo và cập nhật cấu trúc cơ sở dữ liệu MySQL khi ứng dụng bắt đầu khởi chạy.
+    Khởi tạo và cập nhật cấu trúc cơ sở dữ liệu MySQL khi ứng dụng bắt đầu khởi chạy,
+    đồng thời dọn dẹp tiến trình AI Local (nếu đang bật) khi tắt máy chủ.
     """
     try:
         init_db()# Khởi tạo và cập nhật cấu trúc cơ sở dữ liệu MySQL khi ứng dụng bắt đầu khởi chạy.
+        db = SessionLocal()
+        try:
+            OfflineChatRepository().recover_orphan_generating_messages(db)
+        finally:
+            db.close()
     except Exception as err:
         print(f"[Lifespan] Cảnh báo khởi tạo CSDL: {err}")
-    yield
+    try:
+        yield
+    finally:
+        try:
+            LocalPromptEnhancerService.stop()
+        except Exception as err:
+            print(f"[Lifespan] Cảnh báo dọn dẹp AI Local: {err}")
+        try:
+            AiRuntimeManager.shutdown_all()
+        except Exception as err:
+            print(f"[Lifespan] Cảnh báo dọn dẹp AI Runtime Manager: {err}")
 
 
 app = FastAPI(

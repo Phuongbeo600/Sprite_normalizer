@@ -39,18 +39,18 @@ test('tạo ảnh giữ payload một ảnh vuông, đồng bộ prompt và thê
   }, { fetch: async (url, options) => {
     calls.push([url, options]);
     return jsonResponse(url.includes('/status') ? { provider: 'openai', ready: true }
-      : { images: [{ id: ++index }], provider_used: 'openai' });
+      : { images: [{ id: ++index, data_url: 'data:image/png;base64,aW1hZ2U=' }], provider_used: 'openai', model_used: 'image-model' });
   } });
   session.flushEffects(); await tick(); session.render();
   assert.equal(calls[0][0], '/api/image-gen/status?project_id=7');
   assert.equal(session.value.prompt, 'Mage');
   await session.value.handleGenerateImage(); session.render();
   assert.deepEqual(JSON.parse(calls[1][1].body), { prompt: 'Mage', negative_prompt: 'blur', project_id: 7,
-    aspect_ratio: '1:1', number_of_images: 1, style_preset: null, image: null });
+    aspect_ratio: '1:1', number_of_images: 1, style_preset: null, image: null, native_size_wh: null, metrics: null, region_measurements: null, manual_region_measurements: null, color_count: null });
   await session.value.handleGenerateImage(); session.render();
   assert.equal(session.value.generatedGallery[0].id, 2);
   assert.equal(session.value.generatedGallery[1].id, 1);
-  assert.match(session.value.successMsg, /OpenAI DALL-E/);
+  assert.match(session.value.successMsg, /openai.*image-model/);
   assert.equal(session.value.generating, false);
 });
 
@@ -82,41 +82,11 @@ test('kho tài nguyên chỉ tải một đợt khi mở, tải lại khi quay l
   assert.equal(calls.length, 8);
 });
 
-test('nạp hồ sơ vẫn giữ prompt đã lưu và dữ liệu hình học dự phòng', () => {
+test('nạp hồ sơ vẫn giữ dữ liệu hình học dự phòng', () => {
   const session = mountHook(`${root}character-analysis/useAnalysisSession.js`, 'useAnalysisSession', {
     currentProject: { id: 1 }, isActive: true,
-    loadedPresetData: { positive_prompt: 'saved positive', negative_prompt: 'saved negative',
-      technical_notes: 'saved notes', metrics_data: { heads_tall: 4 }, profile_data: {} },
+    loadedPresetData: { metrics_data: { heads_tall: 4 }, profile_data: {} },
   });
   session.flushEffects(); session.render();
-  assert.equal(session.value.workspaceMode, 'prompt_studio');
-  assert.equal(session.value.hasMeasured, true);
-  assert.equal(session.value.generatedProfilePrompt.positive_prompt, 'saved positive');
   assert.equal(session.value.metrics.heads_tall, 4);
-});
-
-test('chat gửi đúng transcript, ghép chunk và dừng bằng cùng AbortController', async () => {
-  let request;
-  let resolve;
-  const pending = new Promise((done) => { resolve = done; });
-  const session = mountHook(`${root}chat/useStreamingChat.js`, 'useStreamingChat', { currentProject: { id: 9 } }, {}, {
-    '../../shared/api/chatApi': { streamChatApi: async (options) => { request = options; await pending; } },
-  });
-  const sending = session.value.handleSendMessage(' Mage ');
-  session.render();
-  assert.equal(request.projectId, 9);
-  assert.equal(request.provider, null);
-  assert.equal(request.messages[0].content, 'Mage');
-  request.onError('connection error'); session.render();
-  assert.equal(session.value.errorMessage, 'connection error');
-  session.value.setErrorMessage(null); session.render();
-  assert.equal(session.value.errorMessage, null);
-  request.onChunk('one'); request.onChunk('two'); session.render();
-  assert.equal(session.value.messages[1].content, 'onetwo');
-  session.value.handleStopStreaming(); session.render();
-  assert.equal(request.signal.aborted, true);
-  assert.equal(session.value.isStreaming, false);
-  session.value.handleClearChat(); session.render();
-  assert.equal(session.value.messages.length, 0);
-  resolve(); await sending;
 });

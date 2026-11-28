@@ -20,8 +20,6 @@ from sqlalchemy.orm import sessionmaker
 # ========================================================
 # AiCredentialsService: Dịch vụ hợp nhất phân giải thông tin xác thực AI
 from backend.services.ai_credentials_service import AiCredentialsService
-# CharacterAnalysisService: Dịch vụ phân tích nhân vật
-from backend.services.character.character_analysis_service import CharacterAnalysisService
 # ImageGenService: Dịch vụ tạo ảnh AI
 from backend.services.image_gen_service import ImageGenService
 
@@ -36,7 +34,7 @@ class TestAiCredentialsService(unittest.TestCase):
     Bộ kiểm thử đơn vị cho Dịch vụ Hợp Nhất Phân Giải Thông Tin Xác Thực AI (AiCredentialsService).
     - Kiểm tra thứ tự ưu tiên 3 cấp: Khóa trực tiếp > CSDL Dự án > Biến môi trường.
     - Kiểm tra logic kiểm tra cờ ai_enabled của dự án.
-    - Xác nhận tính tương thích với CharacterAnalysisService và ImageGenService.
+    - Xác nhận tính tương thích với ImageGenService.
     """
 
     def setUp(self):
@@ -151,13 +149,7 @@ class TestAiCredentialsService(unittest.TestCase):
         self.assertTrue(AiCredentialsService.is_ai_enabled(999, db=self.db))
 
     def test_service_delegations_preserve_behavior(self):
-        """Xác nhận CharacterAnalysisService và ImageGenService ủy quyền chính xác."""
-        os.environ["GEMINI_API_KEY"] = "env-key-abc"
-        # CharacterAnalysisService._resolve_credentials
-        k1, p1, b1 = CharacterAnalysisService._resolve_credentials(None, "gemini", None)
-        self.assertEqual(k1, "env-key-abc")
-        self.assertEqual(p1, "gemini")
-
+        """Xác nhận ImageGenService ủy quyền chính xác."""
         # ImageGenService.resolve_credentials
         # Giả lập SessionLocal để ImageGenService dùng db SQLite
         with patch("backend.services.ai_credentials_service.SessionLocal", return_value=self.db):

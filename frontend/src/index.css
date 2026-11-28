@@ -1,5 +1,4 @@
 @import './styles/theme.css';
-@import './features/workspace/workspace-foundation.css';
 @import './features/character-analysis/analysis-foundation.css';
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
 
@@ -57,10 +56,6 @@ body {
   align-items: center;
   gap: 10px;
   padding: 0 8px 24px 8px;
-}
-
-.logo-icon {
-  color: #c4b5fd;
 }
 
 .logo-text {
@@ -150,17 +145,6 @@ body {
   flex-direction: column;
 }
 
-.user-title {
-  font-size: 0.88rem;
-  font-weight: 600;
-  color: #ffffff;
-}
-
-.user-subtitle {
-  font-size: 0.72rem;
-  color: #8c82a8;
-}
-
 /* ========================================================
    MAIN CONTENT VIEWPORT (CÓ HÌNH NỀN FANTASY PIXEL ART)
    ======================================================== */
@@ -183,38 +167,6 @@ body {
   background-position: right bottom;
   background-repeat: no-repeat;
   border: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-/* ========================================================
-   THANH TÁC VỤ DỰ ÁN (PROJECT ACTION BAR)
-   Sử dụng trong ActionBar.jsx cho nút tạo dự án mới
-   ======================================================== */
-.minimal-action-bar {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 24px;
-}
-
-.btn-create-purple {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 9px 18px;
-  border-radius: 10px;
-  background: #6d28d9;
-  color: #ffffff;
-  border: none;
-  font-weight: 600;
-  font-size: 0.88rem;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  box-shadow: 0 4px 14px rgba(109, 40, 217, 0.4);
-}
-
-.btn-create-purple:hover {
-  background: #5b21b6;
-  transform: translateY(-1px);
 }
 
 /* ========================================================

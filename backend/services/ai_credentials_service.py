@@ -1,7 +1,7 @@
 """
 Module: backend.services.ai_credentials_service
 Mục đích: Dịch vụ hợp nhất phân giải thông tin xác thực AI (API Key, Provider, Base URL) và kiểm tra cờ AI của dự án.
-Ai gọi nó: `CharacterAnalysisService`, `ImageGenService`, router `character_analysis`, `project_service`.
+Ai gọi nó: `ImageGenService`, `project_service`.
 Tại sao tồn tại: Giải quyết dứt điểm Code Smell SM-05 (DRY Violation) - loại bỏ việc lặp lại 4 lần logic bóc tách thông tin xác thực và 5 lần kiểm tra trạng thái cờ `ai_enabled` của dự án.
 """
 
@@ -269,8 +269,11 @@ class AiCredentialsService:
         source = "request" if api_key and api_key.strip() else "project" if project_key else "system"
         effective_provider = (provider or (project_provider if project_key else system_provider)).strip().lower()
         matches_system = effective_provider == system_provider
-        legacy_key = "OPENAI_API_KEY" if effective_provider == "openai" else "GEMINI_API_KEY"
+        legacy_key = {"openai": "OPENAI_API_KEY", "cloudflare": "CLOUDFLARE_API_TOKEN"}.get(effective_provider, "GEMINI_API_KEY")
         system_key = (os.getenv("IMAGE_GEN_API_KEY", "").strip() if matches_system else "") or os.getenv(legacy_key, "").strip()
+        if effective_provider == "cloudflare":
+            # Token riêng không bị thay bằng IMAGE_GEN_API_KEY cũ của OpenAI/Gemini.
+            system_key = os.getenv("CLOUDFLARE_API_TOKEN", "").strip()
         key = (api_key or "").strip() or project_key or system_key
 
         # Không ghép key dự án với địa chỉ hay model của một provider hệ thống khác.
@@ -283,6 +286,9 @@ class AiCredentialsService:
         if effective_provider == "openai" and not resolved_base:
             resolved_base = os.getenv("OPENAI_BASE_URL") if source == "system" else None
             resolved_base = resolved_base or "https://api.openai.com/v1"
+        if effective_provider == "cloudflare":
+            resolved_model = model or os.getenv("CLOUDFLARE_MODEL_ID", "").strip() or resolved_model
+            resolved_base = None  # REST endpoint Cloudflare được adapter xây dựng từ Account ID.
         clean_model = resolved_model.strip() if resolved_model and resolved_model.strip() else None
         # Không đưa khóa nhập nhầm vào model xuống giao diện hoặc thông báo lỗi.
         if clean_model and (clean_model.startswith(("sk-", "AIza")) or clean_model == key):
@@ -301,4 +307,6 @@ class AiCredentialsService:
             "base_url": resolved_base.strip() if resolved_base else None,
             "model": clean_model,
             "config_source": source if key else "missing",
+            "ready": bool(key) and (effective_provider != "cloudflare" or bool(
+                os.getenv("CLOUDFLARE_ACCOUNT_ID", "").strip() and clean_model)),
         }

@@ -7,8 +7,8 @@ import re
 import threading
 # OrderedDict: Cấu trúc từ điển có thứ tự phục vụ cơ chế LRU Cache giải phóng bộ nhớ
 from collections import OrderedDict
-# typing: Định nghĩa các kiểu dữ liệu mảng, từ điển và tùy chọn
-from typing import List, Dict, Tuple, Optional, Any
+# typing: Định nghĩa các kiểu dữ liệu mảng, từ điển và bộ giá trị
+from typing import List, Dict, Tuple, Any
 
 # ========================================================
 # 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
@@ -27,7 +27,9 @@ from typing import List, Dict, Tuple, Optional, Any
 # (Không áp dụng cho file backend)
 
 # Khóa luồng bảo vệ khởi tạo lười mô hình Argos an toàn trong môi trường đa luồng
-_init_lock = threading.Lock()
+# _ensure_initialized gọi _get_argos trong cùng luồng khi đang giữ khóa này.
+# RLock cho phép chiếm lại, vẫn tuần tự hóa khởi tạo giữa các luồng.
+_init_lock = threading.RLock()
 # Biến bộ nhớ lưu trữ module argostranslate sau khi nạp lười
 _argos_module = None
 

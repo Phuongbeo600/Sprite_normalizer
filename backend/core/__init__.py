@@ -23,6 +23,11 @@ from .metrics.character_metrics import CharacterMetrics
 from .metrics.heuristic_analyzer import HeuristicAnalyzer
 from .metrics.pixel_art_metrics import analyze_sprite
 from .metrics.region_measure import measure_region, Region
+from .metrics.anatomy_mapping import (
+    build_anatomical_description,
+    extract_raw_anatomy_metrics,
+    map_anatomical_proportions,
+)
 
 # ========================================================
 # 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
@@ -44,4 +49,7 @@ __all__ = [
     "analyze_sprite",
     "measure_region",
     "Region",
+    "build_anatomical_description",
+    "extract_raw_anatomy_metrics",
+    "map_anatomical_proportions",
 ]

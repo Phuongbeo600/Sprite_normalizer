@@ -30,8 +30,8 @@ import AuthModal from '../features/authentication/AuthModal';
 import ProfileModal from '../features/authentication/ProfileModal';
 // HelpCenter: Màn hình Trung tâm Hướng dẫn đa hình (Help Center)
 import HelpCenter from '../features/help/HelpCenter';
-// ChatWidget: Trợ lý AI Chatbot dạng bong bóng nổi phản hồi thời gian thực qua SSE
-import ChatWidget from '../features/chat/ChatWidget';
+// OfflineChatWidget: Trợ lý AI RAG Offline dạng cửa sổ nổi ở góc dưới phải (Qwen3.5-4B & BGE-M3)
+import OfflineChatWidget from '../features/offline-chat/OfflineChatWidget';
 import { useAuthSession } from '../features/authentication/useAuthSession';
 
 // Đọc trạng thái cấu hình AI khi mở dự án.
@@ -70,8 +70,9 @@ export default function App() {
   // Dữ liệu prompt & negative prompt chuyển từ Studio sang Tạo ảnh AI
   const [imageGenPrompt, setImageGenPrompt] = useState('');
   const [imageGenNegativePrompt, setImageGenNegativePrompt] = useState('');
-  // Ảnh mẫu tham chiếu được chuyển tiếp từ Studio sang Tạo ảnh AI
+  // Ảnh mẫu tham chiếu và số đo giải phẫu được chuyển tiếp từ Studio sang Tạo ảnh AI
   const [imageGenReferenceImage, setImageGenReferenceImage] = useState(null);
+  const [imageGenAnatomyData, setImageGenAnatomyData] = useState(null);
   // Tệp ảnh được chuyển tiếp từ Tạo ảnh AI hoặc Studio sang Workspace hoặc Godot
   const [transferredImageForWorkspace, setTransferredImageForWorkspace] = useState(null);
   // Dữ liệu bảng màu đầy đủ đã phân tích chuyển tiếp sang Workspace để tái sử dụng ngay
@@ -106,16 +107,23 @@ export default function App() {
   };
 
   /**
-   * Chuyển prompt, negative prompt và ảnh mẫu từ màn hình Phân tích sang màn hình Tạo ảnh AI.
+   * Chuyển prompt, negative prompt, ảnh mẫu và số đo giải phẫu từ màn hình Phân tích sang màn hình Tạo ảnh AI.
    * 
    * @param {string} promptText Nội dung prompt cần tạo ảnh.
    * @param {string} [negativePromptText] Nội dung lệnh cấm cần loại trừ.
    * @param {File|string|null} [referenceImage] Tệp hoặc Data URL ảnh mẫu tham chiếu.
+   * @param {Object|null} [anatomyData] Số đo giải phẫu tự động và thủ công từ Tab Phân tích.
    */
-  const handleSendPromptToImageGen = (promptText, negativePromptText = '', referenceImage = null) => {
+  const handleSendPromptToImageGen = (
+    promptText,
+    negativePromptText = '',
+    referenceImage = null,
+    anatomyData = null
+  ) => {
     setImageGenPrompt(promptText);
     setImageGenNegativePrompt(negativePromptText || '');
     setImageGenReferenceImage(referenceImage);
+    setImageGenAnatomyData(anatomyData);
     setActiveTab('image_gen');
   };
 
@@ -282,6 +290,7 @@ export default function App() {
                 imageGenPrompt={imageGenPrompt}
                 imageGenNegativePrompt={imageGenNegativePrompt}
                 imageGenReferenceImage={imageGenReferenceImage}
+                imageGenAnatomyData={imageGenAnatomyData}
                 transferredImageForWorkspace={transferredImageForWorkspace}
                 transferredPaletteForWorkspace={transferredPaletteForWorkspace}
                 transferredSheetDataForWorkspace={transferredSheetDataForWorkspace}
@@ -337,8 +346,8 @@ export default function App() {
         onCancel={() => setShowLogoutConfirm(false)}
       />
 
-      {/* 5. Trợ lý AI Chatbot dạng nổi đa nhà cung cấp */}
-      <ChatWidget currentProject={currentProject} />
+      {/* 5. Trợ lý AI Chatbot RAG Offline dạng cửa sổ nổi */}
+      <OfflineChatWidget />
     </div>
   );
 }

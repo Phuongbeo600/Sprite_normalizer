@@ -13,9 +13,9 @@ import { Play, Pause } from "lucide-react";
 // ========================================================
 // 3. THÀNH PHẦN NỘI BỘ DỰ ÁN
 // ========================================================
-// Định dạng ngày lưu và dung lượng ảnh.
-
-// Tạo đường dẫn ảnh gốc và ảnh đã xử lý.
+// getAuthHeaders: Đính kèm JWT Bearer Token khi tải danh sách frame thuộc dự án có chủ sở hữu.
+import { getAuthHeaders } from '../../shared/api/authHeaders.js';
+import ProtectedAssetImage from './ProtectedAssetImage';
 
 
 // ========================================================
@@ -33,7 +33,7 @@ export default function SpriteFramesViewer({ spriteId, frameCount }) {
 
   React.useEffect(() => {
     let cancel = false;
-    fetch(`/api/sprites/${spriteId}/frames`)
+    fetch(`/api/sprites/${spriteId}/frames`, { headers: getAuthHeaders() })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (!cancel && data && data.frames) {
@@ -88,7 +88,7 @@ export default function SpriteFramesViewer({ spriteId, frameCount }) {
           marginBottom: '10px',
           border: '1px solid #7c3aed'
         }}>
-          <img
+          <ProtectedAssetImage
             src={frames[activeFrameIdx].image_url}
             alt={frames[activeFrameIdx].frame_name}
             style={{ maxHeight: '90px', imageRendering: 'pixelated' }}
@@ -122,7 +122,7 @@ export default function SpriteFramesViewer({ spriteId, frameCount }) {
               backgroundColor: '#07050e'
             }}
           >
-            <img
+            <ProtectedAssetImage
               src={f.image_url}
               alt={f.frame_name}
               style={{ maxWidth: '38px', maxHeight: '38px', objectFit: 'contain', imageRendering: 'pixelated' }}

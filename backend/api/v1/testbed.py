@@ -1,8 +1,8 @@
 # ========================================================
 # 1. THƯ VIỆN NỀN TẢNG PYTHON (Khởi tạo router & kiểu dữ liệu)
 # ========================================================
-# typing: Khai báo kiểu danh sách, từ điển, tùy chọn
-from typing import List, Optional, Dict, Any
+# typing: Khai báo kiểu từ điển, tùy chọn
+from typing import Optional, Dict, Any
 
 # ========================================================
 # 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)

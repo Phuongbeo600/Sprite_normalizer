@@ -29,6 +29,8 @@ from .testbed_map_repository import TestbedMapRepository
 from .testbed_character_repository import TestbedCharacterRepository
 # TestbedFrameRepository: Quản lý khung hình ô ảnh rời testbed
 from .testbed_frame_repository import TestbedFrameRepository
+# OfflineChatRepository: Quản lý phiên và lịch sử hội thoại Chatbot RAG Offline
+from .offline_chat_repository import OfflineChatRepository
 # Các hàm tiện ích serialize/deserialize JSON an toàn
 from .serializers import safe_json_loads, safe_json_dumps, deserialize_preset_record
 
@@ -47,6 +49,7 @@ __all__ = [
     "TestbedMapRepository",
     "TestbedCharacterRepository",
     "TestbedFrameRepository",
+    "OfflineChatRepository",
     "safe_json_loads",
     "safe_json_dumps",
     "deserialize_preset_record",

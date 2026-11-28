@@ -17,7 +17,6 @@ from backend.core.metrics.pixel_art_metrics import analyze_sprite
 from backend.development_seed import synchronize_development_login
 from backend.services.sprite_workspace_service import SpriteWorkspaceService
 from backend.services.user_service import public_user
-from backend.services.character.character_analysis_service import CharacterAnalysisService
 
 # 4. ĐỊNH DẠNG GIAO DIỆN / CẤU HÌNH
 # Kiểm thử cô lập, không mở kết nối CSDL hoặc gọi AI.
@@ -96,19 +95,6 @@ class TestRefactorBackendBoundaries(unittest.TestCase):
         self.assertEqual(result["full_name"], "user")
         self.assertEqual(result["created_at"], "")
         self.assertNotIn("password", result)
-
-    def test_all_profile_preserves_order_and_palette_omission(self):
-        """Luồng tất cả dùng kết quả trước cho constraints và bỏ palette khi chỉ thị giác."""
-        service = CharacterAnalysisService
-        with patch.object(service, "analyze_tab_global", return_value={"palette_metrics": 1}) as global_call, \
-             patch.object(service, "analyze_tab_directions", return_value={"direction": 2}), \
-             patch.object(service, "analyze_tab_animations", return_value={"animation": 3}), \
-             patch.object(service, "analyze_tab_constraints", return_value={}) as constraints:
-            result = service.analyze_profile(None, "all", "key", "gemini", None, vision_only=True)
-        global_call.assert_called_once_with(None, api_key="key", provider="gemini", base_url=None, include_palette=False, model=None)
-        self.assertEqual(constraints.call_args.kwargs["direction_data"], {"direction": 2})
-        self.assertNotIn("palette_metrics", result["data"])
-        self.assertIn("frame_actions_data", result["data"])
 
     def test_metric_stage_extraction_keeps_numeric_report(self):
         """So toàn bộ báo cáo với chữ ký lấy trước khi tách các giai đoạn đo."""

@@ -11,9 +11,6 @@ from PIL import Image
 # 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Cấu hình và nhà cung cấp)
 from backend.services.ai_credentials_service import AiCredentialsService
 from backend.providers.openai_provider import OpenAiProvider
-# ChatService và schema: Kiểm tra cấu hình xuyên suốt đến lời gọi hội thoại.
-from backend.services.chat_service import ChatService
-from backend.schemas.chat import ChatStreamRequest
 
 # 4. ĐỊNH DẠNG GIAO DIỆN / CẤU HÌNH
 # Không sử dụng cấu hình giao diện.
@@ -89,21 +86,6 @@ class TestScopedAiConfig(unittest.TestCase):
             for scope in ("chat", "analysis"):
                 self.assertTrue(AiCredentialsService.is_ai_enabled(
                     7, db=MagicMock(), project_service=service, scope=scope))
-
-    def test_chat_without_project_uses_environment_model(self):
-        """Chatbox không cần dự án vẫn dùng đủ bộ khóa, địa chỉ và mô hình chat riêng."""
-        request = ChatStreamRequest(messages=[{"role": "user", "content": "Xin chào"}])
-        provider = MagicMock()
-        provider.stream_chat.return_value = iter(["Chào bạn"])
-        with patch.dict(os.environ, {
-            "CHAT_AI_PROVIDER": "openai", "CHAT_API_KEY": "chat-secret",
-            "CHAT_BASE_URL": "https://api.deepseek.com", "CHAT_MODEL": "deepseek-chat",
-        }, clear=True), patch("backend.services.chat_service.AiProviderFactory.get_provider", return_value=provider):
-            self.assertEqual(list(ChatService.prepare_stream(request, MagicMock())), ["Chào bạn"])
-        kwargs = provider.stream_chat.call_args.kwargs
-        self.assertEqual(kwargs["api_key"], "chat-secret")
-        self.assertEqual(kwargs["base_url"], "https://api.deepseek.com")
-        self.assertEqual(kwargs["model"], "deepseek-chat")
 
     def test_empty_image_has_no_invented_geometry(self):
         """Ảnh trong suốt không gây lỗi và không sinh tọa độ cổ giả."""

@@ -7,8 +7,6 @@ from typing import Dict, Any, Optional
 # ========================================================
 # 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
 # ========================================================
-# requests: Thực hiện các cuộc gọi kiểm tra hoặc truy vấn danh sách model
-import requests
 # fastapi: Khởi tạo sub-router, xử lý Form và Dependency Injection
 from fastapi import APIRouter, Depends, Form, HTTPException
 # sqlalchemy: Phiên làm việc cơ sở dữ liệu
@@ -25,14 +23,11 @@ from backend.core.dependencies import get_current_user_optional, check_project_a
 from backend.services.project_service import ProjectService
 # AiProviderFactory: Khởi tạo provider AI
 from backend.providers.factory import AiProviderFactory
-# AiProviderError: Ngoại lệ chuẩn hóa
-from backend.providers.base import AiProviderError
 # Schemas: DTO cấu hình API dự án và lưu trữ bản phân tích preset
 from backend.schemas.project import (
     ProjectApiConfigRequest,
     SaveCharacterPresetRequest,
-    ProjectTestConnectionRequest,
-    ProjectFetchModelsRequest
+    ProjectTestConnectionRequest
 )
 
 # ========================================================
@@ -56,8 +51,7 @@ __all__ = [
     "get_project_service",
     "ProjectApiConfigRequest",
     "SaveCharacterPresetRequest",
-    "ProjectTestConnectionRequest",
-    "ProjectFetchModelsRequest"
+    "ProjectTestConnectionRequest"
 ]
 
 
@@ -275,150 +269,6 @@ def test_project_connection(
             "status": "error",
             "message": f"Lỗi khi kiểm tra kết nối: {str(e)}",
             "provider": req.provider or "gemini"
-        }
-
-
-@projects_router.post("/{project_id}/fetch-models")
-def fetch_project_models(
-    project_id: int,
-    req: ProjectFetchModelsRequest,
-    current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional),
-    db: Session = Depends(get_db)
-):
-    """
-    Tự động truy vấn danh sách model thực tế từ API của nhà cung cấp và phân loại theo chức năng (có kiểm tra quyền sở hữu):
-    - vision: Phân tích ảnh nhân vật & trắc lượng phong cách.
-    - image_gen: Tạo ảnh Sprite Sheet (Imagen 3 / DALL-E).
-    - chat: Trợ lý hội thoại Studio.
-    """
-    check_project_access(db, project_id, current_user)
-    try:
-        eff_key, eff_prov, eff_base = project_service.resolve_project_credentials(
-            db=db,
-            project_id=project_id,
-            api_key=req.api_key,
-            provider=req.provider,
-            base_url=req.base_url,
-        )
-        clean_provider = (req.provider or eff_prov or "gemini").lower().strip()
-        if not eff_key or not eff_key.strip():
-            return {
-                "status": "error",
-                "message": f"Chưa có API Key cho {clean_provider.upper()} để tải danh sách mô hình.",
-                "provider": clean_provider,
-                "models": {"vision": [], "image_gen": [], "chat": []}
-            }
-
-        vision_models = []
-        image_gen_models = []
-        chat_models = []
-
-        if clean_provider == "gemini":
-            url = "https://generativelanguage.googleapis.com/v1beta/models"
-            resp = requests.get(url, headers={"x-goog-api-key": eff_key.strip()}, timeout=15)
-            if resp.status_code != 200:
-                err_msg = resp.text
-                try:
-                    err_msg = resp.json().get("error", {}).get("message", err_msg)
-                except Exception:
-                    pass
-                return {
-                    "status": "error",
-                    "message": f"Google Gemini API ({resp.status_code}): {err_msg[:200]}",
-                    "provider": "gemini",
-                    "models": {"vision": [], "image_gen": [], "chat": []}
-                }
-
-            models_data = resp.json().get("models", [])
-            for m in models_data:
-                name = m.get("name", "").replace("models/", "")
-                disp = m.get("displayName", name)
-                desc = m.get("description", "")
-                methods = m.get("supportedGenerationMethods", [])
-
-                # Mô hình tạo ảnh (Imagen / Image)
-                if "imageGeneration" in methods or name.startswith("imagen-") or "image" in name:
-                    image_gen_models.append({
-                        "id": name,
-                        "name": disp,
-                        "description": desc[:100] if desc else "Mô hình tạo ảnh của Google"
-                    })
-
-                # Mô hình sinh nội dung Text / Vision
-                if "generateContent" in methods:
-                    if not any(skip in name for skip in ["tts", "transcribe", "clip", "robotics"]):
-                        item = {
-                            "id": name,
-                            "name": disp,
-                            "description": desc[:100] if desc else "Mô hình đa phương thức Gemini"
-                        }
-                        vision_models.append(item)
-                        chat_models.append(item)
-
-            # Đảm bảo các mô hình Imagen 3 chuẩn có sẵn trong danh mục tạo ảnh
-            standard_imagen = [
-                {"id": "imagen-3.0-generate-002", "name": "Imagen 3 (Chất lượng cao)", "description": "Tạo ảnh chi tiết cao độ nét cao"},
-                {"id": "imagen-3.0-fast-generate-001", "name": "Imagen 3 Fast", "description": "Tạo ảnh nhanh"}
-            ]
-            for simg in standard_imagen:
-                if not any(im["id"] == simg["id"] for im in image_gen_models):
-                    image_gen_models.insert(0, simg)
-
-        else:
-            # OpenAI / OpenAI-compatible
-            clean_base = (req.base_url or eff_base or "https://api.openai.com/v1").rstrip("/")
-            url = f"{clean_base}/models"
-            resp = requests.get(url, headers={"Authorization": f"Bearer {eff_key.strip()}"}, timeout=15)
-            if resp.status_code != 200:
-                err_msg = resp.text
-                try:
-                    err_msg = resp.json().get("error", {}).get("message", err_msg)
-                except Exception:
-                    pass
-                return {
-                    "status": "error",
-                    "message": f"OpenAI API ({resp.status_code}): {err_msg[:200]}",
-                    "provider": "openai",
-                    "models": {"vision": [], "image_gen": [], "chat": []}
-                }
-
-            models_data = resp.json().get("data", [])
-            for m in models_data:
-                mid = m.get("id", "")
-                # Vision models
-                if any(v in mid for v in ["gpt-4o", "gpt-4-turbo", "o1", "chatgpt-4o", "gpt-4"]):
-                    vision_models.append({"id": mid, "name": mid, "description": "Mô hình thị giác đa phương thức OpenAI"})
-                # Image gen models
-                if "dall-e" in mid or "image" in mid:
-                    image_gen_models.append({"id": mid, "name": mid, "description": "Mô hình sinh ảnh DALL-E"})
-                # Chat models
-                if any(c in mid for c in ["gpt-", "o1", "chatgpt"]):
-                    chat_models.append({"id": mid, "name": mid, "description": "Mô hình hội thoại OpenAI"})
-
-            # Bổ sung DALL-E chuẩn nếu chưa có
-            standard_dalle = [
-                {"id": "dall-e-3", "name": "DALL-E 3", "description": "Tạo ảnh chất lượng cao 1024x1024"},
-                {"id": "dall-e-2", "name": "DALL-E 2", "description": "Tạo ảnh nhanh 512x512"}
-            ]
-            for sd in standard_dalle:
-                if not any(im["id"] == sd["id"] for im in image_gen_models):
-                    image_gen_models.insert(0, sd)
-
-        return {
-            "status": "success",
-            "provider": clean_provider,
-            "models": {
-                "vision": vision_models,
-                "image_gen": image_gen_models,
-                "chat": chat_models
-            }
-        }
-    except Exception as e:
-        return {
-            "status": "error",
-            "message": f"Lỗi kết nối khi tải danh sách mô hình: {str(e)}",
-            "provider": req.provider or "gemini",
-            "models": {"vision": [], "image_gen": [], "chat": []}
         }
 
 

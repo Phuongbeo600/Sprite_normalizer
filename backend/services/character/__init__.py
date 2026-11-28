@@ -11,9 +11,6 @@
 # ========================================================
 # 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Character Services)
 # ========================================================
-from .character_analysis_service import CharacterAnalysisService
-from .prompt_builder_service import PromptBuilderService
-from .reference_style_service import generate_style_prompt
 from .anatomy_service import AnatomyService
 
 # ========================================================
@@ -22,8 +19,5 @@ from .anatomy_service import AnatomyService
 # (Không áp dụng cho file backend)
 
 __all__ = [
-    "CharacterAnalysisService",
-    "PromptBuilderService",
-    "generate_style_prompt",
     "AnatomyService",
 ]

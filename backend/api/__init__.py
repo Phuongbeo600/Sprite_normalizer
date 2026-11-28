@@ -6,8 +6,7 @@
 # ========================================================
 # 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
 # ========================================================
-# fastapi: Khởi tạo router chính
-from fastapi import APIRouter
+# (Không phụ thuộc trực tiếp thư viện bên ngoài ở tầng package)
 
 # ========================================================
 # 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Aggregated Router)

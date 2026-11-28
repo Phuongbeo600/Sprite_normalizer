@@ -10,10 +10,11 @@ from unittest.mock import MagicMock, patch
 # 2. THƯ VIỆN BÊN NGOÀI (Ảnh và ngoại lệ HTTP)
 # Pillow: Tạo và xác minh ảnh; requests: Giả lập hết thời gian chờ.
 from PIL import Image
-import requests
+import httpx
 
 # 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Provider và điều phối)
 from backend.providers.image_gen import OpenAiDalleProvider
+from backend.providers.base import AiProviderError
 from backend.services.image_gen_service import ImageGenService
 from backend.schemas.image_gen import ImageGenRequest
 
@@ -34,7 +35,7 @@ class TestOpenAiReferenceImages(unittest.TestCase):
 
     def test_reference_prompt_negative_and_custom_model_reach_edits(self):
         """Yêu cầu có ảnh dùng multipart edits với đúng ảnh, prompt, negative và model tùy chỉnh."""
-        with patch("requests.post", return_value=self.response) as post:
+        with patch("backend.providers.image_gen.base._post", return_value=self.response) as post:
             result = self.provider.generate_images("test-key", "pixel knight", "blur, extra arms",
                 image=self.image, base_url="https://proxy.example/v1/", model="custom-image-model")
         self.assertEqual(result.status, "success")
@@ -55,14 +56,14 @@ class TestOpenAiReferenceImages(unittest.TestCase):
 
     def test_default_model_receives_reference(self):
         """Model mặc định không được bỏ qua ảnh như luồng cũ."""
-        with patch("requests.post", return_value=self.response) as post:
+        with patch("backend.providers.image_gen.base._post", return_value=self.response) as post:
             self.provider.generate_images("test-key", "sprite", image=self.image)
         self.assertTrue(post.call_args.args[0].endswith("/images/edits"))
         self.assertEqual(post.call_args.kwargs["data"]["model"], self.provider.DEFAULT_MODEL)
 
     def test_no_reference_keeps_generations_and_negative(self):
         """Không có ảnh vẫn dùng JSON generations và giữ nguyên negative."""
-        with patch("requests.post", return_value=self.response) as post:
+        with patch("backend.providers.image_gen.base._post", return_value=self.response) as post:
             self.provider.generate_images("test-key", "sprite", "blurry")
         self.assertTrue(post.call_args.args[0].endswith("/images/generations"))
         self.assertIn("blurry", post.call_args.kwargs["json"]["prompt"])
@@ -73,7 +74,7 @@ class TestOpenAiReferenceImages(unittest.TestCase):
         for status in (400, 401, 404, 422, 429, 500):
             with self.subTest(status=status):
                 response = MagicMock(status_code=status, text='{"error":{"message":"Unsupported edit"}}')
-                with patch("requests.post", return_value=response) as post:
+                with patch("backend.providers.image_gen.base._post", return_value=response) as post:
                     with self.assertRaises((ValueError, RuntimeError)):
                         self.provider.generate_images("test-key", "sprite", image=self.image, model="dall-e-2")
                 self.assertEqual(post.call_count, 1)
@@ -82,14 +83,14 @@ class TestOpenAiReferenceImages(unittest.TestCase):
     def test_empty_edit_result_is_an_error(self):
         """Phản hồi không có ảnh phải báo lỗi, không đổi sang generations."""
         self.response.json.return_value = {"data": []}
-        with patch("requests.post", return_value=self.response) as post:
-            with self.assertRaises(ValueError):
+        with patch("backend.providers.image_gen.base._post", return_value=self.response) as post:
+            with self.assertRaises(AiProviderError):
                 self.provider.generate_images("test-key", "sprite", image=self.image, model="dall-e-2")
         self.assertEqual(post.call_count, 1)
 
     def test_reference_timeout_never_falls_back(self):
         """Hết thời gian chờ ảnh mẫu không phát sinh thêm yêu cầu tốn phí."""
-        with patch("requests.post", side_effect=requests.exceptions.Timeout) as post:
+        with patch("backend.providers.image_gen.base._post", side_effect=httpx.ReadTimeout('timeout')) as post:
             with self.assertRaises(RuntimeError):
                 self.provider.generate_images("test-key", "sprite", image=self.image, model="dall-e-2")
         self.assertEqual(post.call_count, 1)
@@ -97,7 +98,7 @@ class TestOpenAiReferenceImages(unittest.TestCase):
     def test_invalid_reference_does_not_call_api(self):
         """Ảnh hỏng bị chặn trước HTTP thay vì bị bỏ qua."""
         for image in ("invalid!!", base64.b64encode(b"not an image").decode("ascii")):
-            with self.subTest(image=image), patch("requests.post", return_value=self.response) as post:
+            with self.subTest(image=image), patch("backend.providers.image_gen.base._post", return_value=self.response) as post:
                 with self.assertRaises(ValueError):
                     self.provider.generate_images("test-key", "sprite", image=image)
                 post.assert_not_called()
@@ -107,7 +108,7 @@ class TestOpenAiReferenceImages(unittest.TestCase):
         with io.BytesIO() as buffer:
             Image.new("RGB", (4, 6), "blue").save(buffer, format="JPEG")
             image = "data:image/jpeg;base64," + base64.b64encode(buffer.getvalue()).decode("ascii")
-        with patch("requests.post", return_value=self.response) as post:
+        with patch("backend.providers.image_gen.base._post", return_value=self.response) as post:
             self.provider.generate_images("test-key", "sprite", image=image)
         raw = post.call_args.kwargs["files"]["image"][1]
         with Image.open(io.BytesIO(raw)) as uploaded:
@@ -118,12 +119,15 @@ class TestOpenAiReferenceImages(unittest.TestCase):
         """Kiểm tra xuyên suốt từ DTO qua service đến multipart HTTP của provider."""
         with patch.dict(os.environ, {"IMAGE_GEN_PROVIDER": "openai", "IMAGE_GEN_API_KEY": "test-key",
             "IMAGE_GEN_BASE_URL": "https://proxy.example/v1", "IMAGE_GEN_MODEL": "custom-model"}, clear=True), patch(
-            "requests.post", return_value=self.response,
+            "backend.services.image_gen_service.load_fixed_reference_image_2_b64", return_value=None,
+        ), patch(
+            "backend.providers.image_gen.base._post", return_value=self.response,
         ) as post:
             ImageGenService.generate_images(ImageGenRequest(prompt="pixel knight", negative_prompt="blurry",
                 image="data:image/png;base64," + self.image))
         self.assertIn("pixel knight", post.call_args.kwargs["data"]["prompt"])
         self.assertIn("blurry", post.call_args.kwargs["data"]["prompt"])
-        self.assertIn("ảnh mẫu tham chiếu", post.call_args.kwargs["data"]["prompt"])
+        self.assertIn("### CHARACTER DESIGN\n\npixel knight", post.call_args.kwargs["data"]["prompt"])
+        self.assertIn("### LAYOUT & MOTION", post.call_args.kwargs["data"]["prompt"])
         self.assertEqual(post.call_args.kwargs["data"]["model"], "custom-model")
         self.assertTrue(post.call_args.kwargs["files"]["image"][1])

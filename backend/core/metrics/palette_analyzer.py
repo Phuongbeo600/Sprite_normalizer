@@ -1,7 +1,7 @@
 """
 Module: backend.core.palette_analyzer
 Mục đích: Bộ phân tích bảng màu toán học (Offline Heuristic Palette Analyzer).
-Ai gọi nó: `CharacterAnalysisService` và bộ kiểm thử `tests.test_palette_analyzer`.
+Ai gọi nó: API phân tích `backend.api.v1.sprites` và bộ kiểm thử `tests.test_palette_analyzer`.
 Tại sao tồn tại: Đo đạc chính xác 100% 6 tiêu chuẩn hệ màu Pixel Art (Ngân sách màu, Màu chủ đạo, Bậc đổ bóng Cel-shading, Hue-shifting, Viền nét, Tương phản) bằng ma trận điểm ảnh NumPy và không gian màu HSV thuần túy, loại bỏ hoàn toàn sự đoán mò của mô hình ngôn ngữ và tiết kiệm chi phí token.
 """
 
@@ -10,8 +10,8 @@ Tại sao tồn tại: Đo đạc chính xác 100% 6 tiêu chuẩn hệ màu Pix
 # ========================================================
 # colorsys: Chuyển đổi không gian màu RGB sang HSV phục vụ đo độ sáng và góc màu
 import colorsys
-# typing: Khai báo kiểu danh sách, từ điển, bộ giá trị, tùy chọn
-from typing import List, Dict, Any, Tuple, Optional
+# typing: Khai báo kiểu danh sách, từ điển, bộ giá trị
+from typing import List, Dict, Any, Tuple
 
 # ========================================================
 # 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)

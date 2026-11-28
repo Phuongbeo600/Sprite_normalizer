@@ -738,22 +738,6 @@
   color: var(--atl-text-tertiary);
 }
 
-.atelier-footer-status {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-weight: 600;
-  color: var(--atl-emerald);
-}
-
-.atelier-footer-status span.dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--atl-emerald);
-  box-shadow: 0 0 6px var(--atl-emerald);
-}
-
 /* ============================================================================
    11. NHÃN PHÂN NHÓM SIDEBAR (SIDEBAR SECTION LABELS)
    ============================================================================ */

@@ -263,7 +263,7 @@ def analyze_sprite_colors(file: UploadFile = File(...)):
 
 @sprites_router.post("/measure-regions")
 def measure_manual_regions(file: UploadFile = File(...), regions_json: str = Form(...)):
-    """Đo lại các vùng người dùng vẽ, trả tọa độ lát cắt và bề rộng theo pixel gốc."""
+    """Tính 11 số đo giải phẫu bằng Python thuần từ tọa độ điểm đo (Point-to-Point) trên ảnh gốc."""
     try:
         with Image.open(file.file) as image:
             return AnatomyService.measure_manual_regions(ImageOps.exif_transpose(image), json.loads(regions_json))

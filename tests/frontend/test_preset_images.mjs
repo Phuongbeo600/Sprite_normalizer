@@ -33,38 +33,10 @@ for (const name of ['list', 'detail']) {
   components[name] = module.exports.default;
 }
 
-test('lưu hồ sơ gửi ảnh tham chiếu nhị phân dưới dạng Data URL cùng prompt và số đo', async () => {
-  let payload;
-  const errors = [];
-  const session = mountHook(hook, 'useAnalysisSession', props, {
-    ...globals, alert: (message) => errors.push(message),
-    fetch: async (url, options) => {
-      payload = JSON.parse(options.body);
-      return Response.json({ status: 'success', data: { id: 7 } });
-    },
-  });
-  try {
-    session.value.handleReferenceChange({ target: { files: [new File([bytes], 'mage.png', { type: 'image/png' })], value: 'mage.png' } });
-    session.render();
-    await session.value.handleSavePreset({ positive_prompt: 'pixel mage', negative_prompt: 'blur', new_character_concept: 'Mage' });
-    session.render();
-    assert.equal(payload.reference_image, image);
-    assert.equal(payload.sprite_name, 'mage.png');
-    assert.equal(payload.positive_prompt, 'pixel mage');
-    assert.equal(payload.negative_prompt, 'blur');
-    assert.deepEqual(errors, []);
-  } finally { session.unmount(); }
-});
-
-test('mở lại hồ sơ khôi phục ảnh, File, prompt và dữ liệu cũ; lưu tiếp không mất ảnh', async () => {
-  let saved;
-  const preset = { reference_image: image, sprite_name: 'old-mage.png', positive_prompt: 'saved positive',
-    negative_prompt: 'saved negative', metrics_data: { heads_tall: 4 },
-    profile_data: { reference_style: { style_prompt: 'selout' } }, frame_actions_data: { down: {} } };
-  const session = mountHook(hook, 'useAnalysisSession', { ...props, loadedPresetData: preset }, {
-    ...globals, fetch: async (url, options) => { saved = JSON.parse(options.body); return Response.json({ status: 'success' }); },
-    alert: (message) => assert.fail(message),
-  });
+test('mở lại hồ sơ khôi phục ảnh, File và dữ liệu hình học cũ', async () => {
+  const preset = { reference_image: image, sprite_name: 'old-mage.png',
+    metrics_data: { heads_tall: 4 }, profile_data: {} };
+  const session = mountHook(hook, 'useAnalysisSession', { ...props, loadedPresetData: preset }, globals);
   try {
     session.flushEffects(); session.render();
     assert.equal(session.value.reference.name, 'old-mage.png');
@@ -72,44 +44,15 @@ test('mở lại hồ sơ khôi phục ảnh, File, prompt và dữ liệu cũ; 
     assert.equal(session.value.reference.file.type, 'image/png');
     assert.deepEqual(Buffer.from(await session.value.reference.file.arrayBuffer()), bytes);
     assert.equal(session.value.metrics.heads_tall, 4);
-    assert.equal(session.value.profileData.reference_style.style_prompt, 'selout');
-    assert.equal(session.value.generatedProfilePrompt.positive_prompt, 'saved positive');
-    assert.deepEqual(JSON.parse(JSON.stringify(session.value.loadedPresetConfig.frame_actions_data)), { down: {} });
-    await session.value.handleSavePreset({ new_character_concept: 'Updated mage' });
-    assert.equal(saved.reference_image, image);
-    assert.equal(saved.sprite_name, 'old-mage.png');
-    assert.equal(saved.positive_prompt, 'saved positive');
   } finally { session.unmount(); }
 });
 
-test('hồ sơ cũ không có ảnh vẫn nạp prompt và giữ ảnh rỗng', () => {
+test('hồ sơ cũ không có ảnh vẫn giữ ảnh rỗng', () => {
   const session = mountHook(hook, 'useAnalysisSession', { ...props,
-    loadedPresetData: { positive_prompt: 'legacy prompt', negative_prompt: '', profile_data: {} } }, globals);
+    loadedPresetData: { profile_data: {} } }, globals);
   try {
     session.flushEffects(); session.render();
     assert.equal(session.value.reference, null);
-    assert.equal(session.value.generatedProfilePrompt.positive_prompt, 'legacy prompt');
-  } finally { session.unmount(); }
-});
-
-test('không đọc được ảnh thì báo lỗi và không lưu hồ sơ thiếu ảnh', async () => {
-  const errors = [];
-  let requests = 0;
-  class UnreadableFile extends File {
-    /** Mô phỏng tệp đã bị mất quyền đọc sau khi người dùng chọn ảnh. */
-    arrayBuffer() { return Promise.reject(new Error('Không đọc được tệp ảnh.')); }
-  }
-  const session = mountHook(hook, 'useAnalysisSession', props, {
-    ...globals, alert: (message) => errors.push(message), fetch: async () => { requests++; },
-  });
-  try {
-    session.value.handleReferenceChange({ target: { files: [new UnreadableFile([bytes], 'mage.png', { type: 'image/png' })], value: '' } });
-    session.render();
-    await session.value.handleSavePreset({ positive_prompt: 'pixel mage' });
-    session.render();
-    assert.equal(requests, 0);
-    assert.equal(session.value.savingPreset, false);
-    assert.deepEqual(errors, ['Không đọc được tệp ảnh.']);
   } finally { session.unmount(); }
 });
 

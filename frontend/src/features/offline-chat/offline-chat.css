@@ -1,0 +1,608 @@
+/* Giao diện cửa sổ nổi Trợ Lý AI RAG Offline tuân thủ hệ biến màu Dark Atelier trong theme.css */
+.atelier-offline-fab {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 18px;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(135deg, var(--accent-purple) 0%, var(--accent-active-tab) 100%);
+  color: var(--text-white);
+  border: 1px solid var(--border-card-hover);
+  box-shadow: 0 8px 24px var(--accent-purple-glow), 0 4px 12px rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+  font-family: var(--font-family);
+  font-size: 14px;
+  font-weight: 600;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.atelier-offline-fab:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px var(--accent-purple-glow), 0 6px 16px rgba(0, 0, 0, 0.5);
+}
+
+.atelier-offline-fab-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-muted);
+}
+
+.atelier-offline-fab-dot.is-ready {
+  background: var(--measure-green);
+  box-shadow: 0 0 8px var(--measure-green);
+}
+
+.atelier-offline-fab-dot.is-loading {
+  background: var(--measure-yellow);
+  box-shadow: 0 0 8px var(--measure-yellow);
+}
+
+.atelier-offline-fab-dot.is-error {
+  background: var(--measure-red);
+}
+
+.atelier-offline-widget-window {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 1000;
+  width: 440px;
+  height: 600px;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 48px);
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-sidebar);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.6), 0 0 24px var(--accent-purple-glow);
+  overflow: hidden;
+  color: var(--text-primary);
+  font-family: var(--font-family);
+}
+
+.atelier-offline-widget-window[hidden] {
+  display: none;
+}
+
+.atelier-offline-widget-window.expanded {
+  width: clamp(600px, 46vw, 860px);
+  height: calc(100vh - 48px);
+}
+
+.atelier-offline-widget-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.atelier-offline-widget-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.atelier-offline-chat-badge-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-sm);
+  background: var(--icon-folder-bg);
+  color: var(--icon-folder-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-card-hover);
+  flex-shrink: 0;
+}
+
+.atelier-offline-title-text h4 {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--text-white);
+}
+
+.atelier-offline-subtitle-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.atelier-offline-mini-meta {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.atelier-offline-widget-actions {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+}
+
+.atelier-offline-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: var(--accent-secondary-btn);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.atelier-offline-icon-btn:hover:not(:disabled) {
+  background: var(--accent-secondary-btn-hover);
+  border-color: var(--border-card-hover);
+  color: var(--text-white);
+}
+
+.atelier-offline-icon-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.atelier-offline-icon-btn.is-primary {
+  background: var(--accent-purple);
+  border-color: var(--accent-purple);
+  color: var(--text-white);
+}
+
+.atelier-offline-icon-btn.is-danger {
+  border-color: var(--measure-red);
+  color: var(--measure-red);
+}
+
+.atelier-offline-icon-btn.is-active {
+  background: var(--accent-active-tab);
+  border-color: var(--accent-purple);
+  color: var(--text-white);
+}
+
+.atelier-offline-icon-btn.is-spinning svg {
+  animation: atelier-spin 1s linear infinite;
+}
+
+@keyframes atelier-spin {
+  to { transform: rotate(360deg); }
+}
+
+.atelier-offline-drawer {
+  padding: 12px 14px;
+  background: var(--bg-app);
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.atelier-offline-status-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 8px;
+}
+
+.atelier-offline-status-card {
+  padding: 8px 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.atelier-offline-status-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--text-highlight);
+}
+
+.atelier-offline-pill {
+  padding: 2px 7px;
+  border-radius: var(--radius-pill);
+  font-size: 0.68rem;
+  font-weight: 600;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-input);
+  color: var(--text-muted);
+}
+
+.atelier-offline-pill.is-ready {
+  color: var(--avatar-user-text);
+  border-color: var(--avatar-user-text);
+}
+
+.atelier-offline-pill.is-loading {
+  color: var(--measure-yellow);
+  border-color: var(--measure-yellow);
+}
+
+.atelier-offline-pill.is-error {
+  color: var(--measure-red);
+  border-color: var(--measure-red);
+}
+
+.atelier-offline-status-meta {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
+.atelier-offline-drawer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.atelier-offline-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  font-size: 0.78rem;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-card);
+  color: var(--text-primary);
+}
+
+.atelier-offline-banner.is-warning {
+  color: var(--measure-yellow);
+}
+
+.atelier-offline-banner.is-error {
+  color: var(--measure-red);
+}
+
+.atelier-offline-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-card);
+  background: var(--accent-secondary-btn);
+  color: var(--text-primary);
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.atelier-offline-btn:hover:not(:disabled) {
+  background: var(--accent-secondary-btn-hover);
+  border-color: var(--border-card-hover);
+}
+
+.atelier-offline-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.atelier-offline-btn.is-primary {
+  background: var(--accent-purple);
+  border-color: var(--accent-purple);
+  color: var(--text-white);
+}
+
+.atelier-offline-btn.is-danger {
+  border-color: var(--measure-red);
+  color: var(--measure-red);
+}
+
+.atelier-offline-messages {
+  flex: 1;
+  padding: 14px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.atelier-offline-empty {
+  margin: auto;
+  text-align: center;
+  max-width: 440px;
+  padding: 12px 8px;
+}
+
+.atelier-offline-empty h3 {
+  margin: 8px 0 4px;
+  font-size: 0.96rem;
+  color: var(--text-white);
+}
+
+.atelier-offline-empty p {
+  margin: 0 0 12px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.atelier-offline-suggestions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.atelier-offline-suggestion-chip {
+  padding: 7px 11px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-card);
+  background: var(--bg-input);
+  color: var(--text-highlight);
+  font-size: 0.78rem;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.atelier-offline-suggestion-chip:hover {
+  border-color: var(--border-card-hover);
+  background: var(--bg-card-hover);
+}
+
+.atelier-offline-msg-row {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  max-width: 88%;
+}
+
+.atelier-offline-msg-row.is-user {
+  align-self: flex-end;
+  align-items: flex-end;
+}
+
+.atelier-offline-msg-row.is-assistant {
+  align-self: flex-start;
+  align-items: flex-start;
+}
+
+.atelier-offline-msg-bubble {
+  padding: 10px 13px;
+  border-radius: var(--radius-md);
+  font-size: 0.84rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.atelier-offline-msg-row.is-user .atelier-offline-msg-bubble {
+  background: var(--accent-active-tab);
+  color: var(--text-white);
+  border: 1px solid var(--accent-purple);
+}
+
+.atelier-offline-msg-row.is-assistant .atelier-offline-msg-bubble {
+  background: var(--bg-input);
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+}
+
+.atelier-offline-sources-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.atelier-offline-sources-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  align-self: flex-start;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-card);
+  background: var(--bg-card);
+  color: var(--text-highlight);
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+
+.atelier-offline-sources-toggle .is-rotated {
+  transform: rotate(180deg);
+}
+
+.atelier-offline-sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.atelier-offline-source-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 7px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-app);
+  color: var(--text-muted);
+  font-size: 0.7rem;
+}
+
+.atelier-offline-phase {
+  padding: 5px 14px;
+  font-size: 0.74rem;
+  color: var(--text-highlight);
+  border-top: 1px solid var(--border-subtle);
+  background: var(--bg-input);
+}
+
+.atelier-offline-composer {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--border-subtle);
+  background: var(--bg-card);
+}
+
+.atelier-offline-composer textarea {
+  flex: 1;
+  min-height: 40px;
+  max-height: 110px;
+  resize: none;
+  padding: 9px 11px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-card);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font-family: var(--font-family);
+  font-size: 0.84rem;
+  line-height: 1.4;
+}
+
+.atelier-offline-composer textarea:focus {
+  outline: none;
+  border-color: var(--accent-purple);
+}
+
+
+/* Ngăn kéo danh sách lịch sử hội thoại ChatGPT-style */
+.atelier-offline-history-drawer {
+  display: flex;
+  flex-direction: column;
+  max-height: 250px;
+  background: var(--bg-app);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.atelier-offline-history-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.atelier-offline-history-heading {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-highlight);
+}
+
+.atelier-offline-history-bar-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.atelier-offline-history-empty {
+  padding: 14px 12px;
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.atelier-offline-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  overflow-y: auto;
+}
+
+.atelier-offline-history-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 9px;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  background: var(--bg-card);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.atelier-offline-history-item:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--border-card);
+}
+
+.atelier-offline-history-item.is-active {
+  background: var(--accent-active-tab);
+  border-color: var(--accent-purple);
+}
+
+.atelier-offline-history-icon {
+  color: var(--text-highlight);
+  flex-shrink: 0;
+}
+
+.atelier-offline-history-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.atelier-offline-history-title {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-white);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.atelier-offline-history-time {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.atelier-offline-history-input {
+  width: 100%;
+  padding: 4px 7px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--accent-purple);
+  background: var(--bg-input);
+  color: var(--text-white);
+  font-family: var(--font-family);
+  font-size: 0.78rem;
+}
+
+.atelier-offline-history-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.atelier-offline-msg-status {
+  font-size: 0.68rem;
+  padding: 2px 7px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-card);
+}
+
+.atelier-offline-msg-status.is-cancelled {
+  color: var(--measure-yellow);
+  border-color: var(--measure-yellow);
+}
+
+.atelier-offline-msg-status.is-failed {
+  color: var(--measure-red);
+  border-color: var(--measure-red);
+}

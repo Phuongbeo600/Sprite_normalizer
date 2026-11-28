@@ -10,13 +10,13 @@ from typing import List, Optional, Dict, Any
 # 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
 # ========================================================
 # requests: Thực hiện các cuộc gọi HTTP REST API tới máy chủ Google
-import requests
+from pydantic import ValidationError
 
 # ========================================================
 # 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Providers & Schemas)
 # ========================================================
 # BaseImageGenProvider: Interface trừu tượng cơ sở cho dịch vụ tạo ảnh
-from .base import BaseImageGenProvider
+from .base import BaseImageGenProvider, ImageGenUpstreamError
 # GeneratedImageItem, ImageGenResponse: Cấu trúc dữ liệu phản hồi sinh ảnh
 from backend.schemas.image_gen import ImageGenResponse, GeneratedImageItem
 
@@ -39,6 +39,8 @@ class GeminiImagenProvider(BaseImageGenProvider):
         "imagen-3.0-fast-generate-001"
     ]
 
+    DEFAULT_MODEL = CANDIDATE_MODELS[0]
+
     # Các tỉ lệ khung hình hợp lệ được hỗ trợ bởi Imagen 3
     VALID_RATIOS = {"1:1", "3:4", "4:3", "16:9", "9:16"}
 
@@ -51,11 +53,12 @@ class GeminiImagenProvider(BaseImageGenProvider):
         number_of_images: int = 1,
         base_url: Optional[str] = None,
         model: Optional[str] = None,
-        image: Optional[str] = None
+        image: Optional[str] = None,
+        reference_image_2: Optional[str] = None
     ) -> ImageGenResponse:
         """
         Gọi Google Generative Language REST API để sinh ảnh bằng Imagen 3 hoặc Gemini Multimodal Image.
-        Hỗ trợ nạp ảnh mẫu tham chiếu (Image-to-Image / Multimodal conditioning) cùng câu prompt.
+        Hỗ trợ nạp ảnh mẫu tham chiếu (Image 1 & Image 2) cùng câu prompt.
 
         @param {str} api_key Khóa Google Gemini API.
         @param {str} prompt Lời nhắc mô tả ảnh cần tạo.
@@ -64,11 +67,18 @@ class GeminiImagenProvider(BaseImageGenProvider):
         @param {int} number_of_images Số lượng ảnh mong muốn (tối đa 4).
         @param {Optional[str]} base_url Địa chỉ máy chủ tùy chọn.
         @param {Optional[str]} model Mô hình Imagen cụ thể cần dùng.
-        @param {Optional[str]} image Chuỗi Base64 ảnh mẫu tham chiếu nếu có.
+        @param {Optional[str]} image Chuỗi Base64 ảnh mẫu tham chiếu số 1 nếu có.
+        @param {Optional[str]} reference_image_2 Chuỗi Base64 ảnh tham chiếu số 2 cố định nếu có.
         @returns {ImageGenResponse} Danh sách các ảnh đã được tạo kèm metadata.
         """
+        deadline = time.monotonic() + self.NETWORK_BUDGET_SECONDS
         target_ratio = aspect_ratio if aspect_ratio in self.VALID_RATIOS else "1:1"
         sample_count = min(max(1, number_of_images), 4)
+
+        # Thu thập danh sách ảnh tham chiếu theo đúng thứ tự: Ảnh 1 trước, Ảnh 2 sau
+        reference_b64_list = [
+            raw.strip() for raw in (image, reference_image_2) if raw and raw.strip()
+        ]
 
         parameters_dict: Dict[str, Any] = {
             "sampleCount": sample_count,
@@ -79,9 +89,9 @@ class GeminiImagenProvider(BaseImageGenProvider):
             parameters_dict["negativePrompt"] = negative_prompt
 
         instance_data: Dict[str, Any] = {"prompt": prompt}
-        if image and image.strip():
-            # Đính kèm ảnh mẫu tham chiếu vào instance theo chuẩn Imagen Image-to-Image
-            instance_data["image"] = {"bytesBase64Encoded": image.strip()}
+        if reference_b64_list:
+            # Endpoint :predict của Imagen chỉ hỗ trợ tối đa 1 ảnh đầu vào
+            instance_data["image"] = {"bytesBase64Encoded": reference_b64_list[0]}
 
         payload = {
             "instances": [instance_data],
@@ -100,9 +110,9 @@ class GeminiImagenProvider(BaseImageGenProvider):
             }
 
             try:
-                resp = requests.post(url, json=payload, headers=headers, timeout=60)
+                resp = self._request('POST', url, json=payload, headers=headers, deadline=deadline, label=f'gemini / {model_name}')
                 if resp.status_code == 200:
-                    data = resp.json()
+                    data = self._json(resp, f'gemini / {model_name}')
                     predictions = data.get("predictions", [])
                     if not predictions:
                         last_error = "Google Imagen 3 phản hồi thành công nhưng không có ảnh nào trong kết quả."
@@ -136,20 +146,20 @@ class GeminiImagenProvider(BaseImageGenProvider):
                 elif resp.status_code == 404 or "not found" in resp.text.lower():
                     gen_url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent"
                     parts: List[Dict[str, Any]] = [{"text": prompt}]
-                    if image and image.strip():
+                    for ref_b64 in reference_b64_list:
                         parts.append({
                             "inline_data": {
                                 "mime_type": "image/png",
-                                "data": image.strip()
+                                "data": ref_b64
                             }
                         })
                     gen_payload = {
                         "contents": [{"parts": parts}],
                         "generationConfig": {"responseModalities": ["IMAGE"]}
                     }
-                    gen_resp = requests.post(gen_url, json=gen_payload, headers=headers, timeout=60)
+                    gen_resp = self._request('POST', gen_url, json=gen_payload, headers=headers, deadline=deadline, label=f'gemini / {model_name}')
                     if gen_resp.status_code == 200:
-                        gen_data = gen_resp.json()
+                        gen_data = self._json(gen_resp, f'gemini / {model_name}')
                         items = []
                         for cand_idx, cand in enumerate(gen_data.get("candidates", [])):
                             for p in cand.get("content", {}).get("parts", []):
@@ -174,22 +184,19 @@ class GeminiImagenProvider(BaseImageGenProvider):
                                 images=items
                             )
 
+                    last_error = f'gemini / {model_name}: generateContent không có ảnh hợp lệ (HTTP {gen_resp.status_code}).'
+
                 elif resp.status_code == 400:
-                    err_msg = resp.text
+                    err_msg = resp.text.replace(api_key, '[REDACTED_API_KEY]')
                     # Phát hiện vi phạm bộ lọc an toàn nội dung
                     if "SAFETY" in err_msg or "blocked" in err_msg.lower():
                         raise ValueError("Yêu cầu tạo ảnh bị bộ lọc an toàn nội dung của Google từ chối. Vui lòng điều chỉnh lại prompt.")
                     last_error = f"Lỗi yêu cầu ({resp.status_code}): {err_msg[:200]}"
-                elif resp.status_code == 401 or resp.status_code == 403:
-                    raise ValueError("Khóa Google Gemini API không hợp lệ hoặc chưa được cấp quyền dùng mô hình Imagen 3.")
-                elif resp.status_code == 429:
-                    raise ValueError("Đã đạt giới hạn hạn mức (Rate Limit / Quota) của Google API. Vui lòng thử lại sau vài giây.")
-                else:
-                    last_error = f"Google Imagen 3 báo lỗi ({resp.status_code}): {resp.text[:200]}"
 
-            except requests.exceptions.Timeout:
-                last_error = f"Quá thời gian chờ phản hồi (Timeout 60s) từ Google Imagen 3 ({model_name})."
-            except requests.exceptions.RequestException as e:
-                last_error = f"Lỗi kết nối mạng tới Google Imagen API: {str(e)}"
+                else:
+                    last_error = f"Google Imagen 3 báo lỗi ({resp.status_code}): {resp.text.replace(api_key, '[REDACTED_API_KEY]')[:200]}"
+
+            except (AttributeError, TypeError, KeyError, ValidationError) as exc:
+                raise ImageGenUpstreamError(f'gemini / {model_name}: cấu trúc phản hồi không hợp lệ.') from exc
 
         raise RuntimeError(f"Không thể tạo ảnh từ Google Imagen 3. Chi tiết: {last_error}")
