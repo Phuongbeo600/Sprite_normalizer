@@ -12,20 +12,8 @@ Tại sao tồn tại: Cho phép người dùng bật/tắt mô hình 4.3 GB nga
 # ========================================================
 # json: Giải mã từng mảnh dữ liệu JSON từ luồng SSE của llama-server
 import json
-# logging: Ghi nhận nhật ký khởi động, tắt tiến trình và lỗi kết nối
-import logging
 # os: Đọc biến môi trường cấu hình host/cổng tùy biến
 import os
-# subprocess: Khởi chạy và tắt tiến trình llama-server.exe cục bộ
-import subprocess
-# sys: Kiểm tra hệ điều hành Windows để ẩn cửa sổ console phụ
-import sys
-# threading: Khóa đồng bộ hóa tránh mở trùng nhiều tiến trình ăn tràn RAM
-import threading
-# time: Đếm thời gian chờ mô hình nạp vào RAM qua endpoint /health
-import time
-# Path: Xác định đường dẫn tuyệt đối tới tệp thực thi và tệp mô hình GGUF
-from pathlib import Path
 # typing: Khai báo kiểu trả về cho Generator và từ điển trạng thái
 from typing import Any, Dict, Generator, Optional
 
@@ -39,23 +27,21 @@ import requests
 # 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Internal modules)
 # ========================================================
 # (Không phụ thuộc router, CSDL hay tầng core toán học)
+# LocalPromptEnhancerService: Đọc trạng thái tham khảo của Hunyuan 7B (cổng 8080), không can thiệp hành vi
+# AiRuntimeManager hiện sở hữu toàn bộ tiến trình; service chỉ ánh xạ trạng thái và xử lý prompt.
+from backend.services.ai_runtime_manager import AiRuntimeManager
+from backend.services.local_ai_config import (
+    PROJECT_ROOT, LLAMA_SERVER_EXE, GGUF_MODEL_PATH, LOCAL_AI_HOST,
+    LOCAL_AI_PORT, LOCAL_AI_BASE_URL, LOCAL_MODEL_DISPLAY_NAME,
+)
+from backend.services.local_ai_execution import check_cancelled
 
 # ========================================================
 # 4. CẤU HÌNH & HẰNG SỐ HỆ THỐNG (Config & Constants)
 # ========================================================
 # Thư mục gốc của dự án Sprite_normalizer
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
 # Đường dẫn tệp thực thi llama-server và tệp trọng số lượng tử hóa GGUF
-LLAMA_SERVER_EXE = PROJECT_ROOT / "tools" / "llama-cpp" / "llama-server.exe"
-GGUF_MODEL_PATH = PROJECT_ROOT / "localPromtTess" / "promptenhancer-7b-Q4_K_M.gguf"
-
-LOCAL_AI_HOST = os.getenv("LOCAL_PROMPT_ENHANCER_HOST", "127.0.0.1").strip() or "127.0.0.1"
-LOCAL_AI_PORT = int(os.getenv("LOCAL_PROMPT_ENHANCER_PORT", "8080"))
-LOCAL_AI_BASE_URL = f"http://{LOCAL_AI_HOST}:{LOCAL_AI_PORT}"
-LOCAL_MODEL_DISPLAY_NAME = "Hunyuan PromptEnhancer 7B (Q4_K_M)"
-
 # Ngưỡng thời gian chờ nạp mô hình 4.3 GB vào RAM và thời gian chờ luồng sinh văn bản
-START_TIMEOUT_SECONDS = float(os.getenv("LOCAL_PROMPT_ENHANCER_START_TIMEOUT", "60"))
 STREAM_TIMEOUT_SECONDS = float(os.getenv("LOCAL_PROMPT_ENHANCER_STREAM_TIMEOUT", "120"))
 
 # Lời nhắc hệ thống ép định dạng 4 dòng ngắn gọn (Character / Physical Appearance / Clothing / Accessories),
@@ -107,184 +93,31 @@ _STRIP_STREAM_TAGS = ("<answer>", "</answer>", "<think>", "</think>")
 _FORBIDDEN_LINE_PREFIXES = ("rules:", "note:")
 _MAX_STRUCTURED_LINES = 4
 
-logger = logging.getLogger(__name__)
-
-
 class LocalPromptEnhancerService:
     """
     Dịch vụ điều phối vòng đời máy chủ AI Local (llama-server.exe) trên cổng 8080
     và phát luồng gợi ý nâng cao mô tả nhân vật theo thời gian thực.
     """
 
-    _lock = threading.RLock()
-    _process: Optional[subprocess.Popen] = None
-
-    @classmethod
-    def _is_managed_process_alive(cls) -> bool:
-        """Kiểm tra tiến trình llama-server do Backend khởi tạo có còn đang chạy không."""
-        if cls._process is None:
-            return False
-        if cls._process.poll() is not None:
-            cls._process = None
-            return False
-        return True
-
-    @classmethod
-    def _probe_server_state(cls, timeout: float = 1.2) -> str:
-        """
-        Thăm dò trạng thái endpoint /health của llama-server trên cổng 8080.
-
-        @param {float} timeout Thời gian chờ tối đa cho một lần hỏi sức khỏe.
-        @returns {str} 'ready' (sẵn sàng), 'loading' (đang nạp model), hoặc 'offline' (không chạy).
-        """
-        try:
-            resp = requests.get(f"{LOCAL_AI_BASE_URL}/health", timeout=timeout)
-            if resp.status_code == 200:
-                return "ready"
-            if resp.status_code == 503:
-                return "loading"
-            return "offline"
-        except requests.RequestException:
-            return "offline"
-
     @classmethod
     def get_status(cls) -> Dict[str, Any]:
-        """
-        Lấy trạng thái hiện tại của AI Local (đã bật/đang nạp/đã tắt) để đồng bộ lên UI.
-
-        @returns {Dict[str, Any]} Từ điển khớp LocalEnhancerStatusResponse.
-        """
-        with cls._lock:
-            managed_alive = cls._is_managed_process_alive()
-            probe = cls._probe_server_state()
-
-            if probe == "ready":
-                msg = (
-                    f"AI Local đang sẵn sàng trên cổng {LOCAL_AI_PORT}."
-                    if managed_alive
-                    else f"Đang kết nối tới AI Local bật sẵn trên cổng {LOCAL_AI_PORT}."
-                )
-                return {
-                    "running": True,
-                    "ready": True,
-                    "managed_by_backend": managed_alive,
-                    "port": LOCAL_AI_PORT,
-                    "model_name": LOCAL_MODEL_DISPLAY_NAME,
-                    "message": msg,
-                }
-
-            if probe == "loading" or managed_alive:
-                return {
-                    "running": True,
-                    "ready": False,
-                    "managed_by_backend": managed_alive,
-                    "port": LOCAL_AI_PORT,
-                    "model_name": LOCAL_MODEL_DISPLAY_NAME,
-                    "message": "AI Local đang nạp mô hình 4.3 GB vào RAM, vui lòng chờ...",
-                }
-
-            return {
-                "running": False,
-                "ready": False,
-                "managed_by_backend": False,
-                "port": LOCAL_AI_PORT,
-                "model_name": LOCAL_MODEL_DISPLAY_NAME,
-                "message": "AI Local đang tắt (tiết kiệm RAM).",
-            }
+        """Trả trạng thái Hunyuan theo hợp đồng API hiện có."""
+        return AiRuntimeManager.get_hunyuan_status()
 
     @classmethod
     def start(cls) -> Dict[str, Any]:
-        """
-        Khởi chạy tiến trình llama-server.exe (nếu cổng 8080 chưa bật) và chờ tới khi nạp xong model.
-
-        @returns {Dict[str, Any]} Trạng thái sẵn sàng của AI Local.
-        @raises {FileNotFoundError} Khi thiếu tệp llama-server.exe hoặc tệp .gguf.
-        @raises {RuntimeError} Khi tiến trình thoát lỗi trong lúc nạp mô hình.
-        @raises {TimeoutError} Khi quá thời gian chờ nạp mô hình vào RAM.
-        """
-        with cls._lock:
-            probe = cls._probe_server_state()
-            if probe == "ready":
-                return cls.get_status()
-
-            if not cls._is_managed_process_alive() and probe == "offline":
-                if not LLAMA_SERVER_EXE.is_file():
-                    raise FileNotFoundError(
-                        f"Không tìm thấy tệp chạy AI Local tại: {LLAMA_SERVER_EXE}"
-                    )
-                if not GGUF_MODEL_PATH.is_file():
-                    raise FileNotFoundError(
-                        f"Không tìm thấy tệp mô hình GGUF tại: {GGUF_MODEL_PATH}"
-                    )
-
-                cmd = [
-                    str(LLAMA_SERVER_EXE),
-                    "-m", str(GGUF_MODEL_PATH),
-                    "--jinja",
-                    "--reasoning", "off",
-                    "-ngl", "0",
-                    "-c", "4096",
-                    "--host", LOCAL_AI_HOST,
-                    "--port", str(LOCAL_AI_PORT),
-                ]
-                creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0) if sys.platform == "win32" else 0
-                logger.info(f"[LocalAI] Khởi chạy llama-server trên {LOCAL_AI_BASE_URL}")
-                cls._process = subprocess.Popen(
-                    cmd,
-                    cwd=str(LLAMA_SERVER_EXE.parent),
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                    creationflags=creationflags,
-                )
-
-            deadline = time.monotonic() + START_TIMEOUT_SECONDS
-            while time.monotonic() < deadline:
-                if cls._process is not None and cls._process.poll() is not None:
-                    exit_code = cls._process.returncode
-                    cls._process = None
-                    raise RuntimeError(
-                        f"Máy chủ AI Local thoát bất ngờ khi nạp mô hình (mã thoát {exit_code})."
-                    )
-                if cls._probe_server_state(timeout=1.0) == "ready":
-                    logger.info(f"[LocalAI] Mô hình đã nạp xong và sẵn sàng tại cổng {LOCAL_AI_PORT}.")
-                    return cls.get_status()
-                time.sleep(0.4)
-
-            raise TimeoutError(
-                f"Quá thời gian chờ ({int(START_TIMEOUT_SECONDS)}s) để AI Local nạp mô hình vào RAM."
-            )
+        """Ủy quyền tải model cho bộ quản lý vòng đời dùng chung."""
+        AiRuntimeManager.ensure_started("hunyuan_enhancer")
+        return cls.get_status()
 
     @classmethod
     def stop(cls) -> Dict[str, Any]:
-        """
-        Tắt tiến trình llama-server.exe do Backend quản lý để giải phóng ngay RAM hệ thống.
-
-        @returns {Dict[str, Any]} Trạng thái sau khi dừng tiến trình.
-        """
-        with cls._lock:
-            stopped_managed = False
-            if cls._process is not None:
-                proc = cls._process
-                cls._process = None
-                if proc.poll() is None:
-                    logger.info("[LocalAI] Đang tắt tiến trình llama-server để giải phóng RAM...")
-                    proc.terminate()
-                    try:
-                        proc.wait(timeout=5.0)
-                    except subprocess.TimeoutExpired:
-                        proc.kill()
-                        proc.wait(timeout=3.0)
-                    stopped_managed = True
-
-            status = cls.get_status()
-            if stopped_managed and not status["running"]:
-                status["message"] = "Đã tắt AI Local và giải phóng RAM."
-            elif status["running"] and not status["managed_by_backend"]:
-                status["message"] = (
-                    f"Cổng {LOCAL_AI_PORT} đang được mở bởi tiến trình bên ngoài (vd cửa sổ .bat); "
-                    "hãy đóng cửa sổ đó để tắt hẳn."
-                )
-            return status
+        """Giải phóng Hunyuan nếu không còn yêu cầu sử dụng model."""
+        AiRuntimeManager.stop_slot("hunyuan_enhancer")
+        status = cls.get_status()
+        if status["running"] and not status["managed_by_backend"]:
+            status["message"] = f"Cổng {LOCAL_AI_PORT} đang được mở bởi tiến trình bên ngoài; hãy đóng tiến trình đó để tắt hẳn."
+        return status
 
     @classmethod
     def _build_user_message(cls, prompt: str, style_preset: Optional[str] = None) -> str:
@@ -399,14 +232,6 @@ class LocalPromptEnhancerService:
         if not clean_prompt:
             raise ValueError("Vui lòng nhập mô tả nhân vật trước khi nhờ AI Local gợi ý.")
 
-        if cls._probe_server_state() != "ready":
-            if auto_start:
-                cls.start()
-            else:
-                raise RuntimeError(
-                    f"AI Local trên cổng {LOCAL_AI_PORT} đang tắt. Vui lòng bật công tắc AI Local trước."
-                )
-
         payload = {
             "model": "promptenhancer-7b",
             "messages": [
@@ -421,22 +246,36 @@ class LocalPromptEnhancerService:
             "stream": True,
         }
 
-        try:
-            resp = requests.post(
-                f"{LOCAL_AI_BASE_URL}/v1/chat/completions",
-                json=payload,
-                stream=True,
-                timeout=(10.0, STREAM_TIMEOUT_SECONDS),
-            )
-        except requests.RequestException as exc:
-            raise RuntimeError(f"Không thể kết nối tới AI Local trên cổng {LOCAL_AI_PORT}: {exc}") from exc
+        def _chunk_generator() -> Generator[str, None, None]:
+            """Giữ lượt CPU và model đến khi HTTP đã hoàn thành và socket đóng."""
+            with AiRuntimeManager.use_slot("hunyuan_enhancer", auto_start=auto_start) as base_url:
+                check_cancelled()
+                try:
+                    resp = requests.post(
+                        f"{base_url}/v1/chat/completions", json=payload,
+                        stream=True, timeout=(10.0, STREAM_TIMEOUT_SECONDS),
+                    )
+                except requests.RequestException as exc:
+                    raise RuntimeError(f"Không thể kết nối tới AI Local trên cổng {LOCAL_AI_PORT}: {exc}") from exc
+                raw = None
+                try:
+                    if resp.status_code != 200:
+                        detail = (resp.text or "").strip()[:300]
+                        raise RuntimeError(f"AI Local phản hồi HTTP {resp.status_code}: {detail or 'Lỗi không xác định'}")
+                    raw = _raw_chunk_generator(resp)
+                    for text in cls._clean_stream_chunks(raw):
+                        check_cancelled()
+                        yield text
+                finally:
+                    try:
+                        # Bộ lọc có thể dừng sớm; chờ server kết thúc trước khi trả lượt CPU.
+                        if raw is not None:
+                            for _ in raw:
+                                pass
+                    finally:
+                        resp.close()
 
-        if resp.status_code != 200:
-            detail = (resp.text or "").strip()[:300]
-            resp.close()
-            raise RuntimeError(f"AI Local phản hồi HTTP {resp.status_code}: {detail or 'Lỗi không xác định'}")
-
-        def _raw_chunk_generator() -> Generator[str, None, None]:
+        def _raw_chunk_generator(resp) -> Generator[str, None, None]:
             """Đọc từng dòng SSE thô từ llama-server và giải phóng socket khi kết thúc."""
             for raw_line in resp.iter_lines(decode_unicode=True):
                 if not raw_line:
@@ -458,12 +297,5 @@ class LocalPromptEnhancerService:
                 content = delta.get("content")
                 if content:
                     yield content
-
-        def _chunk_generator() -> Generator[str, None, None]:
-            """Bọc bộ lọc thẻ thừa quanh luồng thô và luôn đóng socket HTTP ở finally."""
-            try:
-                yield from cls._clean_stream_chunks(_raw_chunk_generator())
-            finally:
-                resp.close()
 
         return _chunk_generator()

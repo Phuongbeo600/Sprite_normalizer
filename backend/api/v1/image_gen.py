@@ -12,7 +12,8 @@ from typing import AsyncGenerator, Dict, Any, Optional
 # fastapi: Khởi tạo router, xử lý ngoại lệ HTTP, Dependency Injection, Request, StreamingResponse và ThreadPool
 from fastapi import APIRouter, HTTPException, Query, Depends, Request
 from fastapi.concurrency import run_in_threadpool
-from fastapi.responses import StreamingResponse
+# anyio: Giữ khối dọn dẹp khi kết nối SSE bị hủy.
+import anyio
 # sqlalchemy: Phiên làm việc cơ sở dữ liệu
 from sqlalchemy.orm import Session
 
@@ -42,6 +43,7 @@ from backend.schemas.image_gen import (
 from backend.services.image_gen_service import ImageGenService
 # LocalPromptEnhancerService: Dịch vụ bật/tắt llama-server cổng 8080 và phát luồng gợi ý prompt
 from backend.services.local_prompt_enhancer_service import LocalPromptEnhancerService
+from backend.api.local_ai_stream import LocalAiStreamingResponse, local_ai_stream, run_local_ai_step
 from backend.providers.image_gen.base import ImageGenRequestError, ImageGenUpstreamError
 
 # ========================================================
@@ -182,6 +184,7 @@ def stream_enhance_prompt_endpoint(
 
     _sentinel = object()
 
+    @local_ai_stream
     async def event_generator() -> AsyncGenerator[str, None]:
         """Đọc luồng token từ AI Local trên ThreadPool và đẩy về trình duyệt qua SSE."""
         sync_iter = None
@@ -193,23 +196,22 @@ def stream_enhance_prompt_endpoint(
                     yield "data: [DONE]\n\n"
                     return
                 yield _sse_event({"status": "loading_model", "message": "Đang bật AI Local và nạp mô hình 4.3 GB vào RAM..."})
-                await run_in_threadpool(LocalPromptEnhancerService.start)
 
             if http_request is not None and hasattr(http_request, "is_disconnected") and await http_request.is_disconnected():
                 return
 
             yield _sse_event({"status": "streaming", "message": "AI Local đang viết gợi ý..."})
-            sync_iter = await run_in_threadpool(
+            sync_iter = await run_local_ai_step(
                 LocalPromptEnhancerService.stream_enhance_prompt,
                 request.prompt,
                 request.style_preset,
-                False,
+                request.auto_start,
             )
 
             while True:
                 if http_request is not None and hasattr(http_request, "is_disconnected") and await http_request.is_disconnected():
                     break
-                chunk_text = await run_in_threadpool(lambda: next(sync_iter, _sentinel))
+                chunk_text = await run_local_ai_step(lambda: next(sync_iter, _sentinel))
                 if chunk_text is _sentinel:
                     break
                 yield _sse_event({"text": chunk_text})
@@ -219,14 +221,14 @@ def stream_enhance_prompt_endpoint(
             yield _sse_event({"error": str(exc)})
             yield "data: [DONE]\n\n"
         finally:
-            ai_chat_concurrency.release()
-            if sync_iter is not None and hasattr(sync_iter, "close"):
+            with anyio.CancelScope(shield=True):
                 try:
-                    sync_iter.close()
-                except Exception:
-                    pass
+                    if sync_iter is not None and hasattr(sync_iter, "close"):
+                        await run_local_ai_step(sync_iter.close)
+                finally:
+                    ai_chat_concurrency.release()
 
-    return StreamingResponse(
+    return LocalAiStreamingResponse(
         event_generator(),
         media_type="text/event-stream",
         headers={

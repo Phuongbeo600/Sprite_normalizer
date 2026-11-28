@@ -1,0 +1,134 @@
+/* Định dạng hội thoại và Markdown dùng hệ biến màu hiện có của dự án. */
+.atelier-offline-msg-row {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.atelier-offline-msg-row.is-user {
+  align-self: flex-end;
+  align-items: flex-end;
+  max-width: 86%;
+}
+
+.atelier-offline-msg-row.is-assistant {
+  align-self: stretch;
+  align-items: stretch;
+}
+
+.atelier-offline-msg-bubble {
+  min-width: 0;
+  padding: 11px 16px;
+  border-radius: 18px;
+  font-size: 0.875rem;
+  line-height: 1.8;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.atelier-offline-msg-row.is-user .atelier-offline-msg-bubble {
+  background: var(--accent-secondary-btn-hover);
+  color: var(--text-primary);
+  border: 1px solid var(--border-card);
+}
+
+.atelier-offline-msg-row.is-assistant .atelier-offline-msg-bubble {
+  padding: 0;
+  background: transparent;
+  color: var(--text-primary);
+  border: 0;
+  white-space: normal;
+}
+
+.atelier-offline-sources-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.atelier-offline-sources-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  align-self: flex-start;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-card);
+  background: var(--bg-card);
+  color: var(--text-highlight);
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+
+.atelier-offline-sources-toggle .is-rotated {
+  transform: rotate(180deg);
+}
+
+.atelier-offline-sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.atelier-offline-source-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 7px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-app);
+  color: var(--text-muted);
+  font-size: 0.7rem;
+}
+
+.atelier-offline-msg-status {
+  align-self: flex-start;
+  font-size: 0.68rem;
+  padding: 2px 7px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-card);
+}
+
+.atelier-offline-msg-status.is-cancelled {
+  color: var(--measure-yellow);
+  border-color: var(--measure-yellow);
+}
+
+.atelier-offline-msg-status.is-failed {
+  color: var(--measure-red);
+  border-color: var(--measure-red);
+}
+
+.atelier-offline-answer-label { display: flex; align-items: center; gap: 8px; color: var(--text-highlight); font-size: 0.72rem; font-weight: 600; }
+.atelier-offline-answer-actions { display: flex; align-items: center; gap: 12px; }
+.atelier-offline-copy { display: inline-flex; gap: 6px; align-items: center; padding: 4px; min-height: 30px; border: 0; background: transparent; color: var(--text-dim); font: inherit; font-size: 0.65rem; cursor: pointer; }
+.atelier-offline-copy:hover { color: var(--text-primary); }
+.atelier-offline-msg-bubble > :first-child { margin-top: 0; }
+.atelier-offline-msg-bubble > :last-child { margin-bottom: 0; }
+.atelier-offline-msg-bubble p { margin: 0 0 14px; }
+.atelier-offline-msg-bubble :is(h1, h2, h3, h4) { font-size: 1em; font-weight: 700; line-height: 1.5; margin: 24px 0 12px; letter-spacing: -0.015em; }
+.atelier-offline-msg-bubble :is(ul, ol) { margin: 10px 0 18px; padding-left: 23px; }
+.atelier-offline-msg-bubble li { padding-left: 3px; margin: 6px 0; }
+.atelier-offline-msg-bubble li > p { margin: 0; }
+.atelier-offline-msg-bubble a { color: var(--text-highlight); text-underline-offset: 3px; }
+.atelier-offline-msg-bubble blockquote { margin: 16px 0; padding-left: 16px; border-left: 2px solid var(--border-card-hover); color: var(--text-muted); }
+.atelier-offline-msg-bubble code { font-family: Consolas, monospace; font-size: 0.85em; padding: 2px 5px; background: var(--icon-folder-bg); border-radius: var(--radius-xs); }
+.atelier-offline-code { margin: 16px 0; min-width: 0; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); overflow: hidden; background: var(--bg-input); }
+.atelier-offline-code-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 12px; background: var(--bg-card); color: var(--text-muted); font-size: 0.7rem; }
+.atelier-offline-code pre { margin: 0; padding: 16px; max-width: 100%; overflow-x: auto; white-space: pre; line-height: 1.7; }
+.atelier-offline-code pre code { padding: 0; background: transparent; border: 0; overflow-wrap: normal; }
+.atelier-offline-msg-bubble table { display: block; max-width: 100%; overflow-x: auto; border-collapse: collapse; font-size: 0.8rem; margin: 16px 0; }
+.atelier-offline-msg-bubble :is(th, td) { padding: 10px 12px; border: 1px solid var(--border-subtle); text-align: left; min-width: 90px; }
+.atelier-offline-msg-bubble th { background: var(--bg-card); font-weight: 600; }
+.atelier-offline-msg-bubble hr { border: 0; border-top: 1px solid var(--border-subtle); margin: 24px 0; }
+.atelier-offline-thinking { color: var(--text-muted); font-size: 0.8rem; }
+.atelier-offline-msg-bubble input[type="checkbox"] { accent-color: var(--accent-purple); }
+.atelier-offline-msg-bubble img { max-width: 100%; height: auto; border-radius: var(--radius-sm); }
+
+@media (max-width: 699px) {
+  .atelier-offline-copy, .atelier-offline-sources-toggle { min-height: 44px; }
+}

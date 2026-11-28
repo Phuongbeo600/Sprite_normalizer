@@ -25,6 +25,7 @@ import requests
 # ========================================================
 from backend.repositories.offline_chat_repository import OfflineChatRepository
 from backend.services.ai_runtime_manager import AiRuntimeManager
+from backend.services.local_ai_execution import check_cancelled
 from backend.services.offline_chat.rag.rag_service import OfflineRagService
 from backend.services.offline_chat.rag.retriever import (
     DEFAULT_SIMILARITY_THRESHOLD,
@@ -376,7 +377,15 @@ class OfflineChatService:
                             yield content
 
                 try:
-                    yield from _strip_think_tags(_raw_lines())
+                    raw = _raw_lines()
+                    try:
+                        for text in _strip_think_tags(raw):
+                            check_cancelled()
+                            yield text
+                    finally:
+                        # Hủy giao diện không đồng nghĩa server đã ngừng sinh token.
+                        for _ in raw:
+                            pass
                 finally:
                     resp.close()
 

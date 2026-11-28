@@ -24,6 +24,7 @@ import requests
 # ========================================================
 # AiRuntimeManager: Nạp lười BGE-M3 khi cần và bảo vệ slot trong suốt thời gian nhúng vector
 from backend.services.ai_runtime_manager import AiRuntimeManager
+from backend.services.local_ai_execution import check_cancelled
 
 # ========================================================
 # 4. CẤU HÌNH & HẰNG SỐ HỆ THỐNG (Embedding Constants)
@@ -68,18 +69,23 @@ class EmbeddingService:
         with AiRuntimeManager.use_slot("bge_m3_embedding") as base_url:
             endpoint = f"{base_url}/v1/embeddings"
             for start in range(0, len(clean_texts), batch_size):
+                check_cancelled()
                 batch = clean_texts[start : start + batch_size]
                 resp = requests.post(
                     endpoint,
                     json={"model": cls.MODEL_ID, "input": batch},
                     timeout=(10.0, EMBEDDING_TIMEOUT_SECONDS),
                 )
-                if resp.status_code != 200:
-                    detail = (resp.text or "").strip()[:300]
-                    raise RuntimeError(
-                        f"Máy chủ BGE-M3 trả lỗi HTTP {resp.status_code}: {detail or 'Lỗi không xác định'}"
-                    )
-                payload = resp.json()
+                try:
+                    if resp.status_code != 200:
+                        detail = (resp.text or "").strip()[:300]
+                        raise RuntimeError(
+                            f"Máy chủ BGE-M3 trả lỗi HTTP {resp.status_code}: {detail or 'Lỗi không xác định'}"
+                        )
+                    payload = resp.json()
+                finally:
+                    resp.close()
+                check_cancelled()
                 data = payload.get("data") or []
                 if len(data) != len(batch):
                     raise RuntimeError(

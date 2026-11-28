@@ -18,12 +18,15 @@ from fastapi import Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
+# anyio: Giữ khối dọn dẹp và chốt trạng thái khi kết nối bị hủy.
+import anyio
 
 # ========================================================
 # 3. THÀNH PHẦN NỘI BỘ DỰ ÁN (Concurrency, Runtime Manager & Service)
 # ========================================================
 from backend.core.load_control import ai_chat_concurrency
 from backend.services.ai_runtime_manager import AiRuntimeManager
+from backend.api.local_ai_stream import LocalAiStreamingResponse, local_ai_stream, run_local_ai_step
 from backend.services.offline_chat.offline_chat_service import OfflineChatService
 
 # ========================================================
@@ -77,6 +80,7 @@ def build_offline_chat_sse_response(
     db_history: List[Dict[str, str]] = turn.get("history") or []
     sentinel = object()
 
+    @local_ai_stream
     async def event_generator() -> AsyncGenerator[str, None]:
         sync_iter = None
         collected_parts: List[str] = []
@@ -114,7 +118,7 @@ def build_offline_chat_sse_response(
                 return
 
             yield sse_event({"status": "retrieving", "message": "Đang truy xuất tài liệu từ kho tri thức offline..."})
-            retrieval = await run_in_threadpool(service.prepare_rag_context, clean_message, db_history, top_k, similarity_threshold)
+            retrieval = await run_local_ai_step(service.prepare_rag_context, clean_message, db_history, top_k, similarity_threshold)
 
             if retrieval.status in ("empty_kb", "no_relevant_docs"):
                 reply = (
@@ -143,13 +147,13 @@ def build_offline_chat_sse_response(
                 yield sse_event({"status": "loading_model", "message": "Đang nạp Qwen3.5-4B vào RAM..."})
 
             yield sse_event({"status": "streaming", "message": "Qwen3.5-4B đang trả lời..."})
-            sync_iter = await run_in_threadpool(service.stream_llm_answer, messages)
+            sync_iter = await run_local_ai_step(service.stream_llm_answer, messages)
 
             while True:
                 if await _is_client_disconnected(http_request):
                     final_status = "cancelled"
                     break
-                chunk_text = await run_in_threadpool(lambda: next(sync_iter, sentinel))
+                chunk_text = await run_local_ai_step(lambda: next(sync_iter, sentinel))
                 if chunk_text is sentinel:
                     break
                 collected_parts.append(chunk_text)
@@ -164,16 +168,15 @@ def build_offline_chat_sse_response(
             yield sse_event({"status": "failed", "error": str(exc)})
             yield "data: [DONE]\n\n"
         finally:
-            ai_chat_concurrency.release()
-            if sync_iter is not None and hasattr(sync_iter, "close"):
+            with anyio.CancelScope(shield=True):
                 try:
-                    sync_iter.close()
-                except Exception:
-                    pass
-            if not finalized:
-                try:
-                    _commit_final("cancelled" if final_status != "failed" else "failed")
-                except Exception:
-                    pass
+                    if sync_iter is not None and hasattr(sync_iter, "close"):
+                        await run_local_ai_step(sync_iter.close)
+                finally:
+                    try:
+                        if not finalized:
+                            await run_in_threadpool(_commit_final, "cancelled" if final_status != "failed" else "failed")
+                    finally:
+                        ai_chat_concurrency.release()
 
-    return StreamingResponse(event_generator(), media_type="text/event-stream", headers=SSE_HEADERS)
+    return LocalAiStreamingResponse(event_generator(), media_type="text/event-stream", headers=SSE_HEADERS)

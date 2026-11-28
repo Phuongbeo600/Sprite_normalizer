@@ -38,6 +38,9 @@
   --avatar-user-bg: #0f766e;
   --avatar-user-text: #5eead4;
 
+  /* Bóng đổ dùng chung cho cửa sổ chat nổi, cùng màu nền tối của ứng dụng. */
+  --shadow-floating-chat: 0 24px 80px rgba(0, 0, 0, 0.45), 0 0 0 1px var(--border-subtle);
+
   /* 6. Bo góc */
   --radius-xs: 4px;
   --radius-sm: 8px;

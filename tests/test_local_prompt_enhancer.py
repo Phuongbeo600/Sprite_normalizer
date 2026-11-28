@@ -8,6 +8,7 @@ import sys
 import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
+from contextlib import ExitStack
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -22,6 +23,7 @@ from fastapi.testclient import TestClient
 # ========================================================
 from backend.main import app
 from backend.services.local_prompt_enhancer_service import LocalPromptEnhancerService
+from backend.services.ai_runtime_manager import AiRuntimeManager, SLOT_SPECS, _SlotState
 
 # ========================================================
 # 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
@@ -33,10 +35,11 @@ class TestLocalPromptEnhancerService(unittest.TestCase):
     """Kiểm thử vòng đời bật/tắt llama-server và phát luồng SSE của LocalPromptEnhancerService."""
 
     def setUp(self):
-        LocalPromptEnhancerService._process = None
-
-    def tearDown(self):
-        LocalPromptEnhancerService._process = None
+        self.stack = ExitStack()
+        self.addCleanup(self.stack.close)
+        self.stack.enter_context(patch.object(AiRuntimeManager, "_states", {k: _SlotState() for k in SLOT_SPECS}))
+        self.stack.enter_context(patch.object(AiRuntimeManager, "_ensure_reaper_started"))
+        self.stack.enter_context(patch.object(AiRuntimeManager, "get_memory_snapshot", return_value={"available_mb": 32000}))
 
     @patch("backend.services.local_prompt_enhancer_service.requests.get")
     def test_status_offline_khi_cong_8080_chua_mo(self, mock_get):
@@ -47,33 +50,39 @@ class TestLocalPromptEnhancerService(unittest.TestCase):
         self.assertFalse(status["managed_by_backend"])
         self.assertEqual(status["port"], 8080)
 
-    @patch("backend.services.local_prompt_enhancer_service.Path.is_file", return_value=False)
+    @patch("pathlib.Path.is_file", return_value=False)
     @patch("backend.services.local_prompt_enhancer_service.requests.get")
     def test_start_bao_loi_khi_thieu_tep_chay_hoac_gguf(self, mock_get, _mock_is_file):
         mock_get.side_effect = requests.ConnectionError("offline")
         with self.assertRaises(FileNotFoundError):
             LocalPromptEnhancerService.start()
 
-    @patch("backend.services.local_prompt_enhancer_service.time.sleep", return_value=None)
-    @patch("backend.services.local_prompt_enhancer_service.subprocess.Popen")
-    @patch("backend.services.local_prompt_enhancer_service.Path.is_file", return_value=True)
+    @patch("backend.services.ai_runtime_manager.time.sleep", return_value=None)
+    @patch("backend.services.ai_runtime_manager.subprocess.Popen")
+    @patch("pathlib.Path.is_file", return_value=True)
     @patch("backend.services.local_prompt_enhancer_service.requests.get")
     def test_start_va_stop_quan_ly_tien_trinh_dung_vong_doi(
         self, mock_get, _mock_is_file, mock_popen, _mock_sleep
     ):
-        resp_loading = MagicMock(status_code=503)
-        resp_ready = MagicMock(status_code=200)
-        mock_get.side_effect = [
-            requests.ConnectionError("offline"),
-            resp_loading,
-            resp_ready,
-            resp_ready,
-            requests.ConnectionError("offline"),
-        ]
-
+        running = [False]
         fake_proc = MagicMock()
-        fake_proc.poll.return_value = None
-        mock_popen.return_value = fake_proc
+        fake_proc.pid = 99999999
+        fake_proc.poll.side_effect = lambda: None if running[0] else 0
+        def spawn(*args, **kwargs):
+            """Mô phỏng tiến trình bắt đầu sở hữu cổng HTTP."""
+            running[0] = True
+            return fake_proc
+        def health(*args, **kwargs):
+            """Cổng chỉ sẵn sàng trong thời gian tiến trình còn sống."""
+            if not running[0]:
+                raise requests.ConnectionError("offline")
+            return MagicMock(status_code=200)
+        def terminate():
+            """Mô phỏng tiến trình giải phóng cổng khi dừng."""
+            running[0] = False
+        fake_proc.terminate.side_effect = terminate
+        mock_get.side_effect = health
+        mock_popen.side_effect = spawn
 
         started = LocalPromptEnhancerService.start()
         self.assertTrue(started["running"])
@@ -191,7 +200,8 @@ class TestLocalPromptEnhancerApi(unittest.TestCase):
             self.assertEqual(resp.status_code, 200)
             body = "".join(resp.iter_text())
 
-        mock_start.assert_called_once()
+        mock_start.assert_not_called()
+        self.assertTrue(mock_stream.call_args.args[2])
         self.assertIn('"status": "loading_model"', body)
         self.assertIn('"status": "streaming"', body)
         self.assertIn('"text": "Dark "', body)

@@ -64,18 +64,17 @@ export default function OfflineInspectorDrawer({
       <div className="atelier-offline-status-grid">
         <div className="atelier-offline-status-card">
           <div className="atelier-offline-status-top">
-            <span>Model Chat (8081)</span>
+            <span>Qwen3.5-4B</span>
             <OfflineModelStatusPill slot={effectiveQwenSlot} />
           </div>
           <div className="atelier-offline-status-meta">
-            {qwenSlot.model_name || 'Qwen3.5-4B (Q4_K_M)'}
-            {qwenSlot.rss_mb ? ` · ${qwenSlot.rss_mb} MB RAM` : ''}
+            {qwenSlot.rss_mb ? `${qwenSlot.rss_mb} MB RAM` : 'Q4_K_M · Tự nạp khi gửi câu hỏi'}
           </div>
         </div>
 
         <div className="atelier-offline-status-card">
           <div className="atelier-offline-status-top">
-            <span>BGE-M3 (8082)</span>
+            <span>BGE-M3</span>
             <OfflineModelStatusPill slot={bgeSlot} />
           </div>
           <div className="atelier-offline-status-meta">
@@ -85,14 +84,14 @@ export default function OfflineInspectorDrawer({
 
         <div className="atelier-offline-status-card">
           <div className="atelier-offline-status-top">
-            <span>Kho tri thức &amp; RAM</span>
-            <span className={`atelier-offline-pill ${isKnowledgeEmpty ? 'is-loading' : 'is-ready'}`}>
-              {knowledge ? `${knowledge.doc_count} tệp · ${knowledge.chunk_count} đoạn` : '...'}
+            <span>RAM</span>
+            <span className="atelier-offline-pill is-ready">
+              {memory ? `${memory.used_percent}%` : '...'}
             </span>
           </div>
           <div className="atelier-offline-status-meta">
             {memory
-              ? `RAM trống: ${memory.available_mb} / ${memory.total_mb} MB (${memory.used_percent}%)`
+              ? `RAM trống: ${memory.available_mb} / ${memory.total_mb} MB`
               : 'Đang đọc thông số RAM...'}
           </div>
         </div>

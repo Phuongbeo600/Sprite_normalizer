@@ -35,8 +35,8 @@ from backend.db import SessionLocal, init_db
 # OfflineChatRepository: Khôi phục các tin nhắn kẹt trạng thái `generating` sau khi khởi động lại server
 from backend.repositories.offline_chat_repository import OfflineChatRepository
 # LocalPromptEnhancerService: Tự động dọn dẹp tiến trình llama-server cục bộ khi tắt máy chủ
-from backend.services.local_prompt_enhancer_service import LocalPromptEnhancerService
 # AiRuntimeManager: Giải phóng an toàn các mô hình RAG Offline (Qwen3.5-4B, BGE-M3) khi tắt máy chủ
+# Manager hiện quản lý cả Hunyuan, chỉ cần một lần dọn toàn bộ tiến trình.
 from backend.services.ai_runtime_manager import AiRuntimeManager
 
 # ========================================================
@@ -63,10 +63,6 @@ async def lifespan(app: FastAPI):
     try:
         yield
     finally:
-        try:
-            LocalPromptEnhancerService.stop()
-        except Exception as err:
-            print(f"[Lifespan] Cảnh báo dọn dẹp AI Local: {err}")
         try:
             AiRuntimeManager.shutdown_all()
         except Exception as err:

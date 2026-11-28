@@ -1,28 +1,15 @@
 // ========================================================
 // 1. THƯ VIỆN NỀN TẢNG REACT (Quản lý đóng/mở cửa sổ, phóng to & cuộn)
 // ========================================================
-import React, { useEffect, useRef, useState } from 'react';
+import React, { lazy, Suspense, useState } from 'react';
 
 // ========================================================
 // 2. THƯ VIỆN BÊN NGOÀI (Third-party packages)
 // ========================================================
 // lucide-react: Biểu tượng FAB Trợ Lý AI, điều khiển model, chỉ mục và nguồn tham chiếu
 import {
-  AlertCircle,
-  BookOpen,
-  ChevronDown,
-  Cpu,
-  Database,
-  FileText,
-  History,
-  Maximize2,
-  Minimize2,
-  Play,
-  Plus,
-  Send,
-  Sliders,
-  Square,
-  X,
+  AlertCircle, ArrowDown, Cpu, History, Maximize2,
+  MessageSquarePlus, Minimize2, Sliders, Sparkles, X,
 } from 'lucide-react';
 
 // ========================================================
@@ -32,11 +19,17 @@ import { OFFLINE_CHAT_SUGGESTIONS } from '../../constants/offlineChatSamples';
 import OfflineHistoryDrawer from './OfflineHistoryDrawer';
 import OfflineInspectorDrawer, { OfflineModelStatusPill } from './OfflineInspectorDrawer';
 import { useOfflineChat } from './useOfflineChat';
+import { useChatViewport } from './useChatViewport';
+
+import OfflineChatComposer from './OfflineChatComposer';
 
 // ========================================================
 // 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
 // ========================================================
 import './offline-chat.css';
+
+// Chỉ tải trình Markdown khi có hội thoại, giữ nút chat ban đầu nhẹ.
+const OfflineChatMessages = lazy(() => import('./OfflineChatMessages'));
 
 /**
  * Cửa sổ nổi Trợ Lý AI dùng hoàn toàn Chatbot RAG Offline (Qwen3.5-4B & BGE-M3).
@@ -75,13 +68,16 @@ export default function OfflineChatWidget() {
   } = useOfflineChat();
 
   const [isOpen, setIsOpen] = useState(false);
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(false);
   const [showInspector, setShowInspector] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
-  const [openSourceIndices, setOpenSourceIndices] = useState({});
-
-  const bottomRef = useRef(null);
-  const inputRef = useRef(null);
+  const { messagesRef, showScrollButton, handleScroll, scrollToBottom } = useChatViewport({
+    messages, activeSessionId, isOpen, historyLoading,
+  });
+  const sendMessage = (query) => {
+    scrollToBottom();
+    handleSendMessage(query);
+  };
 
   const slots = statusData?.runtime?.slots || {};
   const memory = statusData?.runtime?.memory || null;
@@ -90,33 +86,6 @@ export default function OfflineChatWidget() {
   const bgeSlot = slots.bge_m3_embedding || {};
   const effectiveQwenSlot = modelActionBusy === 'starting' ? { ...qwenSlot, status: 'loading' } : qwenSlot;
   const isKnowledgeEmpty = Boolean(knowledge && knowledge.doc_count === 0);
-
-  useEffect(() => {
-    if (isOpen) {
-      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [messages, isOpen]);
-
-  useEffect(() => {
-    setOpenSourceIndices({});
-  }, [activeSessionId]);
-
-  useEffect(() => {
-    if (isOpen) {
-      inputRef.current?.focus();
-    }
-  }, [isOpen]);
-
-  const toggleSourcesForMsg = (index) => {
-    setOpenSourceIndices((prev) => ({ ...prev, [index]: !prev[index] }));
-  };
-
-  const handleKeyDown = (event) => {
-    if (event.key === 'Enter' && !event.shiftKey) {
-      event.preventDefault();
-      handleSendMessage();
-    }
-  };
 
   const fabDotClass =
     effectiveQwenSlot.status === 'ready'
@@ -147,6 +116,7 @@ export default function OfflineChatWidget() {
         className={`atelier-offline-widget-window ${isExpanded ? 'expanded' : ''}`}
         hidden={!isOpen}
         aria-label="Trợ Lý AI RAG Offline"
+        role="region"
       >
         {/* Thanh tiêu đề 1 hàng gọn nhẹ, giữ đủ nút bật/tắt model, chỉ mục và phóng to */}
         <header className="atelier-offline-widget-header">
@@ -168,38 +138,6 @@ export default function OfflineChatWidget() {
           </div>
 
           <div className="atelier-offline-widget-actions">
-            {qwenSlot.running ? (
-              <button
-                type="button"
-                className="atelier-offline-icon-btn is-danger"
-                onClick={handleStopModel}
-                disabled={Boolean(modelActionBusy) || isStreaming}
-                title="Giải phóng RAM (Tắt Qwen3.5-4B & BGE-M3)"
-              >
-                <Square size={14} />
-              </button>
-            ) : (
-              <button
-                type="button"
-                className="atelier-offline-icon-btn is-primary"
-                onClick={handleStartModel}
-                disabled={Boolean(modelActionBusy) || isStreaming}
-                title="Khởi động Qwen3.5-4B"
-              >
-                <Play size={14} />
-              </button>
-            )}
-
-            <button
-              type="button"
-              className={`atelier-offline-icon-btn ${reindexing ? 'is-spinning' : ''}`}
-              onClick={() => handleReindex(false)}
-              disabled={reindexing || isStreaming}
-              title="Cập nhật chỉ mục kho tri thức docs/knowledge/"
-            >
-              <Database size={14} />
-            </button>
-
             <button
               type="button"
               className={`atelier-offline-icon-btn ${showHistory ? 'is-active' : ''}`}
@@ -208,6 +146,8 @@ export default function OfflineChatWidget() {
                 setShowHistory(nextOpen);
                 if (nextOpen) refreshSessions();
               }}
+              aria-label="Lịch sử cuộc trò chuyện"
+              aria-expanded={showHistory}
               title="Lịch sử cuộc trò chuyện"
             >
               <History size={14} />
@@ -220,15 +160,18 @@ export default function OfflineChatWidget() {
                 handleNewChat();
                 setShowHistory(false);
               }}
+              aria-label="Cuộc trò chuyện mới"
               title="Cuộc trò chuyện mới"
             >
-              <Plus size={14} />
+              <MessageSquarePlus size={17} />
             </button>
 
             <button
               type="button"
               className={`atelier-offline-icon-btn ${showInspector ? 'is-active' : ''}`}
               onClick={() => setShowInspector((prev) => !prev)}
+              aria-label="Thông tin và điều khiển model"
+              aria-expanded={showInspector}
               title="Xem chi tiết model, RAM và điều khiển nâng cao"
             >
               <Sliders size={14} />
@@ -237,7 +180,11 @@ export default function OfflineChatWidget() {
             <button
               type="button"
               className="atelier-offline-icon-btn"
-              onClick={() => setIsExpanded((prev) => !prev)}
+              onClick={() => {
+                setIsExpanded((prev) => !prev);
+                if (!isExpanded) { setShowHistory(true); refreshSessions(); }
+              }}
+              aria-label={isExpanded ? 'Thu nhỏ kích thước' : 'Mở rộng kích thước'}
               title={isExpanded ? 'Thu nhỏ kích thước' : 'Mở rộng kích thước'}
             >
               {isExpanded ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
@@ -247,6 +194,7 @@ export default function OfflineChatWidget() {
               type="button"
               className="atelier-offline-icon-btn"
               onClick={() => setIsOpen(false)}
+              aria-label="Thu gọn thành bong bóng"
               title="Thu gọn thành bong bóng"
             >
               <X size={15} />
@@ -254,6 +202,7 @@ export default function OfflineChatWidget() {
           </div>
         </header>
 
+        <div className="atelier-offline-workspace">
         {showHistory && (
           <OfflineHistoryDrawer
             sessions={sessions}
@@ -261,7 +210,7 @@ export default function OfflineChatWidget() {
             activeSessionId={activeSessionId}
             onSelectSession={(sid) => {
               handleSelectSession(sid);
-              setShowHistory(false);
+              if (!isExpanded || window.innerWidth < 700) setShowHistory(false);
             }}
             onNewChat={() => {
               handleNewChat();
@@ -273,6 +222,7 @@ export default function OfflineChatWidget() {
           />
         )}
 
+        <div className="atelier-offline-main">
         {/* Ngăn kéo thông số model, RAM và thao tác đầy đủ (mặc định thu gọn) */}
         {showInspector && (
           <OfflineInspectorDrawer
@@ -319,17 +269,20 @@ export default function OfflineChatWidget() {
         )}
 
         {/* Vùng hội thoại */}
-        <div className="atelier-offline-messages">
+        <div className="atelier-offline-conversation">
+        <div className="atelier-offline-messages" ref={messagesRef} onScroll={handleScroll} aria-label="Nội dung hội thoại" aria-busy={historyLoading}>
+          <div className="atelier-offline-message-column">
           {historyLoading ? (
             <div className="atelier-offline-empty">
               <p>Đang khôi phục nội dung hội thoại...</p>
             </div>
           ) : messages.length === 0 ? (
             <div className="atelier-offline-empty">
-              <BookOpen size={26} />
-              <h3>Trợ Lý AI (RAG Offline)</h3>
+              <div className="atelier-offline-welcome-mark"><Sparkles size={27} /></div>
+              <span className="atelier-offline-eyebrow">TRỢ LÝ TRONG XƯỞNG CỦA BẠN</span>
+              <h3>Bạn đang sáng tạo điều gì?</h3>
               <p>
-                Tra cứu trực tiếp kho tri thức nội bộ <code>docs/knowledge/</code> bằng Qwen3.5-4B &amp; BGE-M3.
+                Từ một khung hình đến chuyển động hoàn chỉnh. Cùng tìm câu trả lời trong tài liệu của bạn.
               </p>
               <div className="atelier-offline-suggestions">
                 {OFFLINE_CHAT_SUGGESTIONS.map((item) => (
@@ -337,7 +290,7 @@ export default function OfflineChatWidget() {
                     key={item}
                     type="button"
                     className="atelier-offline-suggestion-chip"
-                    onClick={() => handleSendMessage(item)}
+                    onClick={() => sendMessage(item)}
                     disabled={isStreaming}
                   >
                     {item}
@@ -346,86 +299,19 @@ export default function OfflineChatWidget() {
               </div>
             </div>
           ) : (
-            messages.map((msg, idx) => {
-              const sources = Array.isArray(msg.sources) ? msg.sources : [];
-              const sourcesOpen = Boolean(openSourceIndices[idx]);
-              return (
-                <div
-                  key={`${msg.role}-${idx}`}
-                  className={`atelier-offline-msg-row ${msg.role === 'user' ? 'is-user' : 'is-assistant'}`}
-                >
-                  <div className="atelier-offline-msg-bubble">
-                    {msg.content || (msg.role === 'assistant' && isStreaming ? 'Đang xử lý...' : '')}
-                  </div>
-                  {msg.role === 'assistant' && (msg.status === 'cancelled' || msg.status === 'failed') && (
-                    <span className={`atelier-offline-msg-status is-${msg.status}`}>
-                      {msg.status === 'cancelled' ? 'Đã dừng giữa chừng' : 'Phản hồi bị gián đoạn'}
-                    </span>
-                  )}
-                  {msg.role === 'assistant' && sources.length > 0 && (
-                    <div className="atelier-offline-sources-wrap">
-                      <button
-                        type="button"
-                        className="atelier-offline-sources-toggle"
-                        onClick={() => toggleSourcesForMsg(idx)}
-                      >
-                        <FileText size={12} />
-                        <span>{sources.length} nguồn tham khảo</span>
-                        <ChevronDown size={12} className={sourcesOpen ? 'is-rotated' : ''} />
-                      </button>
-                      {sourcesOpen && (
-                        <div className="atelier-offline-sources" aria-label="Nguồn tài liệu tham khảo">
-                          {sources.map((src) => (
-                            <span
-                              key={src.chunk_id}
-                              className="atelier-offline-source-tag"
-                              title={`${src.doc_path} · ${src.title}`}
-                            >
-                              <FileText size={11} />
-                              {src.doc_path} ({src.title}) · {(src.score * 100).toFixed(0)}%
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })
+            <Suspense fallback={<p className="atelier-offline-thinking">Đang hiển thị hội thoại…</p>}>
+              <OfflineChatMessages key={activeSessionId || 'new'} messages={messages} isStreaming={isStreaming} />
+            </Suspense>
           )}
-          <div ref={bottomRef} />
+          </div>
+        </div>
+        {showScrollButton && <button type="button" className="atelier-offline-scroll-bottom" onClick={scrollToBottom} aria-label="Xuống cuối hội thoại" title="Xuống cuối hội thoại"><ArrowDown size={17} /></button>}
         </div>
 
         {phaseLabel && <div className="atelier-offline-phase">{phaseLabel}</div>}
 
-        <div className="atelier-offline-composer">
-          <textarea
-            ref={inputRef}
-            value={inputText}
-            onChange={(e) => setInputText(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Nhập câu hỏi cho Trợ Lý AI Offline..."
-            disabled={isStreaming}
-          />
-          {isStreaming ? (
-            <button
-              type="button"
-              className="atelier-offline-btn is-danger"
-              onClick={handleStopStreaming}
-              title="Dừng sinh câu trả lời"
-            >
-              <Square size={15} /> Dừng
-            </button>
-          ) : (
-            <button
-              type="button"
-              className="atelier-offline-btn is-primary"
-              onClick={() => handleSendMessage()}
-              disabled={!inputText.trim()}
-            >
-              <Send size={15} /> Gửi
-            </button>
-          )}
+        <OfflineChatComposer value={inputText} onChange={setInputText} onSend={() => sendMessage()} onStop={handleStopStreaming} isStreaming={isStreaming} isOpen={isOpen} isExpanded={isExpanded} />
+        </div>
         </div>
       </div>
     </>

@@ -81,7 +81,7 @@ export default function OfflineHistoryDrawer({
         <span className="atelier-offline-history-heading">Lịch sử hội thoại</span>
         <div className="atelier-offline-history-bar-actions">
           <button type="button" className="atelier-offline-btn is-primary" onClick={onNewChat}>
-            <Plus size={13} /> Đoạn mới
+            <Plus size={13} /> Trò chuyện mới
           </button>
           <button
             type="button"
@@ -116,7 +116,10 @@ export default function OfflineHistoryDrawer({
                 role="button"
                 tabIndex={0}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !isEditing) onSelectSession(session.id);
+                  if (e.target === e.currentTarget && !isEditing && (e.key === 'Enter' || e.key === ' ')) {
+                    e.preventDefault();
+                    onSelectSession(session.id);
+                  }
                 }}
               >
                 <MessageSquare size={14} className="atelier-offline-history-icon" />
