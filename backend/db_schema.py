@@ -246,3 +246,33 @@ def bootstrap_schema(conn):
 
     # Tự động kiểm tra và thêm các cột mở rộng nếu bảng sprite_frames đã tạo trước đó
     ensure_sprite_frame_columns(conn)
+
+    # Tạo bảng offline_chat_sessions lưu danh sách hội thoại Chatbot RAG Offline theo người dùng
+    conn.execute(text("""
+        CREATE TABLE IF NOT EXISTS offline_chat_sessions (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id INT NOT NULL,
+            title VARCHAR(120) NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_offline_sessions_user_updated (user_id, updated_at),
+            CONSTRAINT fk_offline_session_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    """))
+
+    # Tạo bảng offline_chat_messages lưu từng lượt hỏi đáp, nguồn RAG và trạng thái sinh câu trả lời
+    conn.execute(text("""
+        CREATE TABLE IF NOT EXISTS offline_chat_messages (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            session_id INT NOT NULL,
+            role VARCHAR(20) NOT NULL,
+            content LONGTEXT NOT NULL,
+            sources_json JSON NULL,
+            status VARCHAR(20) NOT NULL DEFAULT 'completed',
+            request_id VARCHAR(64) NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_offline_msgs_session_id (session_id, id),
+            UNIQUE KEY uq_offline_msgs_session_req_role (session_id, request_id, role),
+            CONSTRAINT fk_offline_msg_session FOREIGN KEY (session_id) REFERENCES offline_chat_sessions(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    """))

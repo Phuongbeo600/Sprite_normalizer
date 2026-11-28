@@ -30,8 +30,8 @@ import AuthModal from '../features/authentication/AuthModal';
 import ProfileModal from '../features/authentication/ProfileModal';
 // HelpCenter: Màn hình Trung tâm Hướng dẫn đa hình (Help Center)
 import HelpCenter from '../features/help/HelpCenter';
-// ChatWidget: Trợ lý AI Chatbot dạng bong bóng nổi phản hồi thời gian thực qua SSE
-import ChatWidget from '../features/chat/ChatWidget';
+// OfflineChatWidget: Trợ lý AI RAG Offline dạng cửa sổ nổi ở góc dưới phải (Qwen3.5-4B & BGE-M3)
+import OfflineChatWidget from '../features/offline-chat/OfflineChatWidget';
 import { useAuthSession } from '../features/authentication/useAuthSession';
 
 // Đọc trạng thái cấu hình AI khi mở dự án.
@@ -346,8 +346,8 @@ export default function App() {
         onCancel={() => setShowLogoutConfirm(false)}
       />
 
-      {/* 5. Trợ lý AI Chatbot dạng nổi đa nhà cung cấp */}
-      <ChatWidget currentProject={currentProject} />
+      {/* 5. Trợ lý AI Chatbot RAG Offline dạng cửa sổ nổi */}
+      <OfflineChatWidget />
     </div>
   );
 }

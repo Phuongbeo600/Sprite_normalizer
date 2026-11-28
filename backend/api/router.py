@@ -32,6 +32,8 @@ from backend.api.v1.auth import auth_router
 from backend.api.v1.users import users_router
 # chat_router: Phân hệ trợ lý AI Chatbot phát luồng thời gian thực qua SSE (/api/chat)
 from backend.api.v1.chat import chat_router
+# offline_chat_router: Phân hệ Chatbot RAG Offline độc lập dùng Qwen3.5-4B & BGE-M3 (/api/offline-chat)
+from backend.api.v1.offline_chat import offline_chat_router
 
 # ========================================================
 # 4. ĐỊNH DẠNG GIAO DIỆN & MÀU SẮC (Stylesheets)
@@ -51,6 +53,7 @@ api_router.include_router(image_gen_router)
 api_router.include_router(translation_router)
 api_router.include_router(testbed_router)
 api_router.include_router(chat_router)
+api_router.include_router(offline_chat_router)
 
 
 @api_router.get("/health", tags=["Health Check"])

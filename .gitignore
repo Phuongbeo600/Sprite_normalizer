@@ -172,6 +172,10 @@ HANDOFF.md
 # ========================================================
 # Thư mục lưu trọng số Hunyuan PromptEnhancer 7B cục bộ (dung lượng lớn, không đưa lên Git)
 localPromtTess/
+# Thư mục lưu trọng số mô hình AI cục bộ theo nghiệp vụ (RAG Chatbot: LLM & Embedding)
+models/
+# Dữ liệu chỉ mục vector RAG sinh tự động (NPZ + JSON)
+data/offline_rag_index/
 # Tệp trọng số mô hình AI nặng (tránh lọt vào Git dù đặt ở bất kỳ thư mục nào)
 *.gguf
 *.safetensors
